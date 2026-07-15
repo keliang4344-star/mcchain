@@ -66,15 +66,15 @@ func TestGenesis(t *testing.T) {
 	require.NoError(t, genesisState.Validate())
 }
 
-// P1-1 / D2（Q7 变更）：depin 不再自铸。InitGenesis 仅 SetParams；
-// InitialPool(1e14 umc) 由 tokenomics 在 InitGenesis 经生态池拨付到 depin 模块账户
-// （见 x/tokenomics）。本测试验证 depin InitGenesis 运行后：参数正确写入，且不铸造。
+// P1-1 / D2（Q7 变更 + 五池模型）：depin 不再自铸。InitGenesis 仅 SetParams；
+// InitialPool(5.5e14 umc = 设备激励池 55%) 由 tokenomics 在 InitGenesis 全额拨付到
+// depin 模块账户（见 x/tokenomics）。本测试验证 depin InitGenesis 运行后：参数正确写入，且不铸造。
 func TestInitGenesisDoesNotMint(t *testing.T) {
 	bank := &mockBankKeeper{}
 	k, ctx := newDePinKeeperForGenesis(t, bank)
 
 	genState := types.DefaultGenesis()
-	require.Equal(t, uint64(1e14), genState.Params.InitialPool)
+	require.Equal(t, uint64(550_000_000_000_000), genState.Params.InitialPool)
 	require.Equal(t, "umc", genState.Params.RewardDenom)
 
 	InitGenesis(ctx, *k, *genState)

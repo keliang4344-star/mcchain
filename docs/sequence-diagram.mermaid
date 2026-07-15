@@ -9,9 +9,9 @@ sequenceDiagram
     U->>AH: 提交 MsgCreateValidator(MinSelfDelegation)
     AH->>MSD: AnteHandle(ctx, tx, sim, DAH)
     MSD->>MSD: 遍历 tx.GetMsgs() 做类型断言
-    alt MinSelfDelegation < 1e11 umc
+    alt MinSelfDelegation < 3e10 umc
         MSD-->>U: 返回错误，交易拒绝（不发往 StakingKeeper）
-    else MinSelfDelegation >= 1e11 umc
+    else MinSelfDelegation >= 3e10 umc
         MSD->>DAH: next(ctx, tx, sim)
         DAH->>SV: 处理 MsgCreateValidator
         SV-->>U: 验证人创建成功

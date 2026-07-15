@@ -60,7 +60,7 @@ python3 scripts/make_genesis.py \
   --config scripts/mainnet-genesis-config.json
 mcchaind validate-genesis $HOME_DIR/config/genesis.json
 ```
-固化内容：bond_denom/staking/mint/gov/crisis = umc；DePIN 初始池 1e14 umc；tokenomics 上限 1e15 umc；chain_id；断言普通账户存在。
+固化内容：bond_denom/staking/mint/gov/crisis = umc；DePIN 设备激励池 5.5e14 umc（55%）；tokenomics 上限 1e15 umc；chain_id；断言普通账户存在。
 
 > **固定总量双保险（P0/R1）**：本链为固定总量（1e9 MC = 1e15 umc），全部由 `tokenomics` 模块在创世时一次性铸造并强约束 `total_supply_cap`，`depin` 模块**无铸币权限**（其 BankKeeper 接口已移除 `MintCoins`）。`mint` 模块默认通胀 ≈13% 且持有 Minter，会绕过 cap 二次铸币——因此 `make_genesis.py` 已将其 `inflation_rate_change/inflation_max/inflation_min` 与 `minter.inflation` 归零，且 `app.InitChainer` 在**每次启动**时再次兜底强制归零（`goal_bonded` 故意保留默认值，因其若为 0 会在首区块 `bondedRatio/goal_bonded` 除零 panic 导致链 halt）。上线后务必核验 `mcchaind q mint params` 显示 `inflation_rate_max: "0.000000000000000000"`。
 
@@ -73,8 +73,8 @@ grep timeout_commit $HOME_DIR/config/config.toml   # 应为 "4s"
 ## 3. 团队多签验证人 + 创世交易
 
 > 以下步骤需在 **安全、离线或受控网络** 的机器上执行，因为涉及 5 个团队助记词的恢复。
-> 本链团队池（1.5e14 umc = 15% 总量）由一个 3-of-5 多签 vesting 账户控制，该多签同时也是**创世验证人的委托账户**，
-> 自抵押全部团队池（1.5e14 umc），确保资金100%参与共识。
+> 本链团队池（1.2e14 umc = 12% 总量，五池模型）由一个 3-of-5 多签 vesting 账户控制，该多签同时也是**创世验证人的委托账户**，
+> 自抵押全部团队池（1.2e14 umc），确保资金100%参与共识。
 > 恢复任意 3 个即可签名。
 
 ### 3.1 恢复 5 个团队密钥
@@ -102,10 +102,10 @@ mcchaind keys add teammultisig \
 
 ```bash
 # 生成 unsigned gentx
-mcchaind gentx teammultisig 150000000000000umc \
+mcchaind gentx teammultisig 120000000000000umc \
   --chain-id $CHAIN_ID --from teammultisig --home $HOME_DIR \
   --keyring-backend test \
-  --min-self-delegation 100000000000 --generate-only \
+  --min-self-delegation 30000000000 --generate-only \
   --output-document unsigned_gentx.json
 
 # 用 3 个团队成员签名（可能需要 –-offline）
@@ -145,7 +145,10 @@ python3 scripts/make_genesis.py \
 mcchaind validate-genesis $HOME_DIR/config/genesis.json
 ```
 
-> 固化后核验：`tokenomics.cap = 1e15`、`depin.initial_pool = 1e14`、`chain_id = mcchain-mainnet-1`、`bond_denom = umc`、mint 通胀归零。
+> 固化后核验：`tokenomics.cap = 1e15`、`depin.initial_pool = 5.5e14`（设备激励 55%）、`chain_id = mcchain-mainnet-1`、`bond_denom = umc`、mint 通胀归零。
+
+### 3.5 基金会 / 早期开发 创世拨付（占位地址须替换）
+`tokenomics` 在创世时（`InitGenesis`）自动将基金会池（13% = 1.3e14 umc）拆分为「运营流动地址 T0 即时 5000 万 MC」+「2 年期线性释放地址（ContinuousVesting）8000 万 MC」，早期开发池（5% = 5000 万 MC）T0 全额拨付到开发资助地址（详见白皮书第八章 8.3）。三者当前为代码内**占位确定性地址**（`EarlyDevAddress` / `FoundationOpsAddress` / `FoundationVestingAddress`，由 `keys.go` 的 `derivedPlaceholder` 固定种子派生），**主网前必须替换为真实多签/运营地址**：修改 `x/tokenomics/types/keys.go` 的占位种子或接入真实公钥，重新编译、`init` 重生成 genesis 并 `validate-genesis` 通过后再上线。替换规则与 `TeamAddress` 一致（任何改动须重新端到端验证创世）。
 
 ## 4. 启动
 
@@ -185,7 +188,7 @@ journalctl -u mcchaind -f
 mcchaind status | jq '.SyncInfo.latest_block_height'   # 高度持续递增
 mcchaind q staking params          # bond_denom: umc
 mcchaind q tokenomics supply       # 1e15 umc（=1e9 MC）
-mcchaind q depin params            # initial_pool 1e14 umc
+mcchaind q depin params            # initial_pool 5.5e14 umc（设备激励池 55%）
 mcchaind q mint params             # inflation_rate_max: "0..."（固定总量双保险，绝不为 13%）
 # 连续两次查总供应应完全相等（验证无二次通胀）
 mcchaind q bank total 2>/dev/null | head -3
@@ -214,7 +217,7 @@ mcchaind tx gov submit-proposal software-upgrade v1.1 \
 
 | 现象 | 排查 |
 |---|---|
-| 启动报 `min self delegation < lower bound` | gentx 的 min-self-delegation < 1e11 umc |
+| 启动报 `min self delegation < lower bound` | gentx 的 min-self-delegation < 3e10 umc |
 | 出块间隔 != 4s | 确认 timeout_commit=4s 并重启 |
 | 贡献发币为 0，报 `device not attested` | 节点 attestation 被离线 slash 吊销；检查心跳是否按期提交 |
 | 私钥泄露风险 | 验证人私钥用 tmkms/horcrux 隔离，勿与本机日常环境混用 |

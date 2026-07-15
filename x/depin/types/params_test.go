@@ -6,10 +6,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// P1-2 / D2: DefaultParams must lock InitialPool=1e14 (umc) and RewardDenom="umc".
+// P1-2 / D2: DefaultParams must lock InitialPool=5.5e14 (umc, 五池模型设备激励池 55%)
+// and RewardDenom="umc".
 func TestDefaultParams(t *testing.T) {
 	p := DefaultParams()
-	require.Equal(t, uint64(1e14), p.InitialPool)
+	require.Equal(t, uint64(550_000_000_000_000), p.InitialPool)
 	require.Equal(t, "umc", p.RewardDenom)
 }
 
@@ -33,7 +34,7 @@ func TestParamSetPairs(t *testing.T) {
 	require.True(t, keys[string(ParamsKeyRewardDenom)])
 
 	// validators accept the default values
-	require.NoError(t, validateInitialPool(uint64(1e14)))
+	require.NoError(t, validateInitialPool(uint64(550_000_000_000_000)))
 	require.NoError(t, validateRewardDenom("umc"))
 
 	// validators reject bad values

@@ -1,0 +1,16 @@
+syntax = "proto3";
+package mcchain.dex;
+option go_package = "mcchain/x/dex/types";
+import "gogoproto/gogo.proto";
+import "mcchain/dex/pool.proto";
+
+message GenesisState {
+  repeated Pool pools = 1 [(gogoproto.nullable) = false];
+  uint64 next_pool_id = 2;
+  Params params = 3 [(gogoproto.nullable) = false];
+}
+
+message Params {
+  uint32 default_fee_rate_bps = 1;
+  uint64 max_pools = 2;
+}

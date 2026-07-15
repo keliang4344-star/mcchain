@@ -1,0 +1,29 @@
+syntax = "proto3";
+package mcchain.dex;
+option go_package = "mcchain/x/dex/types";
+import "gogoproto/gogo.proto";
+import "mcchain/dex/pool.proto";
+
+service Query {
+  rpc Pool         (QueryPoolRequest         ) returns (QueryPoolResponse         );
+  rpc Pools        (QueryPoolsRequest        ) returns (QueryPoolsResponse        );
+  rpc EstimateSwap (QueryEstimateSwapRequest ) returns (QueryEstimateSwapResponse );
+  rpc Price        (QueryPriceRequest        ) returns (QueryPriceResponse        );
+}
+
+message QueryPoolRequest { uint64 pool_id = 1; }
+message QueryPoolResponse { Pool pool = 1; }
+
+message QueryPoolsRequest { bytes pagination = 1; }
+message QueryPoolsResponse { repeated Pool pools = 1; bytes pagination = 2; }
+
+message QueryEstimateSwapRequest {
+  uint64 pool_id = 1;
+  string denom_in = 2;
+  string amount_in = 3;
+  string denom_out = 4;
+}
+message QueryEstimateSwapResponse { string amount_out = 1; string price_impact_bps = 2; }
+
+message QueryPriceRequest { uint64 pool_id = 1; string denom = 2; }
+message QueryPriceResponse { string price = 1; string price_denom = 2; }

@@ -96,8 +96,8 @@ mcchaind add-genesis-account $(mcchaind keys show validator -a --keyring-backend
 ## 5. 生成创世交易（gentx）并收集
 
 ```bash
-# 自抵押（示例 1000 MC），commission 5%
-mcchaind gentx validator 100000000000umc \
+# 自抵押（示例 30k MC），commission 5%
+mcchaind gentx validator 30000000000umc \
   --chain-id $CHAIN_ID \
   --moniker $MONIKER \
   --commission-rate "0.05" \
@@ -205,7 +205,7 @@ CHAIN_ID=mcchain-mainnet-1; MONIKER=<节点名>; HD=$HOME/.mcchain
 mcchaind init $MONIKER --chain-id $CHAIN_ID --home $HD
 mcchaind keys add validator --keyring-backend file --home $HD
 mcchaind add-genesis-account $(mcchaind keys show validator -a --keyring-backend file --home $HD) 1000000000umc --home $HD
-mcchaind gentx validator 100000000000umc --chain-id $CHAIN_ID --moniker $MONIKER --commission-rate 0.05 --keyring-backend file --home $HD
+mcchaind gentx validator 30000000000umc --chain-id $CHAIN_ID --moniker $MONIKER --commission-rate 0.05 --keyring-backend file --home $HD
 mcchaind collect-gentxs --home $HD
 mcchaind validate-genesis --home $HD
 # 配好 §6 安全组 + §7 systemd 后：

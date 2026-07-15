@@ -17,9 +17,9 @@ MONIKER="${MONIKER:-mc-genesis}"
 KEY="validator"
 
 # 金额（umc，1 MC = 1,000,000 umc）
-SELF_BOND="100000000000umc"        # 自抵押 100k MC（>= ante 最低 1e11umc）
+SELF_BOND="30000000000umc"         # 自抵押 30k MC（>= ante 最低 3e10umc）
 GENESIS_AMT="200000000000umc"      # 创世账户拨款 200k MC
-MIN_SELF_DELEGATION="100000000"    # 必须 >= 100k MC，否则创世执行 panic（整数，不带 umc）
+MIN_SELF_DELEGATION="30000000"     # 必须 >= 30k MC，否则创世执行 panic（整数，不带 umc）
 
 echo "=============================================="
 echo " MC 公链 solo 创世节点一键部署"
@@ -109,8 +109,8 @@ echo "    ⚠️ 助记词已保存到 validator_key.json，请妥善备份！"
 echo ">> [4/7] 创世账户拨款（200k MC）"
 "$BIN" add-genesis-account "$ADDR" "$GENESIS_AMT" --home "$HOME_DIR"
 
-# 5) 生成 gentx（自抵押 100k MC；min-self-delegation 必须 >= 100k MC）
-echo ">> [5/7] 生成 gentx（自抵押 100k MC）"
+# 5) 生成 gentx（自抵押 30k MC；min-self-delegation 必须 >= 30k MC）
+echo ">> [5/7] 生成 gentx（自抵押 30k MC）"
 "$BIN" gentx "$KEY" "$SELF_BOND" \
   --chain-id "$CHAIN_ID" \
   --moniker "$MONIKER" \

@@ -18,9 +18,9 @@
 | 难点 | 方案 |
 |---|---|
 | staking 默认 `BondDenom="stake"`，须与 config.yml 的 `umc` 一致 | 在 `app.go` 的 `InitChainer` 中、`app.mm.InitGenesis(...)` **之后**调用 `app.StakingKeeper.SetParams(ctx, stakingtypes.NewParams(..., "umc", ...))` 强制覆盖。放在 InitGenesis 之后，确保不被 genesis 文件里的 `stake` 覆盖（决策 Q8/约束 2）。 |
-| cosmos-sdk v0.47 **无全局 MinSelfDelegation 参数**，仅每验证人字段 | 采用 **全局 ante decorator** `MinSelfDelegationDecorator`（决策 Q1/约束 1）：遍历 `tx.GetMsgs()`，对 `*stakingtypes.MsgCreateValidator` / `*stakingtypes.MsgEditValidator` 校验 `MinSelfDelegation >= 1e11 umc`，否则拒绝。 |
+| cosmos-sdk v0.47 **无全局 MinSelfDelegation 参数**，仅每验证人字段 | 采用 **全局 ante decorator** `MinSelfDelegationDecorator`（决策 Q1/约束 1）：遍历 `tx.GetMsgs()`，对 `*stakingtypes.MsgCreateValidator` / `*stakingtypes.MsgEditValidator` 校验 `MinSelfDelegation >= 3e10 umc`，否则拒绝。 |
 | 自建 ante 装饰链成本高、易错 | 不重构默认 ante 链（`ante.NewAnteHandler`）。新增 `app/ante.go`，定义 `MinSelfDelegationDecorator`（`sdk.AnteDecorator`），并在 `app.go` 用**闭包包裹**默认 handler：`app.SetAnteHandler(func(ctx,tx,sim){ return msd.AnteHandle(ctx,tx,sim, defaultHandler) })`。装饰器在请求头判断是否合法后调用 `next`。 |
-| **genesis 验证人绕过 ante**（在 InitGenesis 直接创建，不经 tx） | 补充：在 `InitChainer` 中 `mm.InitGenesis` 之后，遍历 `app.StakingKeeper.GetAllValidators(ctx)`，将 `MinSelfDelegation < 1e11 umc` 的验证人强制抬到 `1e11 umc` 并 `SetValidator`。这是 ante 方案的必要补充（详见 §5 待明确 1）。 |
+| **genesis 验证人绕过 ante**（在 InitGenesis 直接创建，不经 tx） | 补充：在 `InitChainer` 中 `mm.InitGenesis` 之后，遍历 `app.StakingKeeper.GetAllValidators(ctx)`，将 `MinSelfDelegation < 3e10 umc` 的验证人强制抬到 `3e10 umc` 并 `SetValidator`。这是 ante 方案的必要补充（详见 §5 待明确 1）。 |
 | 出块 3–5s | cometbft `timeout_commit`，属**运行期**配置。由 `ignite chain init` 生成 `config/config.toml` 后，将 `timeout_commit = "4s"`（写入 `docs/runbook.md` 固化步骤，不进仓库 `config.yml`）。 |
 | genesis 资金远低于 100k MC | 抬高 `config.yml`：alice `coins` ≥ `100000000000umc`、validator `bonded: 100000000000umc`、其余 dev 账户保留少量（决策 Q2）。 |
 
@@ -48,7 +48,7 @@
 
 **P0**
 - `config.yml` —【修改】抬高 alice coins / validator bonded 至 ≥1e11 umc，denom 保持 `umc`
-- `app/ante.go` —【新增】`MinSelfDelegationDecorator` 结构体 + `AnteHandle` 方法 + 下限常量 `MinSelfDelegationLowerBound = 100_000_000_000`
+- `app/ante.go` —【新增】`MinSelfDelegationDecorator` 结构体 + `AnteHandle` 方法 + 下限常量 `MinSelfDelegationLowerBound = 30_000_000_000`
 - `app/app.go` —【修改】`InitChainer` 增强（InitGenesis 后强制 `BondDenom="umc"` + genesis 验证人 `MinSelfDelegation` 兜底）；`SetAnteHandler` 用闭包包裹默认 handler 并插入装饰器
 - `docs/runbook.md` —【新增】运行期步骤：`ignite chain init` → 设 `timeout_commit="4s"`；说明 genesis 验证人 min_self_delegation 已代码兜底
 
@@ -122,7 +122,7 @@ classDiagram
 
 要点：
 - **`PhonenodeKeeper` 接口**：方法签名 `HasNode(ctx sdk.Context, addr string) bool`；仅用 sdk 类型，**不引入 phonenode 类型**，避免 `depin/types` ↔ `phonenode/types` 循环依赖。
-- **`MinSelfDelegationDecorator`**：实现 `sdk.AnteDecorator`（`AnteHandle` 签名见上），下限常量 `MinSelfDelegationLowerBound = 100_000_000_000`（=1e11 umc = 100k MC）。
+- **`MinSelfDelegationDecorator`**：实现 `sdk.AnteDecorator`（`AnteHandle` 签名见上），下限常量 `MinSelfDelegationLowerBound = 30_000_000_000`（=3e10 umc = 30k MC）。
 - **`Params` 字段编号**：`initial_pool = 1`(uint64)、`reward_denom = 2`(string)，与 `params.proto` 一致。
 - **`ErrPhonenodeNotRegistered`**：`sdkerrors.Register(ModuleName, 1107, "creator not registered in phonenode")`，ModuleName=`"depin"`（keys.go line 5）。
 
@@ -143,9 +143,9 @@ sequenceDiagram
     U->>AH: 提交 MsgCreateValidator(MinSelfDelegation)
     AH->>MSD: AnteHandle(ctx, tx, sim, DAH)
     MSD->>MSD: 遍历 tx.GetMsgs() 做类型断言
-    alt MinSelfDelegation < 1e11 umc
+    alt MinSelfDelegation < 3e10 umc
         MSD-->>U: 返回错误，交易拒绝（不发往 StakingKeeper）
-    else MinSelfDelegation >= 1e11 umc
+    else MinSelfDelegation >= 3e10 umc
         MSD->>DAH: next(ctx, tx, sim)
         DAH->>SV: 处理 MsgCreateValidator
         SV-->>U: 验证人创建成功
@@ -185,7 +185,7 @@ sequenceDiagram
 
 ### 5. 待明确事项（Anything UNCLEAR）
 
-1. **genesis 验证人 `MinSelfDelegation` 兜底（重要）**：`MsgCreateValidator` 的 ante 校验只覆盖**交易路径**；genesis 验证人（alice）由 `InitGenesis` 直接创建，不走 tx，因此 ante 装饰器**管不到**它。若 `ignite chain init` 生成的 `staking.validators[].min_self_delegation` 默认非 1e11（常见默认=1），则 genesis 验证人下限会被绕过，与 P0-1 验收 #2 冲突。本设计采用 **`InitChainer` 中 `mm.InitGenesis` 之后遍历 `GetAllValidators` 兜底抬到 1e11** 作为补充（已在 T01）。若团队更倾向"改 genesis.json 文件"，可改为运行期 `jq` 打补丁（与 timeout_commit 同列 runbook），但代码兜底最稳，推荐保留。
+1. **genesis 验证人 `MinSelfDelegation` 兜底（重要）**：`MsgCreateValidator` 的 ante 校验只覆盖**交易路径**；genesis 验证人（alice）由 `InitGenesis` 直接创建，不走 tx，因此 ante 装饰器**管不到**它。若 `ignite chain init` 生成的 `staking.validators[].min_self_delegation` 默认非 3e10（常见默认=1），则 genesis 验证人下限会被绕过，与 P0-1 验收 #2 冲突。本设计采用 **`InitChainer` 中 `mm.InitGenesis` 之后遍历 `GetAllValidators` 兜底抬到 3e10** 作为补充（已在 T01）。若团队更倾向"改 genesis.json 文件"，可改为运行期 `jq` 打补丁（与 timeout_commit 同列 runbook），但代码兜底最稳，推荐保留。
 2. **`params.pb.go` 手改无 protoc**：沙箱无 go/protoc，只能手改 `.pb.go`。gogoproto 的 `fileDescriptor_...`（gzipped 字节）反映的是旧空 schema，**可保持不变**——Go 运行期序列化用的是生成的 `Marshal/Size/Unmarshal` 方法而非 descriptor，不影响链运行。若后续需要严格 proto 反射/第三方工具，需在用户本机用 protoc 重新生成（非必需）。字段编号 1(initial_pool,uint64,wire0) 与 2(reward_denom,string,wire2) 须与 `params.proto` 一致；`MarshalToSizedBuffer`/`Size`/`Unmarshal` 须同步新增（详见 T02 提示）。
 3. **`config.yml` alice coins 是否留余量**：决策 Q2 给 alice `coins: 100000000000umc` 且 validator `bonded: 100000000000umc`（全部自质押，流动为 0）。若后续启用 tx fee，建议 alice coins 留少量余量（如 `110000000000umc`）。非阻塞，默认按 Q2。
 4. **faucet 余额**：`config.yml` faucet(bob) 当前 `5umc`/`100000umc`，不在 P0 抬高范围内，保持即可（仅用于领水测试），无需改动。
@@ -215,10 +215,10 @@ sequenceDiagram
 - **依赖**：无（可与 T02 并行）
 - **具体改动**：
   1. `config.yml`：alice `coins` 含 `100000000000umc`；`validators[0].bonded: 100000000000umc`；其余 dev 账户保留少量 `umc`；denom 统一 `umc`。
-  2. `app/ante.go`（新增）：`const MinSelfDelegationLowerBound = 100_000_000_000`；定义 `MinSelfDelegationDecorator` 实现 `AnteHandle`（遍历 `tx.GetMsgs()`，对 `MsgCreateValidator`/`MsgEditValidator` 校验 `MinSelfDelegation` 下限，否则 `sdkerrors.Wrapf` 返回错误）。
-  3. `app/app.go`：`SetAnteHandler` 改为闭包包裹默认 handler 并插入装饰器；`InitChainer` 中 `mm.InitGenesis` 后 (a) `app.StakingKeeper.SetParams(ctx, ...BondDenom="umc"...)`，(b) 遍历 `GetAllValidators` 将 `MinSelfDelegation < 1e11` 的抬到 `1e11` 并 `SetValidator`。
+  2. `app/ante.go`（新增）：`const MinSelfDelegationLowerBound = 30_000_000_000`；定义 `MinSelfDelegationDecorator` 实现 `AnteHandle`（遍历 `tx.GetMsgs()`，对 `MsgCreateValidator`/`MsgEditValidator` 校验 `MinSelfDelegation` 下限，否则 `sdkerrors.Wrapf` 返回错误）。
+  3. `app/app.go`：`SetAnteHandler` 改为闭包包裹默认 handler 并插入装饰器；`InitChainer` 中 `mm.InitGenesis` 后 (a) `app.StakingKeeper.SetParams(ctx, ...BondDenom="umc"...)`，(b) 遍历 `GetAllValidators` 将 `MinSelfDelegation < 3e10` 的抬到 `3e10` 并 `SetValidator`。
   4. `docs/runbook.md`（新增）：记录 `ignite chain init` → 改 `config/config.toml` 的 `timeout_commit="4s"` → `ignite chain start`；说明 genesis 验证人 min_self_delegation 已由代码兜底。
-- **验收点**：① 用户本机 `ignite chain build` + `go test ./...` 通过；② `mcchaind q staking params` 显示 `bond_denom: umc`；③ 以 `<1e11 umc` 的 `MinSelfDelegation` 发 `MsgCreateValidator`/`MsgEditValidator` 被拒；④ `mcchaind q staking validator <addr>` 显示 `min_self_delegation: "100000000000"`；⑤ 连续 ≥20 块时间戳差中位 ∈[3s,5s]。
+- **验收点**：① 用户本机 `ignite chain build` + `go test ./...` 通过；② `mcchaind q staking params` 显示 `bond_denom: umc`；③ 以 `<3e10 umc` 的 `MinSelfDelegation` 发 `MsgCreateValidator`/`MsgEditValidator` 被拒；④ `mcchaind q staking validator <addr>` 显示 `min_self_delegation: "30000000000"`；⑤ 连续 ≥20 块时间戳差中位 ∈[3s,5s]。
 
 #### T02【P1，优先级 P1】DePIN 池参数与拨付
 - **涉及文件**：`proto/mcchain/depin/params.proto`【改】、`x/depin/types/params.pb.go`【改】、`x/depin/types/params.go`【改】、`x/depin/genesis.go`【改】、`x/depin/keeper/msg_server_submit_contribution.go`【改】
@@ -252,7 +252,7 @@ sequenceDiagram
 
 - **denom 全局统一 `umc`**：账户、自质押、DePIN 奖励、genesis 资金均用 `umc`；禁止残留 `stake`。
 - **代币换算**：`1 MC = 1e6 umc`；`100k MC = 100000000000umc = 1e11 umc`；`InitialPool` 默认 `1e8 MC = 1e14 umc`。
-- **`MinSelfDelegationLowerBound = 100_000_000_000`**（umc）定义在 `app/ante.go`，为 ante 与 InitChainer 兜底共用的唯一来源。
+- **`MinSelfDelegationLowerBound = 30_000_000_000`**（umc）定义在 `app/ante.go`，为 ante 与 InitChainer 兜底共用的唯一来源。
 - **`RewardDenom` 默认 `"umc"`**：来自 `Params` param，非 const；`DefaultParams` 写死默认 `"umc"`。
 - **错误码区间**：`1100–1106` 已占用；`1107` = `ErrPhonenodeNotRegistered`（新）；后续新增须 >1107。
 - **InitialPool 铸入约定**：仅在 `InitGenesis` 经 `MintCoins` 一次性铸入 depin 模块账户，**运行期奖励只 `SendCoinsFromModuleToAccount` 从池划拨，绝不再次 mint**；depin 模块账户已含 `Minter` 权限（`app.go` maccPerms line 198）。

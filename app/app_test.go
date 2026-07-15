@@ -13,10 +13,10 @@ import (
 	tokenomicsmoduletypes "mcchain/x/tokenomics/types"
 )
 
-// TestTokenomicsMaccPerms 验证 app.go 模块账户权限划分（Q7 硬约束）：
+// TestTokenomicsMaccPerms 验证 app.go 模块账户权限划分（Q7 硬约束 + 五池模型）：
 //   - tokenomics 持有 Minter（唯一发行入口）；
-//   - depin 不再持有 Minter（仅 {Burner, Staking}）；
-//   - 社区/生态池为独立模块账户（Q5）。
+//   - depin 不再持有 Minter（仅 {Burner, Staking}），同时托管设备激励池资金；
+//   - 质押安全 / 基金会 / 早期开发 为独立模块账户（五池模型）。
 //
 // 采用 package app（与 app.go 同包）以直接访问未导出的 maccPerms 映射。
 func TestTokenomicsMaccPerms(t *testing.T) {
@@ -25,17 +25,19 @@ func TestTokenomicsMaccPerms(t *testing.T) {
 	require.True(t, ok, "tokenomics must be registered in maccPerms")
 	require.Contains(t, tkPerms, authtypes.Minter, "tokenomics must hold Minter")
 
-	// depin 必须保留注册，但不得持有 Minter（仅 Burner/Staking）。
+	// depin 必须保留注册（托管设备激励池），但不得持有 Minter（仅 Burner/Staking）。
 	depinPerms, ok := maccPerms[depinmoduletypes.ModuleName]
 	require.True(t, ok, "depin must remain registered in maccPerms")
 	require.NotContains(t, depinPerms, authtypes.Minter, "depin must NOT hold Minter after Q7")
 	require.ElementsMatch(t, []string{authtypes.Burner, authtypes.Staking}, depinPerms)
 
-	// 社区/生态池为独立模块账户（Q5）。
-	_, ok = maccPerms[tokenomicsmoduletypes.CommunityPoolName]
-	require.True(t, ok, "community pool must be a module account")
-	_, ok = maccPerms[tokenomicsmoduletypes.EcosystemPoolName]
-	require.True(t, ok, "ecosystem pool must be a module account")
+	// 质押安全 / 基金会 / 早期开发 为独立模块账户（五池模型）。
+	_, ok = maccPerms[tokenomicsmoduletypes.StakingSecurityPoolName]
+	require.True(t, ok, "staking_security pool must be a module account")
+	_, ok = maccPerms[tokenomicsmoduletypes.FoundationPoolName]
+	require.True(t, ok, "foundation pool must be a module account")
+	_, ok = maccPerms[tokenomicsmoduletypes.EarlyDevPoolName]
+	require.True(t, ok, "early_dev pool must be a module account")
 }
 
 // TestTokenomicsInitGenesisOrder 验证 genesis 顺序铁律（R1 硬约束）：

@@ -49,7 +49,7 @@ mcchain (基础/系统参数模块，独立)
 | 3 | depin | `x/depin` | DePIN 设备注册/认证/贡献；奖励引擎（score×任务系数，封顶）；发币闸口（须先注册为 phonenode 且已 attest）；预言机抽象（Soft/Tee） | bank, **phonenode** |
 | 4 | phonenode | `x/phonenode` | 移动全节点注册、硬件 attestation（nonce 防重放/设备绑定/过期）、在线心跳(state proof)、离线检测(BeginBlock)、Slash（吊销+记录+验证人罚币+冷却） | staking, slashing |
 | 5 | edgeai | `x/edgeai` | 边缘 AI 任务市场：创建任务/提交结果(认证闸口)/发起争议/仲裁裁定；BeginBlock 乐观结算经 depin 拨付（贡献即挖矿） | **phonenode, depin(Payout), bank** |
-| 6 | app（应用装配） | `app` | App 装配、AnteHandler（全局最低自抵押 100k MC）、预言机切换、InitChainer 兜底（清通胀/锁 denom/补最低自抵押）、export、encoding、params | 全部模块 |
+| 6 | app（应用装配） | `app` | App 装配、AnteHandler（全局最低自抵押 30k MC）、预言机切换、InitChainer 兜底（清通胀/锁 denom/补最低自抵押）、export、encoding、params | 全部模块 |
 | 7 | cmd/mcchaind | `cmd/mcchaind` | 节点守护进程主入口 + CLI（init/start/genesis 账户/配置/oracle 子命令） | app |
 | 8 | cmd/oracle + internal/oraclesvc | `cmd/oracle`, `internal/oraclesvc` | 链下预言机签名服务（HTTP `/healthz` `/pubkey` `/sign`），对 `deviceAddr\|challenge` 签名供链上 TeeOracle 验签 | cosmos-sdk crypto |
 | 9 | cmd/event-subscriber | `cmd/event-subscriber` | 链下事件订阅器，监听 depin/phonenode/edgeai 业务事件并打印 | cometbft rpc |
@@ -149,7 +149,7 @@ graph TD
 
 ### 2.5 app（✅ 已完成）
 - `app.go`：全模块接线、maccPerms（depin 仅 Burner/Staking、tokenomics 持 Minter、社区/生态池独立账户）、genesis 顺序、BeginBlock/EndBlock 顺序。
-- `ante.go`：`MinSelfDelegationDecorator` 全局最低自抵押 100k MC（交易路径）。
+- `ante.go`：`MinSelfDelegationDecorator` 全局最低自抵押 30k MC（交易路径）。
 - `genesis.go`/InitChainer 兜底：清 mint 通胀、锁 BondDenom=umc、补 genesis 验证人最低自抵押。
 - oracle 切换：环境变量 `MC_ORACLE_PUBKEY` 注入则启用 `TeeOracle`。
 

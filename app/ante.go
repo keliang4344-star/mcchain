@@ -9,12 +9,12 @@ import (
 // MinSelfDelegationLowerBound is the chain-wide minimum self delegation enforced
 // for every validator, expressed in the base denom (umc).
 //
-//	1e11 umc == 100_000 MC == 100k MC
+//	3e10 umc == 30_000 MC == 30k MC
 //
 // It is the single source of truth shared by the ante decorator (transaction
 // path) and the InitChainer fallback (genesis validators, which bypass the ante
 // chain).
-const MinSelfDelegationLowerBound = 100_000_000_000 // umc = 100k MC
+const MinSelfDelegationLowerBound = 30_000_000_000 // umc = 30k MC
 
 // MinSelfDelegationDecorator enforces a global minimum self delegation for
 // validators. Cosmos SDK v0.47 has no built-in global floor, so we inspect

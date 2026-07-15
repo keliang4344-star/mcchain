@@ -63,6 +63,6 @@ go build ./...
 
 - **链 ID 不一致**：本机早期 runbook 误用 `mcchain-1`，真实跑起来的链是 `mcchain-mainnet-1`。
   已在 `docs/MAINNET_DEPLOY_RUNBOOK.md`、`docs/mobile_sdk_integration.md`、`scripts/mainnet-genesis-config.json` 统一为 `mcchain-mainnet-1`。
-- **创世自抵押金额**：ante 装饰器强制最低自抵押 100k MC（1e11 umc）；早期 gentx 写 1000 MC 会被拒。
-  已修正 runbook 的 `add-genesis-account`（200k MC）与 `gentx`（100k MC）。
+- **创世自抵押金额**：ante 装饰器强制最低自抵押 30k MC（3e10 umc）；早期 gentx 写 1000 MC 会被拒。
+  已修正 runbook 的 `add-genesis-account`（200k MC）与 `gentx`（30k MC）。
 - **go.mod 升级后**：cometbft / cosmos-sdk 若跨大版本（如 0.47→0.50），API 会变，仿真与 ante 可能需适配。升级方负责验证 `go build ./...` 与 `go test ./...` 全绿后再 push。

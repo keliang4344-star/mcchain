@@ -126,6 +126,9 @@ import (
 	edgeaimodule "mcchain/x/edgeai"
 	edgeaimodulekeeper "mcchain/x/edgeai/keeper"
 	edgeaimoduletypes "mcchain/x/edgeai/types"
+	dexmodule "mcchain/x/dex"
+	dexmodulekeeper "mcchain/x/dex/keeper"
+	dexmoduletypes "mcchain/x/dex/types"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
 	appparams "mcchain/app/params"
@@ -191,6 +194,7 @@ var (
 		depinmodule.AppModuleBasic{},
 		phonenodemodule.AppModuleBasic{},
 		edgeaimodule.AppModuleBasic{},
+		dexmodule.AppModuleBasic{},
 		// this line is used by starport scaffolding # stargate/app/moduleBasic
 	)
 
@@ -207,12 +211,16 @@ var (
 		// Q7：depin 移除 Minter（不再自铸），仅保留 Burner/Staking；统一由 tokenomics 持有 Minter。
 		depinmoduletypes.ModuleName:      {authtypes.Burner, authtypes.Staking},
 		tokenomicsmoduletypes.ModuleName: {authtypes.Minter},
-		// 社区/生态池为独立模块账户（Q5），仅持有资金、无特殊权限。
-		tokenomicsmoduletypes.CommunityPoolName: nil,
-		tokenomicsmoduletypes.EcosystemPoolName:  nil,
+		// 五池模型（设备激励 55% / 质押安全 15% / 团队 12% / 基金会 13% / 早期开发 5%）：
+		// 设备激励池托管于 depin 模块账户（已注册），团队为多签 vesting 账户（非模块账户）；
+		// 其余三池为独立模块账户，仅持有资金、无特殊权限。
+		tokenomicsmoduletypes.StakingSecurityPoolName: nil,
+		tokenomicsmoduletypes.FoundationPoolName:      nil,
+		tokenomicsmoduletypes.EarlyDevPoolName:        nil,
 		// 需求方付费（escrow）：edgeai 模块账户托管 creator 托管的 reward，
 		// 结算时经 bank 向其拨付 submitter；仅需注册为模块账户，无 Minter/Burner 权限。
 		edgeaimoduletypes.ModuleName: nil,
+		dexmoduletypes.ModuleName: {authtypes.Minter, authtypes.Burner},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 )
@@ -284,6 +292,7 @@ type App struct {
 	PhonenodeKeeper phonenodemodulekeeper.Keeper
 
 	EdgeaiKeeper edgeaimodulekeeper.Keeper
+	DexKeeper    dexmodulekeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
 
 	// mm is the module manager
@@ -335,6 +344,7 @@ func New(
 		depinmoduletypes.StoreKey,
 		phonenodemoduletypes.StoreKey,
 		edgeaimoduletypes.StoreKey,
+		dexmoduletypes.StoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	)
 	tkeys := sdk.NewTransientStoreKeys(paramstypes.TStoreKey)
@@ -611,6 +621,17 @@ func New(
 	)
 	tokenomicsModule := tokenomicsmodule.NewAppModule(appCodec, app.TokenomicsKeeper, app.AccountKeeper, app.BankKeeper)
 
+	// x/dex: AMM swap 模块。托管池资产于 dex 模块账户，需 Minter/Burner 权限铸造/销毁 LP token。
+	// 依赖 BankKeeper、AccountKeeper（模块账户托管）。
+	app.DexKeeper = *dexmodulekeeper.NewKeeper(
+		appCodec,
+		keys[dexmoduletypes.StoreKey],
+		app.GetSubspace(dexmoduletypes.ModuleName),
+		app.BankKeeper,
+		app.AccountKeeper,
+	)
+	dexModule := dexmodule.NewAppModule(appCodec, app.DexKeeper, app.AccountKeeper, app.BankKeeper)
+
 	// this line is used by starport scaffolding # stargate/app/keeperDefinition
 
 	/**** IBC Routing ****/
@@ -677,6 +698,7 @@ func New(
 		depinModule,
 		phonenodeModule,
 		edgeaiModule,
+		dexModule,
 		// this line is used by starport scaffolding # stargate/app/appModule
 
 		crisis.NewAppModule(app.CrisisKeeper, skipGenesisInvariants, app.GetSubspace(crisistypes.ModuleName)), // always be last to make sure that it checks for all invariants and not only part of them
@@ -699,6 +721,7 @@ func New(
 		banktypes.ModuleName,
 		govtypes.ModuleName,
 		crisistypes.ModuleName,
+		dexmoduletypes.ModuleName,
 		ibctransfertypes.ModuleName,
 		ibcexported.ModuleName,
 		icatypes.ModuleName,
@@ -744,6 +767,7 @@ func New(
 		depinmoduletypes.ModuleName,
 		phonenodemoduletypes.ModuleName,
 		edgeaimoduletypes.ModuleName,
+		dexmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
 	)
 
@@ -756,6 +780,7 @@ func New(
 		capabilitytypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
+		dexmoduletypes.ModuleName,
 		distrtypes.ModuleName,
 		stakingtypes.ModuleName,
 		slashingtypes.ModuleName,
@@ -859,7 +884,7 @@ func New(
 
 	// P0/Q1: wrap the default ante handler with a chain-wide minimum self
 	// delegation decorator. Every (non-genesis) validator must self-delegate at
-	// least MinSelfDelegationLowerBound (1e11 umc == 100k MC). Genesis validators
+	// least MinSelfDelegationLowerBound (3e10 umc == 30k MC). Genesis validators
 	// are enforced separately in InitChainer because they bypass the ante chain.
 	msd := MinSelfDelegationDecorator{}
 	app.SetAnteHandler(func(ctx sdk.Context, tx sdk.Tx, sim bool) (sdk.Context, error) {
@@ -1095,6 +1120,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(depinmoduletypes.ModuleName)
 	paramsKeeper.Subspace(phonenodemoduletypes.ModuleName)
 	paramsKeeper.Subspace(edgeaimoduletypes.ModuleName)
+	paramsKeeper.Subspace(dexmoduletypes.ModuleName)
 	// this line is used by starport scaffolding # stargate/app/paramSubspace
 
 	return paramsKeeper

@@ -62,7 +62,7 @@ func TestMinSelfDelegationDecorator_CreateValidator(t *testing.T) {
 	decorator := MinSelfDelegationDecorator{}
 	ctx := newAnteTestContext(t)
 
-	// below the 1e11 umc floor -> rejected before next is called
+	// below the 3e10 umc floor -> rejected before next is called
 	rec := &nextRecorder{}
 	tx := testTx{msgs: []sdk.Msg{
 		&stakingtypes.MsgCreateValidator{MinSelfDelegation: sdk.NewInt(100)},

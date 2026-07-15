@@ -34,25 +34,33 @@ func TestQueryAllocations(t *testing.T) {
 
 	res, err := k.Allocations(sdk.WrapSDKContext(ctx), &types.QueryAllocationsRequest{})
 	require.NoError(t, err)
-	require.Len(t, res.Allocations, 3)
+	require.Len(t, res.Allocations, 5)
 
 	byName := make(map[string]types.PoolView)
 	for _, v := range res.Allocations {
 		byName[v.Name] = v
 	}
 
-	// 占比（基点）与拨付额（umc）符合 Q2 默认：15% / 35% / 50%。
+	// 占比（基点）符合五池默认：55% / 15% / 12% / 13% / 5%。
+	require.Equal(t, types.DeviceIncentivePercentBps, byName[types.DeviceIncentivePoolName].PercentBps)
+	require.Equal(t, types.StakingSecurityPercentBps, byName[types.StakingSecurityPoolName].PercentBps)
 	require.Equal(t, types.TeamPercentBps, byName[types.TeamPoolName].PercentBps)
-	require.Equal(t, types.CommunityPercentBps, byName[types.CommunityPoolName].PercentBps)
-	require.Equal(t, types.EcosystemPercentBps, byName[types.EcosystemPoolName].PercentBps)
-	require.Equal(t, teamAmt, byName[types.TeamPoolName].AllocatedAmount)
-	require.Equal(t, communityAmt, byName[types.CommunityPoolName].AllocatedAmount)
-	require.Equal(t, ecosystemAmt, byName[types.EcosystemPoolName].AllocatedAmount)
+	require.Equal(t, types.FoundationPercentBps, byName[types.FoundationPoolName].PercentBps)
+	require.Equal(t, types.EarlyDevPercentBps, byName[types.EarlyDevPoolName].PercentBps)
 
-	// 当前余额（实时 bank）与拨付一致（生态已转 depin 1e14）。
+	// 拨付额（umc）。
+	require.Equal(t, deviceAmt, byName[types.DeviceIncentivePoolName].AllocatedAmount)
+	require.Equal(t, stakingAmt, byName[types.StakingSecurityPoolName].AllocatedAmount)
+	require.Equal(t, teamAmt, byName[types.TeamPoolName].AllocatedAmount)
+	require.Equal(t, foundationAmt, byName[types.FoundationPoolName].AllocatedAmount)
+	require.Equal(t, earlyDevAmt, byName[types.EarlyDevPoolName].AllocatedAmount)
+
+	// 当前余额（实时 bank）与拨付一致（设备激励池全额托管于 depin 模块账户）。
+	require.Equal(t, deviceAmt, byName[types.DeviceIncentivePoolName].CurrentBalance)
+	require.Equal(t, stakingAmt, byName[types.StakingSecurityPoolName].CurrentBalance)
 	require.Equal(t, teamAmt, byName[types.TeamPoolName].CurrentBalance)
-	require.Equal(t, communityAmt, byName[types.CommunityPoolName].CurrentBalance)
-	require.Equal(t, ecosystemAmt-depinSlice, byName[types.EcosystemPoolName].CurrentBalance)
+	require.Equal(t, foundationAmt, byName[types.FoundationPoolName].CurrentBalance)
+	require.Equal(t, earlyDevAmt, byName[types.EarlyDevPoolName].CurrentBalance)
 }
 
 // TestQueryRelease 验证 Query/Release：释放进度随区块时间推进（Q3/Q9）。

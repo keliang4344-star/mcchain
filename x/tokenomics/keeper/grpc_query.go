@@ -48,7 +48,7 @@ func (k Keeper) QuerySupply(ctx sdk.Context) *types.QuerySupplyResponse {
 	}
 }
 
-// QueryAllocations 返回三大池分配视图，current_balance 为各池当前 bank 余额（实时）。
+// QueryAllocations 返回五池分配视图，current_balance 为各池当前 bank 余额（实时）。
 func (k Keeper) QueryAllocations(ctx sdk.Context) *types.QueryAllocationsResponse {
 	allocs := k.GetAllocations(ctx)
 	views := make([]types.PoolView, 0, len(allocs))
@@ -56,6 +56,11 @@ func (k Keeper) QueryAllocations(ctx sdk.Context) *types.QueryAllocationsRespons
 		var balance sdk.Coin = sdk.NewInt64Coin(types.DefaultDenom, 0)
 		if addr, err := sdk.AccAddressFromBech32(a.Address); err == nil {
 			balance = k.bankKeeper.GetBalance(ctx, addr, types.DefaultDenom)
+		}
+		// 基金会池拆分为「运营流动（T0 即时）」+「2 年期线性释放」两个地址。
+		// a.Address 已指向运营流动地址（余额已在上方计入），此处仅补 vesting 部分，避免重复计数（总量 1.3 亿）。
+		if a.Name == types.FoundationPoolName {
+			balance = balance.Add(k.bankKeeper.GetBalance(ctx, types.FoundationVestingAddress, types.DefaultDenom))
 		}
 		views = append(views, types.PoolView{
 			Name:           a.Name,

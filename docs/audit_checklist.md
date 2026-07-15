@@ -15,7 +15,7 @@
 - [ ] `attest-device` 软认证边界：主网须替换为真实设备证明（T2 预言机），当前软认证不得上主网信任核心。
 - [ ] `DetectOffline` 宽限逻辑：确认 `LastProofBlock` 初始化与 100 区块宽限正确，无瞬时误 slash（已修 bug 复测）。
 - [ ] `SlashIfBad` 仅离线/作恶触发，金额计算正确，无负余额。
-- [ ] `min_self_delegation` 下限 1e11 umc 在 ante + InitChainer 双重强制。
+- [ ] `min_self_delegation` 下限 3e10 umc 在 ante + InitChainer 双重强制。
 - [ ] 模块账户权限（Minter 仅 tokenomics，depin 无 Minter）正确。
 - 交付物：威胁模型 + 攻击面清单 + 修复确认。通过标准：高危/中危 0 未决。
 

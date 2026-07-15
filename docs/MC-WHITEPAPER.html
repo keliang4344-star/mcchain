@@ -1,0 +1,1937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MobileChain（MC）白皮书 v3.0</title>
+<style>
+:root{
+  --bg:#ffffff; --ink:#1f2328; --muted:#5a6169; --line:#e3e6ea;
+  --brand:#0b5cff; --brand2:#0a3d91; --accent:#e8f0ff; --code:#f6f8fa;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#f2f4f7;color:var(--ink);
+  font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  font-size:15px;line-height:1.9;-webkit-font-smoothing:antialiased}
+.page{max-width:820px;margin:24px auto;background:var(--bg);
+  padding:64px 72px;box-shadow:0 4px 24px rgba(0,0,0,.08);border-radius:6px}
+/* Cover */
+.cover{min-height:940px;display:flex;flex-direction:column;justify-content:center;
+  text-align:center;padding:60px 40px;
+  background:linear-gradient(160deg,#0a3d91 0%,#0b5cff 55%,#3b82f6 100%);
+  color:#fff;border-radius:6px;margin:24px auto;max-width:820px}
+.cover-badge{letter-spacing:4px;font-size:12px;opacity:.85;margin-bottom:28px}
+.cover-title{font-size:64px;margin:0;font-weight:800;letter-spacing:1px}
+.cover-sub{font-size:19px;margin-top:16px;opacity:.95;font-weight:500}
+.cover-line{width:80px;height:4px;background:#fff;opacity:.9;margin:36px auto;border-radius:2px}
+.cover-meta{display:inline-block;text-align:left;font-size:15px;line-height:2.1;opacity:.96}
+.cover-meta b{display:inline-block;width:64px;opacity:.85;font-weight:600}
+.cover-foot{margin-top:44px;font-size:14px;letter-spacing:2px;opacity:.9}
+/* TOC */
+.toc-page{max-width:820px;margin:24px auto;background:#fff;padding:56px 72px;
+  box-shadow:0 4px 24px rgba(0,0,0,.08);border-radius:6px}
+.toc-h{font-size:30px;color:var(--brand2);border-bottom:3px solid var(--brand);
+  padding-bottom:12px;margin:0 0 24px}
+ol.toc{list-style:none;counter-reset:t;padding:0;margin:0;
+  columns:2;column-gap:48px}
+ol.toc li{counter-increment:t;padding:7px 0;border-bottom:1px dashed var(--line);
+  font-size:14.5px;break-inside:avoid}
+ol.toc li::before{content:counter(t)".";color:var(--brand);font-weight:700;margin-right:8px}
+ol.toc a{color:var(--ink);text-decoration:none}
+ol.toc a:hover{color:var(--brand)}
+/* Content */
+.content h1{font-size:27px;color:var(--brand2);margin:0 0 22px;padding:18px 0 12px;
+  border-bottom:3px solid var(--brand);page-break-before:always;font-weight:800}
+.content h1:first-of-type{page-break-before:avoid}
+.content h2{font-size:20px;color:#0d2a5c;margin:34px 0 12px;
+  padding-left:12px;border-left:5px solid var(--brand);font-weight:700}
+.content h3{font-size:16.5px;color:#173a6b;margin:24px 0 8px;font-weight:700}
+.content p{margin:12px 0;text-align:justify}
+.content blockquote{margin:16px 0;padding:14px 18px;background:var(--accent);
+  border-left:4px solid var(--brand);border-radius:0 6px 6px 0;color:#0d2a5c}
+.content blockquote p{margin:6px 0}
+.content ul,.content ol{padding-left:24px;margin:12px 0}
+.content li{margin:6px 0}
+.content table{border-collapse:collapse;width:100%;margin:18px 0;font-size:13.5px;
+  break-inside:avoid}
+.content th{background:var(--brand2);color:#fff;padding:9px 12px;text-align:left;font-weight:600}
+.content td{border:1px solid var(--line);padding:8px 12px;vertical-align:top}
+.content tr:nth-child(even) td{background:#f7f9fc}
+.content code{background:var(--code);padding:2px 6px;border-radius:4px;
+  font-family:"Consolas","Courier New",monospace;font-size:13px;color:#b3204a}
+.content pre{background:#0d1b2a;color:#e6edf3;padding:16px 20px;border-radius:8px;
+  overflow-x:auto;margin:16px 0;line-height:1.6}
+.content pre code{background:none;color:#e6edf3;padding:0}
+.content hr{border:none;border-top:1px solid var(--line);margin:28px 0}
+.content strong{color:#0d2a5c}
+.content div[align="center"]{text-align:center}
+@media print{
+  html,body{background:#fff}
+  .page,.toc-page{box-shadow:none;margin:0 auto;border-radius:0;max-width:none;padding:40px 54px}
+  .cover{margin:0 auto;border-radius:0;max-width:none;page-break-after:always}
+  .toc-page{page-break-after:always}
+}
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="cover-badge">PUBLIC CHAIN WHITEPAPER</div>
+  <h1 class="cover-title">MobileChain</h1>
+  <div class="cover-sub">MC 白皮书 · 一条把全节点装进每一部手机的公链</div>
+  <div class="cover-line"></div>
+  <div class="cover-meta">
+    <div><b>链标识</b> mcchain-mainnet-1</div>
+    <div><b>主币</b> MC（最小单位 umc · 精度 6）</div>
+    <div><b>总量</b> 固定 10 亿 · 零通胀</div>
+    <div><b>共识</b> CometBFT v0.37.6 · Cosmos SDK v0.47.14</div>
+    <div><b>版本</b> v3.0（叙事体）</div>
+  </div>
+  <div class="cover-foot">开源可审计 · 参数写代码 · 链上求真 · 共识共生</div>
+</section>
+<section class="toc-page">
+  <h1 class="toc-h">目录</h1>
+  <ol class="toc"><li><a href="#_1">卷首语</a></li><li><a href="#_2">第一章　项目介绍</a></li><li><a href="#mc">第二章　MC 的发行与代币经济</a></li><li><a href="#gas">第三章　系统费用（Gas 与手续费）</a></li><li><a href="#_7">第四章　核心功能总览</a></li><li><a href="#_8">第五章　可扩展功能</a></li><li><a href="#_9">第六章　手机全节点与设备身份</a></li><li><a href="#_10">第七章　哲学理念</a></li><li><a href="#_11">第八章　认证与信任网络</a></li><li><a href="#_12">第九章　产品设计</a></li><li><a href="#depin">第十章　DePIN 设备激励与共振分发</a></li><li><a href="#logo">第十一章　Logo 与命名的寓意</a></li><li><a href="#ai-edgeai">第十二章　边缘 AI 算力网络（EdgeAI）</a></li><li><a href="#_13">第十三章　争议仲裁与乐观结算</a></li><li><a href="#_14">第十四章　验证人与主节点</a></li><li><a href="#_15">第十五章　智能合约（规划中）</a></li><li><a href="#_16">第十六章　去中心化治理与投票</a></li><li><a href="#_17">第十七章　区块浏览器与生态工具</a></li><li><a href="#_18">第十八章　链下服务与预言机</a></li><li><a href="#_19">第十九章　初始生态建设基金</a></li><li><a href="#_20">第二十章　发展阶段</a></li><li><a href="#_21">第二十一章　去中心化自治社区</a></li><li><a href="#mc_1">第二十二章　MC 的愿景</a></li><li><a href="#_22">第二十三章　路线图</a></li><li><a href="#a">附录 A　完整链上参数表（可逐条对照源码审计）</a></li><li><a href="#b">附录 B　模块与代码结构清单</a></li><li><a href="#c">附录 C　术语表</a></li><li><a href="#d">附录 D　引用与依据</a></li><li><a href="#e">附录 E　典型场景数值演算</a></li><li><a href="#f">附录 F　安全威胁模型与对策</a></li><li><a href="#g-faq">附录 G　常见问题（FAQ）</a></li><li><a href="#h">附录 H　设计取舍记录（我们自己的权衡）</a></li></ol>
+</section>
+
+<div class="page content">
+<div align="center">
+
+# MobileChain（MC）白皮书
+
+### 一条把全节点装进每一部手机的公链
+
+**A Public Chain That Puts a Full Node in Every Phone**
+
+版本 v3.0（叙事体）· 2026 年 · 面向社区的完整技术与理念阐述
+
+链标识 `mcchain-mainnet-1` · 主币 MC（最小单位 umc，精度 6）· 固定总量 10 亿 · 零通胀
+
+</div>
+
+<hr>
+<blockquote>
+<p><strong>本白皮书的自我约束（MC 自己的规矩）</strong></p>
+<p>这份文档只讲我们自己要走的路。四条原则贯穿全文，且都已经写进代码、可被任何人审计：</p>
+<ol>
+<li><strong>开源可审计</strong>——所有关键参数、分配比例、罚没规则都以链上常量或创世校验的形式固化，任何人都能在源码里读到、在链上验证到。</li>
+<li><strong>参数写代码</strong>——白皮书里出现的每一个数字（总量、五池比例、罚没基点、认证有效期、最低自抵押……）都对应一行真实的 Go 常量，本文不写"愿景数字"，只写"代码数字"。</li>
+<li><strong>链上求真</strong>——没有实现的功能标注为"规划中"，绝不把设想写成既成事实。</li>
+<li><strong>共识共生</strong>——MC 的激励来自真实的设备贡献与网络安全，不设任何以拉新人头为收益来源的机制。</li>
+</ol>
+<p>凡与代码不符之处，以代码为准。本白皮书是对代码的解释，不是对代码的承诺。</p>
+</blockquote>
+<hr>
+<h1 id="_1">卷首语</h1>
+<p>没有什么是永恒的，唯有想法可以长存。</p>
+<p>人类文明的每一次跃迁，几乎都伴随着一件事：<strong>把原本属于少数人的能力，交还给大多数人</strong>。文字的普及让知识不再是祭司的专利，印刷术让书籍走出修道院，互联网让信息以近乎零的边际成本流向每一个角落。每一次"交还"，都不是因为掌握权力的人变得更慷慨，而是因为一种新的技术结构，使得垄断的成本高于开放的成本。</p>
+<p>区块链是这条长河里最新的一段。它第一次让"信任"这件事，可以不依赖任何一个中心机构而成立——不依赖银行去记账，不依赖平台去背书，不依赖国家去担保。它把记账权、发行权、验证权，从一个封闭的房间里，摊开到一张所有人都能看见、都能参与的公开账本上。</p>
+<p>但我们必须诚实地面对一个现实：<strong>今天的大多数公链，其实并没有真正把权力交还给多数人。</strong> 挖矿需要专门的矿机与廉价的电，节点需要昂贵的服务器与稳定的带宽，参与验证需要动辄百万的质押门槛。普通人被"欢迎参与"，却又被结构性地挡在门外。所谓的去中心化，很多时候只是把"中心"从一家公司换成了一批大户与一批数据中心。</p>
+<p>MobileChain（以下简称 MC）想回答一个非常朴素的问题：</p>
+<blockquote>
+<p><strong>如果一条公链的全节点，可以运行在一部普通的手机上，会发生什么？</strong></p>
+</blockquote>
+<p>全世界有超过 50 亿部智能手机。它们在使用者的口袋里，绝大多数时间处于闲置或半闲置状态——CPU 空转，网络在线，却没有为任何公共网络贡献一丝价值。如果这些设备能够以极低的门槛，成为一条公链真实的、可验证的一部分，那么"多数人参与"就不再是一句口号，而是一个可以用代码去逼近的工程目标。</p>
+<p>这就是 MC 的起点。它不追求成为"最快"或"最贵"的链，它只想成为<strong>门槛最低、参与最广、并且这一切都可被审计</strong>的那一条。</p>
+<p>本白皮书将用二十余章的篇幅，把这条链的每一个细节摊开：它如何发行，如何分配，如何让一部手机安全地成为节点，如何用设备的真实贡献去分发代币，如何在没有通胀的前提下养活网络安全，如何把 AI 算力与区块链结合，如何一步步把控制权交还给社区。我们会写得很长、很细，因为我们相信：<strong>一条声称"可审计"的链，它的文档也应该经得起逐字逐句的审计。</strong></p>
+<p>合作与共识，是人类文明最重要的两块基石。MC 愿意成为其中一块小小的砖。</p>
+<hr>
+<h1 id="_2">第一章　项目介绍</h1>
+<h2 id="11-mobilechain">1.1 什么是 MobileChain</h2>
+<p>MobileChain（MC）是一条<strong>独立的第一层公链（Layer 1）</strong>，基于 Cosmos SDK v0.47.14 与 CometBFT（原 Tendermint）v0.37.6 共识引擎构建，使用 Go 1.21 编写，链标识（Chain ID）为 <code>mcchain-mainnet-1</code>。它不是某条链上的合约，也不是某个生态的侧链，而是拥有自己的验证人集合、自己的出块、自己的经济系统的<strong>主权链</strong>。</p>
+<p>MC 的核心定位可以用一句话概括：</p>
+<blockquote>
+<p><strong>一条以"手机全节点"为中心、以"真实设备贡献"为激励来源、总量固定且零通胀的 DePIN（去中心化物理基础设施网络）公链。</strong></p>
+</blockquote>
+<p>拆开这句话，有四个关键词，构成了 MC 的四根支柱：</p>
+<ol>
+<li><strong>手机全节点（Mobile Full Node）</strong>——降低运行节点的门槛，让一部智能手机也能承担链的验证与数据职责，而不是只能当一个被动的钱包。</li>
+<li><strong>真实设备贡献（Proof of Real Contribution）</strong>——代币不是凭空空投，也不是靠拉人头，而是分发给那些真实在线、真实完成任务、真实通过认证的设备。</li>
+<li><strong>固定总量 · 零通胀（Fixed Supply · Zero Inflation）</strong>——总量锁死 10 亿 MC，创世一次性铸满，此后永不增发。稀缺性写进代码，不由任何人的意志改变。</li>
+<li><strong>DePIN</strong>——把区块链的价值锚定到"真实世界的物理设备与算力"上，而不是纯粹的金融投机。</li>
+</ol>
+<h2 id="12">1.2 我们要解决的痛点</h2>
+<p>MC 不是为了"再造一条链"而存在。它瞄准的是当前区块链行业中几个长期未解、且彼此纠缠的结构性痛点。</p>
+<h3 id="_3">痛点一：参与门槛过高，"去中心化"名不副实</h3>
+<p>比特币的挖矿早已被专业矿场垄断，以太坊转 PoS 之后独立验证人需要 32 ETH 的质押门槛，许多高性能链的节点对硬件、带宽、运维的要求，让普通人望而却步。结果是：<strong>链在技术上是去中心化的，在现实中却是少数人的游戏。</strong> 普通用户能做的，只剩下"买币、持币、等涨跌"，这与区块链最初"人人可参与"的承诺背道而驰。</p>
+<p>MC 的回答：把全节点的运行成本压缩到一部手机可以承担的程度，并为手机节点设计专门的安全与认证机制（详见第六、第八章）。</p>
+<h3 id="_4">痛点二：代币分发脱离真实价值，投机压倒建设</h3>
+<p>大量项目的代币，在生成之初就集中在团队、基金会、早期投资人手里，普通人只能在二级市场高位接盘。所谓的"社区激励"，往往退化为拉新人头的资金盘游戏——收益的唯一来源是后来者的本金，而非任何真实产出。</p>
+<p>MC 的回答：把<strong>最大的一块份额（55%）</strong>留给设备激励，且这些代币<strong>不是一次性放出，而是按设备真实完成的任务、通过链上认证后逐笔发放</strong>（详见第二、第十章）。没有真实贡献，就没有代币。</p>
+<h3 id="_5">痛点三：固定总量与网络安全的矛盾</h3>
+<p>许多"固定总量、零通胀"的链，看似稀缺性极好，却隐藏一个致命的结构性缺口：<strong>没有增发，就没有持续的区块奖励来养活验证人。</strong> 一旦手续费收入不足（早期尤其如此），验证人无利可图，节点纷纷离场，网络安全反而崩塌。</p>
+<p>MC 的回答：在固定总量的前提下，<strong>预先划出 15% 作为"质押安全池"</strong>，并设计手续费回流、罚没回充等机制，让零通胀的链也能长期维持验证人激励（详见第二、第十四章）。</p>
+<h3 id="_6">痛点四：设备算力的巨大浪费</h3>
+<p>数十亿部智能手机的算力，在绝大多数时间里被闲置。与此同时，AI 推理、边缘计算的需求正在爆发式增长，算力却被少数云厂商垄断、价格高昂。</p>
+<p>MC 的回答：内置 <strong>EdgeAI 边缘算力模块</strong>，让手机节点在保障链安全的同时，还能承接可验证的 AI 推理任务，把闲置算力变成真实收入（详见第十二、十三章）。</p>
+<h2 id="13-mc">1.3 MC 是多项研究成果的整合</h2>
+<p>MC 并不是一个单点创新，而是把若干条独立的技术路线，整合进同一条链、同一套经济系统里：</p>
+<ul>
+<li><strong>应用链架构</strong>——采用 Cosmos SDK 模块化设计，每个业务领域（代币经济、设备激励、节点安全、边缘算力）都是一个独立、可审计、可单独测试的模块。</li>
+<li><strong>DePIN 激励工程</strong>——把"真实设备贡献"抽象为链上可验证的任务与认证，用代码而非人工去决定谁该拿到激励。</li>
+<li><strong>移动端安全模型</strong>——针对手机这种"不总是在线、容易被伪造、容易被批量刷量"的设备，设计专门的认证有效期、女巫绑定、离线宽限与分级罚没机制。</li>
+<li><strong>可验证的边缘 AI</strong>——把 AI 推理任务的发布、接单、结算、争议仲裁，全部搬到链上，用托管（escrow）与乐观结算保证需求方与算力方的双向公平。</li>
+<li><strong>零通胀的可持续经济</strong>——用"预留安全池 + 手续费回流 + 罚没回充"三条腿，替代传统的"靠增发养安全"。</li>
+</ul>
+<p>这些成果各自都不新，但把它们<strong>收敛到一条以手机为中心的链上，并让每一条都可被审计</strong>，是 MC 的独特之处。</p>
+<h2 id="14">1.4 本白皮书的结构</h2>
+<p>为了让读者既能快速把握全局，又能深入任何一个细节，本白皮书按以下脉络展开：</p>
+<table>
+<thead>
+<tr>
+<th>部分</th>
+<th>章节</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>理念篇</strong></td>
+<td>卷首语、第一章、第七章</td>
+<td>我们为什么做、我们相信什么</td>
+</tr>
+<tr>
+<td><strong>经济篇</strong></td>
+<td>第二、三、十九章</td>
+<td>代币如何发行、如何分配、费用如何运转、基金如何治理</td>
+</tr>
+<tr>
+<td><strong>节点篇</strong></td>
+<td>第六、八、十四章</td>
+<td>手机如何成为节点、如何认证、如何维护安全</td>
+</tr>
+<tr>
+<td><strong>激励篇</strong></td>
+<td>第十、十二、十三章</td>
+<td>设备激励如何发放、边缘 AI 如何运转、争议如何仲裁</td>
+</tr>
+<tr>
+<td><strong>功能篇</strong></td>
+<td>第四、五、九、十五、十七、十八章</td>
+<td>核心功能、可扩展功能、产品设计、合约、浏览器、链下服务</td>
+</tr>
+<tr>
+<td><strong>治理篇</strong></td>
+<td>第十六、二十一章</td>
+<td>去中心化投票、自治社区</td>
+</tr>
+<tr>
+<td><strong>展望篇</strong></td>
+<td>第二十、二十二、二十三章</td>
+<td>发展阶段、愿景、路线图</td>
+</tr>
+<tr>
+<td><strong>附录</strong></td>
+<td>附录 A/B/C</td>
+<td>完整参数表、模块清单、术语与引用</td>
+</tr>
+</tbody>
+</table>
+<p>我们建议：想快速了解 MC 的读者，先读第一、二、二十二章；技术审计者，直接从第二章与附录 A 的参数表开始逐条核对代码；关心经济模型的读者，重点读第二、三、十、十四、十九章。</p>
+<hr>
+<h1 id="mc">第二章　MC 的发行与代币经济</h1>
+<p>代币经济是一条链的骨架。它决定了谁拥有什么、激励流向哪里、稀缺性是否可信。本章是整份白皮书信息密度最高的一章，也是最应该被逐字审计的一章——因为这里写的每一个数字，都对应源码 <code>x/tokenomics</code> 里的一行常量。</p>
+<h2 id="21">2.1 一次性铸满，永不增发</h2>
+<p>MC 的总量模型可以用三句话说完：</p>
+<ol>
+<li><strong>总量 = 10 亿 MC</strong>，即 <code>1,000,000,000 MC</code>，以最小单位计为 <code>1,000,000,000,000,000 umc</code>（1e15 umc，因为精度为 6）。</li>
+<li><strong>创世一次性铸满</strong>——这 10 亿 MC 在链的第 0 个区块（创世）就全部生成，之后区块奖励为 0，<code>x/mint</code> 模块的通胀率被强制设为 0。</li>
+<li><strong>永不增发</strong>——总量上限是写死在代码里的常量 <code>TotalSupplyCap = uint64(1e15)</code>，它<strong>不进入 params 参数空间，不可被治理修改</strong>。想改它，只能改源码、重新编译、并说服整个验证人集合硬分叉——在一条真正去中心化的链上，这几乎不可能悄悄发生。</li>
+</ol>
+<pre><code>// x/tokenomics/types/keys.go
+DefaultDenom   = &quot;umc&quot;          // 链上主币最小单位
+TotalSupplyCap = uint64(1e15)   // = 10 亿 MC，链上常量 + 创世校验双保险，不治理可改
+</code></pre>
+<p>这种设计的意义在于：<strong>稀缺性不是承诺，而是事实。</strong> 在通胀型链上，"总量"是一个可以被治理、被增发稀释的软约束；而在 MC，10 亿这个数字是硬约束，任何试图突破它的行为都会在创世校验（Genesis Validate）和链上常量两道关卡被拦下。我们把"信任"从"相信团队不增发"，替换成了"代码不允许增发"。</p>
+<h3 id="10-21-1000">为什么是 10 亿，而不是 21 万或 1000 亿？</h3>
+<ul>
+<li><strong>太小（如百万级）</strong>：单位价值过高，日常小额激励（一部手机一天挖到的量）会小到无法用整数最小单位表达，用户体验差。</li>
+<li><strong>太大（如万亿级）</strong>：单位价值过低，容易给人"廉价、可以随便印"的心理暗示，且大数字在钱包与浏览器里可读性差。</li>
+<li><strong>10 亿 + 精度 6</strong>：既能让"设备激励逐笔小额发放"有足够的最小单位空间（最小可发放 1 umc = 0.000001 MC），又能让 MC 的单位价值保持在直观、可感知的区间。这是工程可用性与心理稀缺感之间的平衡点。</li>
+</ul>
+<h2 id="22">2.2 五池分配模型</h2>
+<p>10 亿 MC 在创世时，按照<strong>五个池子</strong>一次性分配完毕。这五个池子的比例，是经过多轮研讨、结合行业经验与 MC 自身"手机全节点、固定总量"的特殊约束后确定的终版：</p>
+<table>
+<thead>
+<tr>
+<th>池子</th>
+<th>占比</th>
+<th>金额（MC）</th>
+<th>金额（umc）</th>
+<th>托管方式</th>
+<th>释放节奏</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>设备激励 DePIN</strong></td>
+<td><strong>55%</strong></td>
+<td>5.5 亿</td>
+<td>550,000,000,000,000</td>
+<td>depin 模块账户</td>
+<td>按真实任务逐笔发放</td>
+</tr>
+<tr>
+<td><strong>质押 / 网络安全</strong></td>
+<td><strong>15%</strong></td>
+<td>1.5 亿</td>
+<td>150,000,000,000,000</td>
+<td>staking_security 模块账户</td>
+<td>治理按计划滴灌</td>
+</tr>
+<tr>
+<td><strong>团队 Team</strong></td>
+<td><strong>12%</strong></td>
+<td>1.2 亿</td>
+<td>120,000,000,000,000</td>
+<td>3-of-5 多签 vesting 账户</td>
+<td>1 年 cliff + 3 年线性</td>
+</tr>
+<tr>
+<td><strong>基金会 Foundation</strong></td>
+<td><strong>13%</strong></td>
+<td>1.3 亿</td>
+<td>130,000,000,000,000</td>
+<td>拆分：运营流动地址（T0 即时 5000 万）+ 2 年期线性释放地址（8000 万）</td>
+<td>T0 即时解锁 5000 万；剩余 8000 万 2 年线性</td>
+</tr>
+<tr>
+<td><strong>早期开发 Early Dev</strong></td>
+<td><strong>5%</strong></td>
+<td>0.5 亿</td>
+<td>50,000,000,000,000</td>
+<td>开发资助地址（T0 全额拨付，可支出）</td>
+<td>T0 一次性全额</td>
+</tr>
+<tr>
+<td><strong>合计</strong></td>
+<td><strong>100%</strong></td>
+<td><strong>10.0 亿</strong></td>
+<td>1,000,000,000,000,000</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>这五个比例，对应源码里五个以"基点（basis points，1 基点 = 0.01%，10000 基点 = 100%）"表示的常量：</p>
+<pre><code>// x/tokenomics/types/keys.go
+DeviceIncentivePercentBps = uint32(5500)   // 设备激励 55%
+StakingSecurityPercentBps = uint32(1500)   // 质押安全 15%
+TeamPercentBps            = uint32(1200)   // 团队 12%
+FoundationPercentBps      = uint32(1300)   // 基金会 13%
+EarlyDevPercentBps        = uint32(500)    // 早期开发 5%
+</code></pre>
+<p>创世校验会强制这五个基点之和恰好等于 10000（即 100%），且分配笔数恰好为 5——多一个、少一个、比例之和不等于 100%，链都无法启动。这是"参数写代码"原则最直接的体现。</p>
+<h3 id="221-55">2.2.1 设备激励池（55%）——为什么它必须是最大的</h3>
+<p>设备激励池是五池中<strong>唯一超过半数</strong>的池子，它是质押池的 3.6 倍、任何其它单一池子的 4 倍以上。这个"全行业罕见的高占比"不是拍脑袋，而是由 MC 的定位直接推导出来的：</p>
+<blockquote>
+<p>MC 的"社区"就是那些运行手机节点的人。一条以"手机全节点"为卖点的链，如果用手机挖不到有意义的份额，就没有人会来参与——那么"手机全节点"就成了一句空话。</p>
+</blockquote>
+<p>因此，设备激励必须是最大的那一块。这一池的运作方式很特别：</p>
+<ul>
+<li><strong>它不是一个新的、独立的池子，而是直接注入 <code>depin</code> 模块账户</strong>。创世时，5.5 亿 MC 全额打入 depin 模块账户，成为 DePIN 挖矿奖励的"金库"。</li>
+<li><strong>它按真实任务逐笔发放</strong>。depin 模块本身<strong>没有铸币权限</strong>（no Minter permission），它只能从这 5.5 亿的存量里，把奖励发给完成了可验证任务、且通过认证的设备。发一笔，少一笔，透明可查。</li>
+<li><strong>代码里有一道防漂移断言</strong>：depin 模块的 <code>DefaultInitialPool</code> 常量（5.5e14 umc）必须严格等于 tokenomics 的 <code>DepinInitialPoolSlice</code> 常量（5.5e14 umc），否则创世时 InitGenesis 会直接失败。这保证了"设备激励占 55%"这个承诺，在 tokenomics 和 depin 两个模块之间不会各说各话。</li>
+</ul>
+<pre><code>// x/depin/types/params.go
+// 5.5e14 umc == 5.5e8 MC (55% of the 1B total supply) — 整个设备激励池
+const DefaultInitialPool uint64 = 550_000_000_000_000
+</code></pre>
+<p>关于设备激励如何具体计算、如何防止脚本刷量，详见第十章。</p>
+<h3 id="222-15">2.2.2 质押安全池（15%）——零通胀链的"安全气囊"</h3>
+<p>这是 MC 相比许多"固定总量"链最清醒的一笔设计。</p>
+<p>固定总量、零通胀，听起来很美——稀缺、抗通胀、无人能稀释你的持仓。但它有一个魔鬼藏在细节里：<strong>没有增发，就没有区块奖励；没有区块奖励，验证人的收入就只剩手续费。</strong> 而一条新链早期链上交易稀少，手续费近乎为零。于是验证人无利可图、纷纷离场，网络安全在最脆弱的启动期反而崩溃。</p>
+<p>许多零通胀链假装看不见这个缺口，MC 选择正面解决它：<strong>预先划出 15%（1.5 亿 MC）作为质押安全池</strong>，独立托管在 <code>staking_security</code> 模块账户里，作为零通胀模型下唯一的、预铸的安全激励储备。</p>
+<p>它的运作逻辑（详见第十四章）：</p>
+<ol>
+<li><strong>滴灌分发</strong>——不是一次性放出，而是经治理按计划、周期性地按比例发给验证人，避免瞬间抛压。</li>
+<li><strong>手续费回流</strong>——链上产生的 gas 费净值，回流补充此池，链用得越多，安全池越厚。</li>
+<li><strong>罚没回充</strong>——设备过期未领取的奖励、作恶被罚没的代币，回流此池，形成"作恶补贴诚实"的正循环。</li>
+<li><strong>治理兜底</strong>——某年验证人收益过低时，治理可从基金会小额划拨补充安全。</li>
+</ol>
+<p>15% 这个数字是从用户最初设想的 10% 上调而来的——在一条固定总量的链上，10% 不足以撑起早期验证人激励，而 15% 配合上述回流机制，既够用，又不必回到激进的 30%（那会挤压设备激励这个更核心的池子）。</p>
+<h3 id="223-12">2.2.3 团队池（12%）——克制即信号</h3>
+<p>团队池占 12%，是五池中占比第二小的。这个"克制"是刻意的：<strong>团队给自己留多少，是向社区释放的最强信号。</strong> 团队份额越低，说明团队越把价值让渡给网络参与者。</p>
+<p>团队池的托管极为严格：</p>
+<ul>
+<li><strong>3-of-5 多签</strong>——团队 12% 的代币托管在一个 3-of-5 的多签 vesting 账户里（<code>TeamMultisigThreshold = 3</code>）。任何一笔动用，都需要 5 个团队密钥中至少 3 个共同签名，杜绝单点私自动用。</li>
+<li><strong>1 年 cliff + 3 年线性释放</strong>——从创世起 1 年内，团队一枚都拿不到（cliff 悬崖期）；1 年后，剩余部分在接下来 3 年里按区块线性解锁。这意味着团队与网络的利益被绑定至少 4 年，团队没有"上线即砸盘"的能力。</li>
+<li><strong>多签公钥不硬编码</strong>——5 个真实的 secp256k1 公钥由脚本生成到独立文件，避免手写复制导致的漂移；私钥由各自的助记词恢复，仅团队成员本机保管，绝不入库。</li>
+</ul>
+<p>团队池对应的地址 <code>TeamAddress</code>，是由这 3-of-5 多签公钥在链启动时（<code>init()</code>）确定性派生出来的，任何人都能用标准 CLI 重建并核对。</p>
+<h3 id="224-13">2.2.4 基金会池（13%）——集中金库必须上链治理</h3>
+<p>基金会池占 13%（1.3 亿 MC），用于 MC 生态的长期运营与战略储备（生态 grant、开发者激励、市场建设、安全审计等）。</p>
+<p>为解决"前期市场流通太少、不利于早期社区参与"的痛点，基金会池在创世时<strong>不再停留于模块账户，而是拆分为两个可支出地址</strong>：</p>
+<ul>
+<li><strong>运营流动地址（T0 即时解锁 5000 万 MC）</strong>——创世当刻即可用于市场运营、流动性建设与社区激励，让前期市场有真实的币在流通；</li>
+<li><strong>2 年期线性释放地址（剩余 8000 万 MC）</strong>——以原生连续锁仓账户（ContinuousVesting）承载，从创世起 2 年内按区块线性解锁，避免一次性抛压、支撑中长期运营。</li>
+</ul>
+<p>这里 MC 立下一条铁规：<strong>任何集中的金库，如果不上链治理，就违反"开源可审计"原则。</strong> 因此基金会池的动用：</p>
+<ul>
+<li>运营流动部分由基金会运营多签按公开计划拨付；</li>
+<li>涉及重大战略的支出，仍应走链上治理提案，由社区投票决定；</li>
+<li>实质上，随着治理逐步移交社区（详见第十六、二十一章），这 13% 会从"团队掌控的金库"演变为"社区掌控的公共资金"。</li>
+</ul>
+<p>关于基金会如何具体支持早期生态，详见第十九章"初始生态建设基金"。</p>
+<h3 id="225-5">2.2.5 早期开发池（5%）——给最早的建设者</h3>
+<p>早期开发 / 早期贡献者池占 5%（5000 万 MC），是五池中最小的一个。它用于奖励在主网上线前后做出实质贡献的核心开发者、审计者、早期节点运营者。份额小而精准，避免"早期分发"膨胀成又一个投机温床。</p>
+<p>与基金会池同理，早期开发池在创世时<strong>全额（5000 万 MC）直接拨付到开发资助地址（可支出）</strong>，T0 即流通，按公开的开发资助名单逐笔发放——不滞留模块账户，让最早的建设者能及时获得回馈。</p>
+<h3 id="226">2.2.6 前期市场流通量——让早期有真实的币在流通</h3>
+<p>一个常被人忽视、却决定早期生态生死的问题是：<strong>创世后第一时间，市场上到底能流通多少币？</strong> 如果绝大部分币锁在模块账户或长锁仓里，前期就几乎没有可交易的币，社区无从参与、市场无从定价。</p>
+<p>MC 的五池模型把 95% 的币置于模块账户或锁仓中（设备激励按任务释放、团队 4 年锁仓、质押安全为储备），这是克制与安全的需要；但为了让前期市场有真实的流通量，早期开发与基金会两池被明确设计为"创世即拨付、可支出"：</p>
+<table>
+<thead>
+<tr>
+<th>来源</th>
+<th>创世即流通（T0）</th>
+<th>后续释放</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>早期开发池（5%）</td>
+<td>5000 万 MC（全额）</td>
+<td>—</td>
+</tr>
+<tr>
+<td>基金会运营流动部分</td>
+<td>5000 万 MC（T0 即时）</td>
+<td>—</td>
+</tr>
+<tr>
+<td>基金会 2 年期线性部分</td>
+<td>0（T0 锁定）</td>
+<td>8000 万 MC 在 2 年内线性释放</td>
+</tr>
+<tr>
+<td><strong>T0 自由流通合计</strong></td>
+<td><strong>约 1 亿 MC（占总量的 1%）</strong></td>
+<td>随基金会线性释放，第 2 年末累计约 1.8 亿 MC</td>
+</tr>
+</tbody>
+</table>
+<p>也就是说，MC 在创世当周即有约 <strong>1 亿 MC</strong> 的自由流通量（早期开发 + 基金会运营），足以支撑早期社区参与、市场运营与流动性建设；随后基金会线性释放把前期流通量在 2 年内平稳推高到约 <strong>1.8 亿 MC</strong>，叠加设备激励按真实任务逐步释放，前期流通量稳定落在"1 亿 ~ 2 亿"的区间——既不会因流通枯竭而冷场，也不会因一次性放巨量而砸盘。</p>
+<blockquote>
+<p>注：上述"前期流通"为按释放模型的确定性估算（不含二级市场流转），实际流通还受设备激励发放速度（取决于网络采用）影响。所有拨付地址与释放曲线均写在代码与创世状态里，可链上核对（<code>q tokenomics allocations</code> 与 <code>q auth account &lt;地址&gt;</code> 即可验证）。</p>
+</blockquote>
+<h2 id="23">2.3 创世分配的执行顺序（为什么顺序至关重要）</h2>
+<p>五池分配不是五个孤立的动作，它们有严格的先后依赖，写在 <code>x/tokenomics/keeper/genesis.go</code> 的 <code>InitGenesis</code> 里。<strong>tokenomics 的 InitGenesis 必须先于 depin 的 InitGenesis 执行</strong>，整个流程如下：</p>
+<ol>
+<li><strong>铸满总量</strong>——铸造 <code>TotalSupplyCap</code>（1e15 umc）到 tokenomics 模块账户，这是唯一一次铸币。</li>
+<li><strong>团队 vesting + 转账</strong>——为团队多签地址创建 vesting 账户（含 cliff 与线性释放曲线），并把 12% 转入。</li>
+<li><strong>设备激励整池注入 depin</strong>——把 55%（5.5e14 umc）全额转入 depin 模块账户，并断言这个金额恰好等于 <code>DepinInitialPoolSlice</code>（防漂移）。</li>
+<li><strong>质押安全 / 基金会 / 早期开发 三池拨付</strong>——质押安全 15% 转入 <code>staking_security</code> 模块账户；基金会 13% 拆分为「运营流动地址（T0 即时 5000 万）」+「2 年期线性释放地址（8000 万）」；早期开发 5% 全额转入开发资助地址（T0 可支出）。</li>
+</ol>
+<p>顺序错了会怎样？如果 depin 先于 tokenomics 初始化，depin 模块账户还没拿到那 5.5 亿 MC，它对"金库余额"的假设就会落空。因此这个顺序在代码里有<strong>显式断言</strong>保护，任何调整模块初始化顺序的改动，都会在测试或创世时立刻暴露。</p>
+<h2 id="24">2.4 这套经济模型经过了端到端验证</h2>
+<p>代币经济不能只停留在纸面。上述五池模型已经过完整的端到端验证：</p>
+<ul>
+<li><code>go build ./...</code>、<code>go vet ./...</code> 全绿；</li>
+<li><code>x/tokenomics</code>、<code>x/depin</code>、<code>app</code> 的单元测试全部通过；</li>
+<li>真实执行 <code>mcchaind init</code> + <code>validate-genesis</code> 通过；</li>
+<li><strong>真实启动链并出块</strong>：链上查询确认 <code>bank total = 1e15 umc</code>（无双重铸币）、<code>depin.initial_pool = 5.5e14</code>、<code>tokenomics minted_supply = cap = 1e15</code>、五池余额与团队 vesting 均符合设计。</li>
+</ul>
+<p>也就是说，本章描述的一切，不是设想，而是一条真实跑起来、出过块、被查询验证过的链的实际状态。</p>
+<hr>
+<h1 id="gas">第三章　系统费用（Gas 与手续费）</h1>
+<p>一条链的费用模型，决定了它如何抵御垃圾交易、如何激励验证人、以及普通用户使用它的成本。</p>
+<h2 id="31">3.1 为什么需要费用</h2>
+<p>在一条公开、无准入的链上，如果交易免费，任何人都可以用海量垃圾交易淹没网络（DoS 攻击）。费用（Gas）的第一作用，是给每一笔交易标一个"价格"，让攻击的成本高到不可承受。第二作用，是把这笔费用作为收入，激励验证人打包、验证、出块。</p>
+<p>MC 沿用 Cosmos SDK 成熟的 Gas 计费模型：每一笔交易根据它消耗的计算与存储资源，折算成 Gas 单位，再乘以 Gas 单价（以 umc 计价），得到手续费。用户在发交易时可以设置 Gas 上限与单价，验证人优先打包出价更高的交易。</p>
+<h2 id="32">3.2 费用如何回流到安全池</h2>
+<p>这是 MC 费用模型与"零通胀"设计的关键咬合点。</p>
+<p>在通胀型链上，验证人的主要收入是增发的区块奖励，手续费只是零头。但 MC 没有增发，所以<strong>手续费在 MC 的经济中扮演着远比一般链更重要的角色</strong>：它是长期维持网络安全的核心补充来源。</p>
+<p>MC 的设计是：<strong>手续费净收入回流质押安全池</strong>（第 2.2.2 节的机制 2）。这意味着：</p>
+<ul>
+<li>链被使用得越多，手续费越多，质押安全池被补充得越厚；</li>
+<li>质押安全池越厚，能滴灌给验证人的激励越持久；</li>
+<li>验证人激励越持久，网络越安全，越多人愿意在链上做真实的事；</li>
+<li>于是形成正循环：<strong>使用 → 费用 → 安全 → 更多使用。</strong></li>
+</ul>
+<p>这条循环，替代了通胀型链"增发 → 稀释 → 养安全"的老路。MC 不靠稀释所有持币者来养安全，而是靠真实使用产生的费用来养安全——<strong>用得越多的人，为安全贡献越多，这更公平。</strong></p>
+<h2 id="33">3.3 早期费用几乎为零怎么办</h2>
+<p>诚实地说：一条新链早期交易稀少，手续费收入几乎可以忽略。这正是第 2.2.2 节质押安全池存在的理由——<strong>在手续费还养不起验证人的启动期，由预留的 15% 安全池顶上；随着链被使用起来，手续费逐渐接棒。</strong> 两者的交接，就是 MC 从"启动期"走向"成熟期"的经济标志（详见第二十章发展阶段）。</p>
+<h2 id="34">3.4 最低自抵押：谁能当验证人</h2>
+<p>费用之外，MC 对"谁能成为验证人"设了一道链级门槛，写在 <code>app/ante.go</code> 里：</p>
+<pre><code>// app/ante.go
+// 3e10 umc == 30_000 MC == 30k MC
+const MinSelfDelegationLowerBound = 30_000_000_000 // umc = 30k MC
+</code></pre>
+<p>任何创建验证人（或编辑验证人）的交易，如果其"最低自抵押（MinSelfDelegation）"低于 <strong>3 万 MC（3e10 umc）</strong>，都会被 ante 处理器直接拒绝。</p>
+<p>这道门槛的意义：</p>
+<ul>
+<li><strong>防女巫</strong>——阻止有人用极小的自抵押批量注册大量验证人来操纵网络。</li>
+<li><strong>责任绑定</strong>——验证人必须拿出真金白银自抵押，才有资格为网络背书；作恶时这笔自抵押会被罚没，形成有效威慑。</li>
+<li><strong>注意区分</strong>——这是"验证人"的门槛（3 万 MC），不是"手机节点参与设备激励"的门槛。普通用户用手机参与 DePIN 设备激励，<strong>不需要</strong> 3 万 MC；那是完全不同的两套参与路径（详见第六章）。</li>
+</ul>
+<p>这道门槛是全链统一强制的（chain-wide enforced），不是某个验证人的自选项，任何人都无法绕过。</p>
+<hr>
+<h1 id="_7">第四章　核心功能总览</h1>
+<p>MC 是一条模块化的应用链。它的能力，由五个各司其职、可独立审计的链上模块构成。理解这五个模块，就理解了 MC 的全貌。本章先给出鸟瞰，后续章节再逐一深入。</p>
+<h2 id="41">4.1 五大模块</h2>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>源码路径</th>
+<th>职责</th>
+<th>详见</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>mcchain</strong></td>
+<td><code>x/mcchain</code></td>
+<td>系统锚点模块，承载链级基础参数与系统级协调</td>
+<td>第 4.2 节</td>
+</tr>
+<tr>
+<td><strong>tokenomics</strong></td>
+<td><code>x/tokenomics</code></td>
+<td>代币经济：总量上限、五池分配、团队 vesting、分配查询</td>
+<td>第二章</td>
+</tr>
+<tr>
+<td><strong>depin</strong></td>
+<td><code>x/depin</code></td>
+<td>设备激励：DePIN 奖励金库、按真实任务发放</td>
+<td>第十章</td>
+</tr>
+<tr>
+<td><strong>phonenode</strong></td>
+<td><code>x/phonenode</code></td>
+<td>手机节点安全：设备认证、女巫绑定、离线/作恶分级罚没</td>
+<td>第六、八章</td>
+</tr>
+<tr>
+<td><strong>edgeai</strong></td>
+<td><code>x/edgeai</code></td>
+<td>边缘 AI 算力：任务发布、托管付费、乐观结算与争议仲裁</td>
+<td>第十二、十三章</td>
+</tr>
+</tbody>
+</table>
+<p>这种"一个业务领域 = 一个模块"的划分，带来三个好处：</p>
+<ol>
+<li><strong>可单独审计</strong>——想审计代币分配，只看 tokenomics；想审计设备罚没，只看 phonenode。职责边界清晰，攻击面小。</li>
+<li><strong>可单独测试</strong>——每个模块都有自己的单元测试与仿真（simulation）操作，可以在不启动整条链的情况下验证其行为。</li>
+<li><strong>可独立演进</strong>——某个模块升级，不必牵动其它模块（只要保持接口稳定），降低了整条链的升级风险。</li>
+</ol>
+<h2 id="42-mcchain">4.2 mcchain：系统锚点模块</h2>
+<p><code>x/mcchain</code> 是链的"锚点"。它不是遗留的死代码，而是承载链级基础配置、并为其它模块提供系统级协调点的基础模块。它的存在保证了链有一个稳定的"根"，其它业务模块围绕它展开。（关于 mcchain 模块职责的详细澄清，见项目内 <code>docs/module_mcchain.md</code>。）</p>
+<h2 id="43">4.3 模块之间如何协作</h2>
+<p>五个模块不是孤岛，它们通过明确定义的跨模块接口协作。最典型的一条协作链路是<strong>代币从铸造到发到用户手里</strong>的全过程：</p>
+<pre><code>tokenomics（创世铸满 1e15 umc，切 55% 给 depin）
+        │
+        ▼
+depin（持有 5.5 亿 MC 金库，等待发放）
+        │  设备完成任务 + 通过 phonenode 认证
+        ▼
+phonenode（校验设备身份、认证有效期、是否被罚没）
+        │  认证通过
+        ▼
+depin（按任务逐笔把 MC 从金库发到设备所有者地址）
+</code></pre>
+<p>另一条典型链路是<strong>边缘 AI 的付费闭环</strong>（详见第十三章）：需求方在 edgeai 里发布任务并托管（escrow）赏金 → 算力方（通常是手机节点）接单、计算、提交结果 → 乐观结算期内无争议则 edgeai 把赏金从托管发给算力方；有争议则进入仲裁。</p>
+<p>跨模块转账在代码里统一用常量引用（例如 tokenomics 引用 <code>DepinModuleName</code> 常量，而非硬编码字符串 <code>"depin"</code>），保证编译期可查、不会因拼写漂移而出错。</p>
+<hr>
+<h1 id="_8">第五章　可扩展功能</h1>
+<p>第四章描述的是 MC 主网上线即具备的核心能力。本章描述的是在核心之上、可以随生态成长而逐步展开的可扩展能力。<strong>凡属规划中、尚未在主网实现的，本章一律明确标注"规划中"，绝不写成既成事实</strong>（这是"链上求真"原则的要求）。</p>
+<h2 id="51">5.1 已实现的可扩展性基础</h2>
+<ul>
+<li><strong>模块化可插拔</strong>（已实现）——基于 Cosmos SDK 的模块架构，新增一个业务能力，等于新增一个模块，不必重写全链。这本身就是最大的可扩展性。</li>
+<li><strong>链上参数治理</strong>（部分已实现）——phonenode、edgeai 的多数安全参数（罚没基点、争议期、反作弊阈值等）都设计为可通过治理调整的 params，而不是写死。总量上限等极少数"信任根"参数则刻意写死、不可治理，二者边界清晰。</li>
+<li><strong>gRPC 查询网关</strong>（已实现）——每个模块都暴露标准的 gRPC 查询接口，并通过 gRPC-gateway 提供 REST（LCD）访问，前端、浏览器、第三方工具都能只读查询链上状态。</li>
+</ul>
+<h2 id="52">5.2 规划中的可扩展方向</h2>
+<p>以下方向属于 MC 的演进蓝图，<strong>均为规划中，尚未在主网实现</strong>：</p>
+<ul>
+<li><strong>智能合约层（规划中）</strong>——见第十五章。当前 MC 的业务逻辑由原生模块承载；未来可评估引入 CosmWasm 等合约虚拟机，让第三方开发者部署自定义合约。</li>
+<li><strong>链下扩容 / 支付通道（规划中）</strong>——见第十八章。为高频、小额的设备激励与 AI 结算，探索链下通道与批量结算，降低主链负担。</li>
+<li><strong>跨链互操作（规划中）</strong>——基于 Cosmos 生态的 IBC（跨链通信协议），未来 MC 可与其它 Cosmos 链互通资产与消息。IBC 是 Cosmos SDK 的标准能力，MC 具备接入基础，但是否开启、何时开启，取决于生态需求与安全评估。</li>
+</ul>
+<p>我们把"规划中"写得如此明确，是因为白皮书最容易失信的地方，就是把"能做"写成"已做"。MC 宁可显得保守，也不越界承诺。</p>
+<hr>
+<h1 id="_9">第六章　手机全节点与设备身份</h1>
+<p>这是 MC 区别于绝大多数链的地方，也是"手机全节点"这句 slogan 能否兑现的技术核心。本章讲清楚：一部普通手机，如何安全地成为 MC 网络真实的一部分。</p>
+<h2 id="61">6.1 手机作为节点，难在哪里</h2>
+<p>把节点跑在手机上，听起来只是"换个设备"，实则要面对服务器节点从来不必面对的三重难题：</p>
+<ol>
+<li><strong>不总是在线</strong>——手机会锁屏、会进地铁没信号、会没电关机。一个动辄要求 24×7 在线的节点模型，在手机上根本不成立。</li>
+<li><strong>极易被伪造与批量刷量</strong>——一台服务器可以用软件模拟出成千上万个"虚拟手机"，如果链无法区分真机与模拟器，设备激励池会瞬间被脚本薅空。这就是"女巫攻击（Sybil Attack）"。</li>
+<li><strong>算力与带宽有限</strong>——手机不能承担和数据中心一样重的验证负载。</li>
+</ol>
+<p>MC 的 <code>phonenode</code> 模块，就是专门为解决这三重难题而设计的。它不假装手机是服务器，而是<strong>接受手机的特性，并围绕这些特性设计安全规则</strong>。</p>
+<h2 id="62-attestation">6.2 设备身份与认证（Attestation）</h2>
+<p>MC 要求参与设备激励的手机节点，必须持有有效的<strong>设备认证（Attestation）</strong>——一份证明"我是一台真实的、可信的设备"的凭证。</p>
+<ul>
+<li><strong>认证是必需的</strong>（<code>AttestationRequired = true</code>）——没有有效认证的设备，不能参与设备激励。这从源头上挡住了裸的模拟器与脚本。</li>
+<li><strong>认证有有效期</strong>（`AttestationValidity = 86400 × 30 = 2,592,000 秒 = 30 天）——一份认证只在 30 天内有效，过期必须重新认证。这防止了"一次认证、永久薅羊毛"，也让被盗用/被伪造的认证有一个自然的失效窗口。</li>
+</ul>
+<p>为什么是 30 天？太短（如 1 天）会让真实用户频繁重认证、体验糟糕；太长（如 1 年）会让伪造认证的收益窗口过大。30 天是安全性与用户体验之间的平衡点，且它是一个可治理调整的参数，未来可根据实际攻防情况优化。</p>
+<h2 id="63-sybil-device-binding">6.3 女巫设备绑定（Sybil Device Binding）</h2>
+<p><code>SybilDeviceBinding = true</code> 是 MC 对抗批量刷量的关键开关。</p>
+<p>开启后，设备激励与<strong>设备身份</strong>强绑定——一个真实设备身份对应一份激励资格。想靠一台服务器模拟一万台手机来领一万份激励？每一个"虚拟设备"都需要通过认证、都需要独立的可信身份，伪造成本被大幅拉高。</p>
+<p>女巫绑定 + 认证有效期，构成 MC 防刷量的第一道与第二道防线。第三道防线是分级罚没（下一节）。</p>
+<h2 id="64">6.4 离线宽限与分级罚没</h2>
+<p>手机会离线，这是常态而非异常。MC 不粗暴地"一离线就罚"，而是设计了<strong>离线宽限期</strong>与<strong>分级罚没</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OfflineGraceBlocks</code></td>
+<td>100 区块</td>
+<td>离线宽限：连续离线在 100 区块以内不罚没</td>
+</tr>
+<tr>
+<td><code>OfflineSlashBps</code></td>
+<td>500（5%）</td>
+<td>超过宽限的离线，罚没 5%</td>
+</tr>
+<tr>
+<td><code>ContribSlashBps</code></td>
+<td>1000（10%）</td>
+<td>提交虚假 / 作弊贡献，罚没 10%</td>
+</tr>
+<tr>
+<td><code>AttestSlashBps</code></td>
+<td>2000（20%）</td>
+<td>伪造设备认证，罚没 20%</td>
+</tr>
+<tr>
+<td><code>SlashCooldownBlocks</code></td>
+<td>43200 区块（约 12 小时 @4 秒出块）</td>
+<td>被罚没后，需冷却 43200 区块才能重新认证</td>
+</tr>
+</tbody>
+</table>
+<p>这套分级罚没的逻辑非常清晰，体现了 MC 的价值判断：</p>
+<ul>
+<li><strong>离线不是罪，只是没贡献</strong>——所以宽限 100 区块，超出也只罚 5%，罚得最轻。地铁没信号、晚上关机，都不该被重罚。</li>
+<li><strong>作弊贡献是主动作恶</strong>——伪造任务贡献想骗激励，罚 10%，是离线的两倍。</li>
+<li><strong>伪造认证是最严重的欺诈</strong>——它攻击的是整个信任体系的根基，罚 20%，最重。</li>
+<li><strong>罚没后有冷却</strong>——被罚的设备需要冷却约 12 小时才能重新认证，防止作恶设备被罚后立刻改头换面卷土重来。</li>
+</ul>
+<p>所有罚没基点都受一个硬约束保护：<strong>任何 slash bps 都必须 ≤ 10000（即 100%）</strong>，代码里有校验，防止参数配置错误导致"罚没超过本金"这种荒谬情况。</p>
+<h2 id="65">6.5 手机节点 ≠ 验证人</h2>
+<p>必须再次强调一个容易混淆的点（第 3.4 节已提及）：</p>
+<ul>
+<li><strong>手机节点</strong>参与的是<strong>设备激励（DePIN）</strong>，通过 phonenode 认证 + depin 任务发放拿奖励，<strong>门槛极低</strong>，一部通过认证的手机即可。</li>
+<li><strong>验证人</strong>参与的是<strong>共识出块</strong>，需要至少 <strong>3 万 MC 的自抵押</strong>（第 3.4 节），门槛高、责任重。</li>
+</ul>
+<p>一部手机可以只做设备节点赚设备激励，也可以（若持有足够 MC）进一步成为验证人。两条路径独立，门槛不同，激励来源不同。MC 的普惠性，主要体现在前者——<strong>让没有 3 万 MC 的普通人，也能靠一部手机真实地参与并获得回报。</strong></p>
+<hr>
+<h1 id="_10">第七章　哲学理念</h1>
+<p>技术参数是骨架，理念是血液。本章不谈代码，只谈 MC 相信什么。</p>
+<h2 id="71">7.1 把能力交还给多数人</h2>
+<p>卷首语已经说过：文明的每一次跃迁，都是把少数人的能力交还给多数人。MC 的全部技术选择，都服务于这一条——<strong>把"成为一条公链真实一部分"这件事，从少数人（拥有矿机、服务器、巨额质押的人）手里，交还给多数人（拥有一部手机的人）。</strong></p>
+<p>固定总量，是为了让稀缺不被少数人操纵；手机全节点，是为了让参与不被硬件门槛垄断；设备激励占 55%，是为了让价值流向真实贡献者而非早期资本；一切参数写进代码，是为了让规则不被少数人暗箱修改。</p>
+<h2 id="72">7.2 信任来自代码，而非承诺</h2>
+<p>MC 反复强调"参数写代码、开源可审计"，背后是一个基本信念：</p>
+<blockquote>
+<p><strong>一个健康的系统，不应要求参与者去相信某个人或某个团队的善意，而应让规则本身值得信任。</strong></p>
+</blockquote>
+<p>"团队承诺不增发"是承诺，可以被违背；"总量上限是不可治理修改的链上常量"是代码，无法被悄悄违背。MC 尽可能把"需要相信人"的地方，替换成"只需相信代码"的地方。这不是因为我们不信任人，而是因为<strong>一个不依赖信任特定个人的系统，才是真正可以长存的系统。</strong></p>
+<h2 id="73">7.3 真实贡献，而非零和博弈</h2>
+<p>许多加密项目的本质是零和甚至负和博弈：一个人的收益来自另一个人的亏损，整个系统不产生任何真实价值，收益的唯一来源是后来者的本金。MC 从设计上拒绝这条路——</p>
+<ul>
+<li>设备激励来自<strong>真实的设备在线与任务完成</strong>；</li>
+<li>边缘 AI 收入来自<strong>真实的算力供给与需求方付费</strong>；</li>
+<li>网络安全的费用来自<strong>真实的链上使用</strong>。</li>
+</ul>
+<p>MC 希望每一枚流动的 MC，背后都对应着某种真实世界的贡献——一部手机的在线时长、一次 AI 推理的算力、一笔真实交易的价值。<strong>我们不做拉人头，因为拉人头创造不了任何真实价值。</strong></p>
+<h2 id="74">7.4 保守地承诺，诚实地表达</h2>
+<p>最后一条理念，关于这份白皮书本身。我们刻意把"规划中"和"已实现"分得很清，刻意让每个数字都对应一行代码，刻意在描述缺陷（如零通胀的安全缺口、早期费用为零）时不加掩饰。</p>
+<p>因为我们相信：<strong>一个项目的可信度，不在于它把未来描绘得多宏大，而在于它对现在描述得多诚实。</strong> 能被逐字审计的白皮书，配得上一条声称可被审计的链。</p>
+<hr>
+<h1 id="_11">第八章　认证与信任网络</h1>
+<p>第六章讲了单个手机节点如何被认证。本章把视角拉高，讲这些认证如何在整条链上编织成一张<strong>信任网络</strong>，以及这张网络如何自我维护。</p>
+<h2 id="81">8.1 信任的最小单元：一份可验证的认证</h2>
+<p>在 MC 里，信任不是一个模糊的社交概念，而是一个可被链上验证的状态。每一个想参与设备激励的手机节点，在链上都对应一个可查询的认证状态：它是否持有有效认证、认证何时过期、是否被绑定为唯一设备身份、是否处于罚没冷却期。</p>
+<p>这份状态是<strong>公开、可查询</strong>的——任何人都能通过 gRPC/REST 查询接口，读到某个设备节点当前的信任状态。信任不再藏在某个中心服务器的私有数据库里，而是摊在链上，人人可验。</p>
+<h2 id="82">8.2 信任网络如何自我净化</h2>
+<p>一张信任网络的价值，取决于它清除不可信节点的能力。MC 的信任网络通过第六章的分级罚没机制自我净化：</p>
+<ol>
+<li><strong>持续离线的节点</strong>——超过宽限期后被逐步罚没（5%），激励其回到在线状态或自然退出。</li>
+<li><strong>提交虚假贡献的节点</strong>——被罚没 10%，作弊越多、损失越大，直到无利可图。</li>
+<li><strong>伪造认证的节点</strong>——被罚没 20% 并进入约 12 小时冷却，这是对信任根基攻击的最强回击。</li>
+<li><strong>罚没回充</strong>——被罚没的代币不会凭空消失，而是回流质押安全池（第 2.2.2 节），变成对诚实节点与验证人的补贴。</li>
+</ol>
+<p>于是形成一个健康的动力学：<strong>作恶者的损失，变成诚实者的收益。</strong> 网络越被攻击，诚实参与者反而越受益，攻击本身在经济上不可持续。</p>
+<h2 id="83">8.3 认证有效期驱动的"活性"</h2>
+<p>30 天的认证有效期（第 6.2 节）还有一层深意：它让信任网络具备"活性"。一个设备如果长期不再重新认证，它的信任状态会自然过期、退出激励资格。这意味着信任网络里的成员，永远是那些<strong>近期真实活跃</strong>的设备，而不是历史上曾经认证过、如今早已离场的僵尸节点。信任网络因此始终反映网络的真实当下状态。</p>
+<h2 id="84">8.4 链下预言机在信任网络中的角色</h2>
+<p>某些认证与贡献的验证，涉及链下信息（例如设备的可信执行环境证明、任务结果的真实性）。MC 通过<strong>链下预言机服务（oracle service）</strong>把这些链下事实安全地喂给链上。</p>
+<p>这个预言机服务在安全上做了加固（Bearer 令牌鉴权 + 限流 + 可选 TLS），它的职责是：把链下可验证的事实，以受控、可审计的方式提交到链上，由链上模块据此更新信任状态或触发发放/罚没。预言机是链下世界与链上信任网络之间的桥，它本身也在"开源可审计"的约束之下。（关于预言机框架，见项目内 <code>docs/ORACLE_FRAMEWORK.md</code>。）</p>
+<hr>
+<h1 id="_12">第九章　产品设计</h1>
+<p>一条链再精巧，如果普通人用不起来，也无法兑现"交还给多数人"的承诺。本章讲 MC 在产品层面如何降低使用门槛。</p>
+<h2 id="91">9.1 设计原则：把复杂留给代码，把简单留给用户</h2>
+<p>MC 的产品设计遵循一条原则：<strong>链上逻辑可以很复杂（认证、罚没、托管、仲裁），但用户看到的操作必须尽量简单。</strong> 一个普通用户参与 MC，理想路径应该是：装一个 App / 用一个钱包 → 完成设备认证 → 保持在线并完成任务 → 领取设备激励。中间的女巫绑定、分级罚没、跨模块转账，都由代码在后台处理，用户无需理解。</p>
+<h2 id="92">9.2 已具备的产品组件</h2>
+<ul>
+<li><strong>命令行工具 <code>mcchaind</code></strong>（已实现）——链的核心二进制，支持初始化、创世、启动、以及各模块的交易与查询子命令。技术用户与节点运营者的主要入口。</li>
+<li><strong>Web 仪表盘</strong>（已实现，由协作方维护）——包含钱包与区块浏览器，普通用户可通过浏览器查询链状态、账户余额、各模块数据。</li>
+<li><strong>只读查询网关</strong>（已实现）——所有模块通过 gRPC-gateway 暴露 REST 接口（默认 LCD 端口），路径形如 <code>/mcchain/{edgeai,depin,phonenode,tokenomics,mcchain}/...</code>，第三方应用可直接集成。</li>
+<li><strong>交易助手</strong>（已实现）——对于 Web 端暂不便直接广播的自定义模块交易，前端会生成可复制的标准 <code>mcchaind tx ...</code> 命令，用户复制到本地执行即可，兼顾安全与可用。</li>
+<li><strong>钱包互操作</strong>（已实现基础）——链提供标准的 Keplr 链注册信息（<code>docs/keplr-chain-registry.json</code>），bech32 地址前缀为 <code>mc</code>（验证人 <code>mcvaloper</code>、共识 <code>mcvalcons</code>），SLIP-44 币种类型为 118，可接入 Cosmos 生态的通用钱包。</li>
+</ul>
+<h2 id="93-sdk">9.3 移动端 SDK 集成</h2>
+<p>为了让手机真正成为节点，MC 提供移动端 SDK 集成方案（见项目内 <code>docs/mobile_sdk_integration.md</code>），指导 App 开发者如何在移动端完成设备认证、保持节点活性、提交任务贡献、以及安全地管理密钥。这是"手机全节点"从链上能力落地到用户手中的最后一公里。</p>
+<h2 id="94">9.4 地址与命名规范</h2>
+<p>清晰的命名规范降低用户的认知负担与操作失误：</p>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>账户地址前缀</td>
+<td><code>mc</code>（例：<code>mc1...</code>）</td>
+</tr>
+<tr>
+<td>验证人操作地址前缀</td>
+<td><code>mcvaloper</code></td>
+</tr>
+<tr>
+<td>共识地址前缀</td>
+<td><code>mcvalcons</code></td>
+</tr>
+<tr>
+<td>主币单位</td>
+<td>MC（显示）/ umc（最小单位，精度 6）</td>
+</tr>
+<tr>
+<td>SLIP-44 CoinType</td>
+<td>118</td>
+</tr>
+<tr>
+<td>链标识</td>
+<td><code>mcchain-mainnet-1</code>（主网）/ <code>mcchain-testnet-1</code>（测试网）</td>
+</tr>
+</tbody>
+</table>
+<p>统一的前缀让用户一眼就能认出"这是一个 MC 地址"，减少跨链转错资产的风险。</p>
+<hr>
+<h1 id="depin">第十章　DePIN 设备激励与共振分发</h1>
+<p>这是 MC 的心脏。55% 的总量、全行业罕见的最大份额，都汇聚于此。本章讲清楚：这 5.5 亿 MC，究竟按什么规则、发给谁。</p>
+<h2 id="101-depin">10.1 什么是 DePIN</h2>
+<p>DePIN（Decentralized Physical Infrastructure Network，去中心化物理基础设施网络）指的是：<strong>用代币激励，协调现实世界中分散的物理设备，共同提供某种基础设施服务。</strong> 在 MC 这里，这些"分散的物理设备"就是全世界的智能手机，它们共同提供的"基础设施服务"包括：维持链的分布式在线、承接边缘 AI 算力、构成一张真实的去中心化设备网络。</p>
+<h2 id="102-depin">10.2 设备激励金库：depin 模块</h2>
+<p>第二章讲过，设备激励池不是一个抽象的比例，而是创世时全额注入 <code>depin</code> 模块账户的 <strong>5.5 亿 MC 真实金库</strong>。关于这个金库，有三个必须理解的事实：</p>
+<ol>
+<li><strong>depin 没有铸币权限</strong>——它不能凭空造币，只能从这 5.5 亿的存量里往外发。发一笔，金库少一笔。总量 10 亿的天花板因此绝对安全，设备激励永远不会突破 55% 这个上限。</li>
+<li><strong>发放对象是设备所有者地址</strong>——奖励发给完成任务、通过认证的设备背后的账户。</li>
+<li><strong>金库耗尽即止</strong>——当 5.5 亿全部按真实贡献发放完毕，设备激励的"预铸阶段"结束，后续激励转由手续费等真实收入支撑。这是一条有明确边界、不会无限印钞的激励曲线。</li>
+</ol>
+<p>金库的初始规模在代码里是硬约束：<code>RewardDenom = "umc"</code>，<code>InitialPool = 5.5e14 umc</code>，且必须等于 tokenomics 侧的 <code>DepinInitialPoolSlice</code>（第 2.2.1 节的防漂移断言）。</p>
+<h2 id="103">10.3 "共振分发"：让分发对应真实贡献</h2>
+<p>我们把 MC 的设备激励分发哲学称为<strong>共振分发（Resonance Distribution）</strong>——激励的节奏，应当与网络真实贡献的节奏"共振"，而不是与时间的机械流逝共振。</p>
+<p>具体而言，设备激励<strong>不是</strong>"每天/每区块无条件按人头撒币"，而是：</p>
+<ul>
+<li><strong>按真实任务发放</strong>——设备必须真实完成可验证的任务（在线证明、边缘 AI 推理等），才触发发放。没有任务，就没有发放。</li>
+<li><strong>通过认证才发放</strong>——发放前校验设备的认证有效性、女巫绑定、是否在罚没冷却期（调用 phonenode 的信任状态）。</li>
+<li><strong>线性摊薄，避免抛压</strong>——设计上采用多年线性的释放节奏（配合 6 个月 cliff），而非把 5.5 亿一次性砸向市场。这让早期参与者不会因巨量抛压而利益受损，也让激励能持续足够多年，覆盖网络从零到成熟的全过程。</li>
+</ul>
+<p>"共振"这个词的核心含义是：<strong>网络越活跃、真实贡献越多，激励的释放越充分；网络冷清、无真实贡献时，金库自动放缓消耗。</strong> 激励与真实价值同频共振，而非与投机同频。</p>
+<h2 id="104-55-mc">10.4 防刷量：5.5 亿 MC 的守门人</h2>
+<p>5.5 亿 MC 是巨大的诱惑，防刷量是这一模块的生命线。MC 的防线是多层叠加的（前几章已分别介绍，此处汇总）：</p>
+<table>
+<thead>
+<tr>
+<th>防线</th>
+<th>机制</th>
+<th>所在模块</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第一层：身份门槛</td>
+<td>必须持有效认证才能参与</td>
+<td>phonenode（<code>AttestationRequired</code>）</td>
+</tr>
+<tr>
+<td>第二层：唯一绑定</td>
+<td>女巫设备绑定，一真机一资格</td>
+<td>phonenode（<code>SybilDeviceBinding</code>）</td>
+</tr>
+<tr>
+<td>第三层：认证时效</td>
+<td>认证 30 天过期，缩小伪造收益窗口</td>
+<td>phonenode（<code>AttestationValidity</code>）</td>
+</tr>
+<tr>
+<td>第四层：任务证明</td>
+<td>必须完成可验证任务才发放</td>
+<td>depin</td>
+</tr>
+<tr>
+<td>第五层：分级罚没</td>
+<td>伪造认证罚 20%、作弊贡献罚 10%</td>
+<td>phonenode</td>
+</tr>
+<tr>
+<td>第六层：罚没冷却</td>
+<td>作恶后约 12 小时冷却，防卷土重来</td>
+<td>phonenode（<code>SlashCooldownBlocks</code>）</td>
+</tr>
+<tr>
+<td>第七层：预言机核验</td>
+<td>链下事实经受控预言机核验后上链</td>
+<td>oracle service</td>
+</tr>
+</tbody>
+</table>
+<p>任何想薅走设备激励的脚本，都必须同时突破这七层，而每突破一层的成本都在指数上升。这就是 MC 敢把 55% 交给设备激励的底气——<strong>门槛低是对真实用户而言，成本高是对作弊者而言。</strong></p>
+<h2 id="105">10.5 设备激励的经济可持续性</h2>
+<p>有人会问：5.5 亿发完之后呢？MC 的答案是一条清晰的接力：</p>
+<ul>
+<li><strong>启动期与成长期</strong>：设备激励主要由这 5.5 亿预铸金库支撑，把手机节点网络铺开。</li>
+<li><strong>成熟期</strong>：随着链被真实使用，边缘 AI 需求方付费、链上手续费等真实收入成为激励的新来源，预铸金库的耗尽与真实收入的增长自然交接。</li>
+</ul>
+<p>也就是说，预铸金库是"点火燃料"，真实经济活动是"持续供能"。MC 从不假装单靠预铸就能永动，而是设计了从预铸到真实收入的平滑过渡（详见第二十章）。</p>
+<hr>
+<h1 id="logo">第十一章　Logo 与命名的寓意</h1>
+<p>一个符号，是一个项目理念的浓缩。</p>
+<h2 id="111-mobilechain">11.1 "MobileChain"：名字即宣言</h2>
+<p>我们没有给项目起一个晦涩、故弄玄虚的名字。<strong>MobileChain——移动的链、手机的链</strong>——名字本身就是宣言：这是一条属于移动设备、属于每一个口袋里那部手机的链。简单、直白、可被任何人一秒理解，正如我们希望 MC 的参与门槛一样简单直白。</p>
+<p>MC 这个缩写，既是 MobileChain 的首字母，也是链上主币的代号。名与币统一，减少认知负担。</p>
+<h2 id="112">11.2 符号的三重寓意</h2>
+<p>MC 的品牌符号（Logo）承载三重寓意，与前文的理念一一对应：</p>
+<ol>
+<li><strong>移动（Mobility）</strong>——象征手机、象征"人人可随身携带的节点"，呼应"把能力交还给多数人"。</li>
+<li><strong>连接（Connection）</strong>——象征无数分散设备连成一张网络，呼应第八章的"信任网络"与第十章的"DePIN"。</li>
+<li><strong>恒定（Constancy）</strong>——象征 10 亿固定总量、零通胀的稀缺承诺，呼应第二章"稀缺是事实而非承诺"。</li>
+</ol>
+<h2 id="113">11.3 颜色与视觉语言</h2>
+<p>MC 的视觉语言追求<strong>清晰、克制、可信</strong>，而非炫技与浮夸。正如我们的白皮书拒绝把"能做"写成"已做"，我们的视觉也拒绝用华丽掩盖实质。一个可被审计的项目，它的每一处表达——从代码到文档到符号——都应当诚实、清晰、经得起端详。</p>
+<hr>
+<h1 id="ai-edgeai">第十二章　边缘 AI 算力网络（EdgeAI）</h1>
+<p>如果说 DePIN 让手机"在线"就有价值，那么 EdgeAI 让手机"计算"就有价值。这是 MC 把闲置设备算力变成真实收入的引擎，也是 MC 与真实 AI 算力需求接轨的入口。</p>
+<h2 id="121-ai">12.1 为什么把 AI 算力搬上链</h2>
+<p>两个趋势正在同时发生：</p>
+<ol>
+<li><strong>AI 推理需求爆发</strong>——大模型的推理、边缘侧的智能计算，需求呈指数增长。</li>
+<li><strong>算力供给高度集中</strong>——算力被少数云厂商掌握，价格高、门槛高、且是中心化的。</li>
+</ol>
+<p>与此同时，数十亿部手机的算力在绝大多数时间闲置。EdgeAI 的构想很直接：<strong>把分散的手机算力，组织成一个去中心化的边缘 AI 算力市场</strong>，让有算力的人（手机节点）把闲置算力卖给有需求的人（AI 任务发布方），双方在链上以可验证、可仲裁的方式成交。</p>
+<h2 id="122-edgeai">12.2 EdgeAI 的核心角色</h2>
+<p><code>x/edgeai</code> 模块围绕三类角色运转：</p>
+<ul>
+<li><strong>需求方（Requester）</strong>——发布 AI 推理任务，并为任务托管（escrow）赏金。</li>
+<li><strong>算力方（Worker）</strong>——通常是手机节点，接单、执行计算、提交结果，通过后领取赏金。</li>
+<li><strong>仲裁方（Arbitrator）</strong>——在需求方与算力方就结果发生争议时，做出裁决。仲裁方地址在部署时必须设为团队多签地址（<code>Arbitrator</code> 参数），未来可交由治理指定。</li>
+</ul>
+<h2 id="123">12.3 关键参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MaxTaskReward</code></td>
+<td>1,000,000,000 umc（1e9 umc = 1000 MC）</td>
+<td>单个任务赏金上限，防止异常巨额任务</td>
+</tr>
+<tr>
+<td><code>DisputePeriodBlocks</code></td>
+<td>100 区块</td>
+<td>争议窗口：结果提交后 100 区块内可发起争议</td>
+</tr>
+<tr>
+<td><code>AntiCheatThresholdBps</code></td>
+<td>5000（50%）</td>
+<td>反作弊阈值</td>
+</tr>
+<tr>
+<td><code>Arbitrator</code></td>
+<td>团队多签地址（部署时设定）</td>
+<td>争议裁决者</td>
+</tr>
+</tbody>
+</table>
+<p><code>MaxTaskReward</code> 设为 1000 MC 的上限，是为了在开放市场里防止单笔任务承载异常巨额资金（可能是错误或攻击），把单点风险控制在可接受范围。<code>AntiCheatThresholdBps = 50%</code> 是判定算力方结果是否可信的阈值旋钮，防止算力方用低质量或伪造的结果骗取赏金。所有 bps 参数同样受 ≤ 10000 的硬约束保护。</p>
+<h2 id="124-escrow">12.4 托管付费（Escrow）：需求方先锁钱</h2>
+<p>EdgeAI 采用<strong>需求方付费的托管模型</strong>，这是保证市场公平的基石：</p>
+<ol>
+<li>需求方发布任务时，赏金<strong>当即被托管</strong>在链上（escrow），锁定，需求方无法反悔赖账。</li>
+<li>算力方看到"钱已经锁在链上"，才愿意投入算力去计算——它不必担心算完了拿不到钱。</li>
+<li>计算完成、结果通过、争议期平安度过后，托管的赏金<strong>从链上自动发放</strong>给算力方。</li>
+</ol>
+<p>托管模型解决了一切劳务市场的根本信任问题——<strong>先干活还是先付钱</strong>。在 MC，答案是：钱先锁进链上托管，干完活由代码放钱，双方都不必信任对方，只需信任托管合约。</p>
+<hr>
+<h1 id="_13">第十三章　争议仲裁与乐观结算</h1>
+<p>有交易就会有纠纷。EdgeAI 如何在"尽量自动、尽量便宜"和"出了纠纷有公正裁决"之间取得平衡？答案是<strong>乐观结算 + 争议仲裁</strong>。</p>
+<h2 id="131">13.1 什么是乐观结算</h2>
+<p>"乐观（Optimistic）"的含义是：<strong>默认相信结果是诚实的，除非有人在争议期内提出异议。</strong></p>
+<ul>
+<li>算力方提交结果后，进入 <code>DisputePeriodBlocks = 100</code> 区块的争议窗口。</li>
+<li>在这 100 区块内，如果<strong>没有人</strong>发起争议，系统就"乐观地"认定结果有效，赏金自动从托管发给算力方。</li>
+<li>只有当有人在窗口内发起争议时，才启动相对昂贵的仲裁流程。</li>
+</ul>
+<p>乐观结算的好处是效率：<strong>绝大多数诚实的任务，走的是"零争议、自动结算"的快车道，不消耗任何仲裁资源。</strong> 只有极少数有争议的任务，才进入慢车道。这让整个市场既便宜又快，同时保留了对抗作恶的能力。</p>
+<h2 id="132">13.2 争议如何发起与裁决</h2>
+<ul>
+<li><strong>发起争议</strong>——需求方（或其它有权方）如果认为算力方提交的结果是伪造、低质或作弊的，可在争议窗口内发起争议。</li>
+<li><strong>仲裁裁决</strong>——争议由仲裁方（部署时为团队多签，未来可治理化）依据链上证据裁决：结果有效则赏金归算力方；结果无效则赏金退回需求方，作弊的算力方还可能触发相应罚没。</li>
+<li><strong>反作弊阈值</strong>——<code>AntiCheatThresholdBps = 50%</code> 在裁决中作为判定结果可信度的关键旋钮，把"明显作弊"与"诚实但有分歧"区分开。</li>
+</ul>
+<h2 id="133">13.3 结果与争议全程可查</h2>
+<p>EdgeAI 的任务（tasks）、结果（results）、争议（disputes）状态全部上链、可查询。前端通过 REST 查询接口即可读取这些数据（返回为 JSON 结构），任何人都能审计某个任务从发布、接单、提交结果、到结算或争议的完整生命周期。<strong>透明是最好的反作弊</strong>——当每一步都被记录在公开账本上，作弊者无处遁形。</p>
+<h2 id="134-edgeai">13.4 EdgeAI 的更大意义</h2>
+<p>EdgeAI 不只是一个赚零花钱的功能，它承载着 MC 更大的野心：<strong>成为设备激励从"预铸金库"过渡到"真实收入"的关键桥梁。</strong> 当 EdgeAI 的需求方付费形成规模，手机节点的收入就不再只依赖 depin 那 5.5 亿的预铸金库，而是有了源源不断的、来自真实 AI 算力需求的现金流。这正是第 10.5 节所说"从预铸到真实收入平滑过渡"的核心引擎之一。</p>
+<hr>
+<h1 id="_14">第十四章　验证人与主节点</h1>
+<p>设备节点维系网络的"广度"（分布式在线），验证人维系网络的"安全"（共识出块）。本章讲 MC 的验证人体系，以及零通胀下如何养活它。</p>
+<h2 id="141">14.1 验证人的职责</h2>
+<p>MC 基于 CometBFT（v0.37.6）的 BFT 共识运行。验证人（Validator）负责：提议区块、投票、达成共识、把交易写入不可篡改的账本。验证人集合的诚实与活跃，直接决定了链的安全。作为回报，验证人获得手续费分成与质押安全池的滴灌激励。</p>
+<h2 id="142">14.2 成为验证人的门槛</h2>
+<p>如第 3.4 节所述，MC 在 <code>app/ante.go</code> 里强制了一道全链统一的门槛：</p>
+<blockquote>
+<p><strong>验证人的最低自抵押（MinSelfDelegation）不得低于 3 万 MC（3e10 umc）。</strong></p>
+</blockquote>
+<p>任何低于此门槛的建/改验证人交易都会被直接拒绝。这道门槛：</p>
+<ul>
+<li>确保验证人有足够的"皮肤在游戏里（skin in the game）"——作恶时罚没的自抵押足以形成威慑；</li>
+<li>防止用极小自抵押批量注册验证人操纵网络（女巫）；</li>
+<li>与"设备节点低门槛"形成鲜明对照：<strong>MC 对'参与广度'极度包容（一部手机即可），对'安全责任'极度严格（3 万 MC 自抵押）。</strong> 广度靠人多，安全靠责任重，二者用两套完全不同的门槛分别保障。</li>
+</ul>
+<h2 id="143">14.3 零通胀下如何养活验证人（核心难题的完整回答）</h2>
+<p>这是全白皮书里 MC 与传统链分歧最大、也最值得反复讲清的一点。</p>
+<p><strong>传统通胀链的做法</strong>：不断增发新币作为区块奖励发给验证人。代价是所有持币者被持续稀释——你什么都没做，手里的币占比却在变小，相当于全体持币人在给验证人发工资。</p>
+<p><strong>MC 零通胀的做法</strong>：不增发一枚，改用三条腿养安全：</p>
+<ol>
+<li><strong>预铸的质押安全池（15% = 1.5 亿 MC）</strong>——启动期主力。经治理按计划滴灌给验证人，把网络从"手续费为零"的脆弱早期扶过去。</li>
+<li><strong>手续费回流（第三章）</strong>——成熟期主力。链上使用产生的手续费净值回流质押安全池，链越被用，安全越厚。使用者为安全买单，而非全体持币者被稀释。</li>
+<li><strong>罚没回充（第八章）</strong>——健康度调节。作恶被罚没的代币回流安全池，让作恶补贴诚实。</li>
+</ol>
+<p>三条腿的接力逻辑：<strong>启动期靠第 1 条撑住，成熟期靠第 2 条接棒，第 3 条全程微调。</strong> 于是 MC 实现了一件看似矛盾的事——<strong>既零通胀（不稀释任何人），又能长期维持验证人激励（网络持续安全）。</strong> 这不是靠魔法，而是靠"预留 + 回流"这套清醒的工程设计。</p>
+<h2 id="144">14.4 手机能不能当验证人</h2>
+<p>技术上，只要一台设备满足验证人的资源要求并质押够 3 万 MC，它就能成为验证人。但现实里，验证人对稳定在线、算力、带宽的要求高于普通设备节点，因此<strong>验证人通常由资源更充足的节点承担，普通手机更适合做设备节点赚设备激励</strong>。MC 不禁止手机当验证人，但也不假装每部手机都该去当验证人——<strong>让合适的设备做合适的事</strong>，才是健康的网络分工。</p>
+<hr>
+<h1 id="_15">第十五章　智能合约（规划中）</h1>
+<p>本章描述的能力<strong>属于规划中，尚未在 MC 主网实现</strong>。按照"链上求真"原则，我们把现状与规划分得很清。</p>
+<h2 id="151">15.1 现状：原生模块承载业务逻辑</h2>
+<p>当前，MC 的所有业务逻辑（代币经济、设备激励、节点安全、边缘 AI）都由<strong>原生 Go 模块</strong>实现。相比通用智能合约，原生模块的优势是：性能更高、可深度定制、安全边界更清晰、每个模块都能被单独审计与测试。对于 MC 目前聚焦的"手机全节点 + DePIN + 边缘 AI"这几件核心事，原生模块是更稳、更可控的选择。</p>
+<h2 id="152">15.2 规划：可评估引入合约虚拟机</h2>
+<p>随着生态成长，第三方开发者可能希望在 MC 上部署自定义逻辑（例如基于 MC 资产的应用、面向特定行业的业务合约）。为此，MC <strong>规划中</strong>评估引入合约虚拟机（如 Cosmos 生态成熟的 CosmWasm）。</p>
+<p>若未来引入，其设计将遵守 MC 一贯原则：</p>
+<ul>
+<li>合约层不得破坏总量上限与五池分配这些"信任根"；</li>
+<li>合约的部署与关键权限应受治理约束；</li>
+<li>引入前必须经过充分的安全评估与社区讨论。</li>
+</ul>
+<p>我们再次强调：<strong>这一切目前都是规划，主网当前不支持第三方智能合约。</strong> 何时、是否引入，取决于生态真实需求与安全评估，而非市场炒作。</p>
+<hr>
+<h1 id="_16">第十六章　去中心化治理与投票</h1>
+<p>一条链最终应当属于它的社区，而不是它的创始团队。治理，就是把控制权从后者交给前者的制度装置。</p>
+<h2 id="161">16.1 治理的对象</h2>
+<p>MC 的治理，围绕几类决策展开：</p>
+<ul>
+<li><strong>可治理参数的调整</strong>——phonenode 的罚没基点与认证有效期、edgeai 的争议期与反作弊阈值、质押安全池的滴灌计划等，都设计为可通过治理提案调整的参数。</li>
+<li><strong>基金会资金的动用</strong>——13% 基金会池的每一笔动用，都应经治理提案与社区投票（第 2.2.4、十九章）。</li>
+<li><strong>网络升级与重大变更</strong>——协议升级、模块新增等重大事项，由治理决定。</li>
+</ul>
+<h2 id="162">16.2 治理的边界：什么可以改，什么永远不能改</h2>
+<p>MC 刻意在"可治理"与"不可治理"之间划了一条清晰的红线，这条线本身就是对社区的保护：</p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>例子</th>
+<th>可否治理修改</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>信任根参数</strong></td>
+<td>总量上限 <code>TotalSupplyCap</code>（10 亿）</td>
+<td><strong>不可</strong>——写死为链上常量，改它需硬分叉</td>
+</tr>
+<tr>
+<td><strong>安全参数</strong></td>
+<td>罚没基点、认证有效期、争议期</td>
+<td>可——通过治理提案调整</td>
+</tr>
+<tr>
+<td><strong>资金动用</strong></td>
+<td>基金会池支出</td>
+<td>可——需治理提案 + 投票</td>
+</tr>
+<tr>
+<td><strong>协议演进</strong></td>
+<td>模块升级、参数优化</td>
+<td>可——需治理批准</td>
+</tr>
+</tbody>
+</table>
+<p>这条红线的意义：<strong>有些东西必须能变（否则链无法适应现实），但有些东西必须永不能变（否则稀缺承诺就是空话）。</strong> 把总量上限放在"永不能变"这一侧，是 MC 对所有持币者最硬的承诺——<strong>即便未来治理被某方影响，它也无法悄悄增发稀释你。</strong></p>
+<h2 id="163">16.3 共识共生的治理</h2>
+<p>MC 的治理是"一份质押一份权重"的链上投票，而非任何形式的拉人头。投票权来自你在网络中真实的利益绑定（质押的 MC），这让最关心网络长期健康的人，拥有最大的话语权。我们拒绝任何"拉来越多人投票权越大"的设计——那只会把治理变成又一个人头游戏。</p>
+<h2 id="164">16.4 治理的渐进移交</h2>
+<p>MC 不会在第一天就把所有治理权抛给一个尚未成熟的社区（那可能导致混乱或被攻击），也不会永远把治理权攥在团队手里（那违背去中心化）。MC 采用<strong>渐进移交</strong>：早期团队多签承担较多协调职责（如 edgeai 仲裁方、部分参数管理），随着社区成熟，这些职责逐步、可验证地移交给链上治理。这条移交路径本身，将在发展阶段（第二十章）与自治社区（第二十一章）中详细展开。</p>
+<hr>
+<h1 id="_17">第十七章　区块浏览器与生态工具</h1>
+<p>透明不能只停留在"数据在链上"，还要停留在"人人查得到"。区块浏览器与生态工具，是把链上透明兑现为大众可用的关键。</p>
+<h2 id="171">17.1 区块浏览器</h2>
+<p>MC 提供 Web 端区块浏览器（已实现，随 Web 仪表盘一起交付），任何人无需运行节点，就能查询：区块与交易、账户余额、验证人集合与质押状态、以及五大模块的业务数据（代币五池分配与余额、depin 金库状态、phonenode 设备认证状态、edgeai 任务/结果/争议）。</p>
+<p>浏览器背后是每个模块暴露的 gRPC-gateway REST 接口。这意味着浏览器不是一个需要被信任的"官方数据源"，而只是链上公开数据的一层可视化——任何人都可以自建浏览器、自行查询同一份链上数据并交叉验证。<strong>真正的透明，是任何人都能独立验证，而不是依赖某个官方页面。</strong></p>
+<h2 id="172">17.2 钱包</h2>
+<p>MC 的钱包能力分两层：</p>
+<ul>
+<li><strong>通用钱包互操作</strong>（已实现基础）——通过标准 Keplr 链注册信息接入 Cosmos 生态通用钱包，用户可用熟悉的钱包管理 MC 资产、发起标准交易。</li>
+<li><strong>Web 仪表盘内置钱包</strong>（已实现）——面向普通用户的轻量入口，查询余额、发起基础操作。对暂不便直接广播的自定义模块交易，通过"交易助手"生成可复制的 CLI 命令（第 9.2 节）。</li>
+</ul>
+<h2 id="173">17.3 面向开发者与运营者的工具</h2>
+<ul>
+<li><strong><code>mcchaind</code> CLI</strong>——完整的节点与交易工具。</li>
+<li><strong>事件订阅器（event-subscriber）</strong>——订阅链上事件并做指标导出与持久化，供监控与数据分析使用。</li>
+<li><strong>业务指标 exporter</strong>——把各模块的关键业务指标（如设备发放、认证数量、任务量）导出到监控系统，让节点运营者实时掌握网络健康度。</li>
+<li><strong>完整的开发与部署文档</strong>——包括手动 proto 生成、部署 runbook、主网上线检查清单等（见项目 <code>docs/</code> 目录），让第三方也能独立构建、审计、部署 MC。</li>
+</ul>
+<p>工具的完备程度，反映一个项目对"可被他人独立验证"这件事的认真程度。MC 把工具链与文档尽量补齐，正是为了让"开源可审计"从口号变成任何人都能实际执行的操作。</p>
+<hr>
+<h1 id="_18">第十八章　链下服务与预言机</h1>
+<p>区块链擅长记录与验证，但它无法直接感知链下世界。链下服务，是链与现实之间的受控通道。</p>
+<h2 id="181">18.1 为什么需要链下服务</h2>
+<p>MC 的许多核心判断依赖链下事实：一台设备是否真实在线、一次 AI 推理是否真实完成、一份设备认证是否可信。这些事实产生于链下，必须以安全、可审计的方式被引入链上。</p>
+<h2 id="182">18.2 预言机服务的安全加固</h2>
+<p>MC 的链下预言机服务（oracle service）在安全上做了实打实的加固：</p>
+<ul>
+<li><strong>Bearer 令牌鉴权</strong>——只有持有效令牌的合法数据源才能提交，防止任意第三方伪造喂价。</li>
+<li><strong>限流（rate limiting）</strong>——防止高频恶意提交淹没服务。</li>
+<li><strong>可选 TLS</strong>——传输层加密，防止链下数据在提交途中被窃听或篡改。</li>
+</ul>
+<p>预言机的角色边界很清楚：<strong>它只把链下可验证的事实以受控方式提交上链，最终的发放、罚没、结算判定仍由链上模块按写死的规则执行。</strong> 预言机不是"权力中心"，而是"受约束的信使"。</p>
+<h2 id="183">18.3 链下扩容（规划中）</h2>
+<p>对于设备激励与 AI 结算这类高频、小额的场景，把每一笔都上主链既昂贵又拥堵。MC <strong>规划中</strong>探索链下通道与批量结算：在链下高频交互、周期性地把净结果批量结算上链，兼顾效率与安全。这属于规划方向，尚未在主网实现，其设计将确保链下交互的最终结算仍由链上托管与规则保证公平。</p>
+<hr>
+<h1 id="_19">第十九章　初始生态建设基金</h1>
+<p>一条链的早期，最缺的不是愿景，而是把愿景推向现实的资源。初始生态建设基金，就是 MC 为这段最艰难的早期准备的燃料。</p>
+<h2 id="191-13">19.1 资金来源：基金会池（13%）</h2>
+<p>初始生态建设基金主要来自第 2.2.4 节的<strong>基金会池（13% = 1.3 亿 MC）</strong>。它专用于 MC 生态的长期运营与战略建设，包括但不限于：</p>
+<ul>
+<li><strong>开发者激励与生态 grant</strong>——资助在 MC 上做真实建设的开发者、工具作者、集成方。</li>
+<li><strong>安全审计</strong>——持续为核心模块与关键升级支付第三方安全审计，这是"可审计"原则的资金保障。</li>
+<li><strong>移动端与基础设施建设</strong>——支持手机端 SDK、钱包、浏览器等基础设施的持续开发。</li>
+<li><strong>社区教育与运营</strong>——帮助普通用户理解并安全地参与 MC。</li>
+</ul>
+<h2 id="192">19.2 铁规：每一笔动用都上链治理</h2>
+<p>第 2.2.4、十六章已强调，此处再次立此存照：<strong>基金会池的每一笔动用，都应经链上治理提案与社区投票。</strong> 一个不受治理约束的集中金库，无论初衷多好，都违反 MC 的"开源可审计"原则。把 13% 的动用权交给治理，意味着这笔钱最终属于社区、服务社区、并由社区监督——它是"初始生态建设基金"，而非"团队小金库"。</p>
+<h2 id="193">19.3 早期开发池的配合</h2>
+<p>除基金会池外，5% 的早期开发池（第 2.2.5 节）精准奖励主网前后做出实质贡献的核心建设者。二者分工：<strong>基金会池面向未来的、需治理决策的生态支出；早期开发池面向已发生的、可明确归因的早期贡献。</strong> 一前一后，覆盖生态建设的两端。</p>
+<hr>
+<h1 id="_20">第二十章　发展阶段</h1>
+<p>MC 不相信"一步到位"，只相信"分阶段、可验证地推进"。本章描述 MC 从启动到成熟的三个阶段，每个阶段都有清晰的经济与网络标志。</p>
+<h2 id="201-12">20.1 第一阶段：启动期（约第 1~2 年）</h2>
+<p><strong>关键词：铺开网络、扶住安全。</strong></p>
+<ul>
+<li><strong>设备激励</strong>：depin 的 5.5 亿预铸金库开始按真实任务发放，首要目标是把手机节点网络在全球铺开，形成规模。</li>
+<li><strong>网络安全</strong>：链上交易稀少、手续费近乎为零，验证人激励几乎 100% 靠质押安全池（15%）滴灌。这是安全池存在的核心理由。</li>
+<li><strong>验证人形态</strong>：可能从少数验证人（甚至创世期的原始节点）起步，逐步吸纳更多满足 3 万 MC 门槛的验证人加入。</li>
+<li><strong>治理</strong>：团队多签承担较多协调职责（如 edgeai 仲裁），基金会开始经治理拨付首批生态 grant。</li>
+</ul>
+<blockquote>
+<p>诚实提示：启动期的原始/少数验证人网络，其去中心化程度尚不充分。MC 不掩饰这一点——去中心化是一个需要时间达成的目标，而非上线即完成的状态。第一阶段的任务，正是为后续的去中心化打好网络与安全的地基。</p>
+</blockquote>
+<h2 id="202-3">20.2 第二阶段：网络效应期（约第 3 年）</h2>
+<p><strong>关键词：真实收入接棒、治理移交。</strong></p>
+<ul>
+<li><strong>设备激励</strong>：手机节点网络已成规模，EdgeAI 的真实任务开始产生需求方付费，设备节点收入从"纯预铸"向"预铸 + 真实收入"过渡；预铸金库持续线性摊薄。</li>
+<li><strong>网络安全</strong>：链上活动增多，手续费回流开始为质押安全池补血，安全的资金来源从"纯预留"向"预留 + 手续费"过渡。</li>
+<li><strong>验证人形态</strong>：验证人集合扩大、去中心化程度提升。</li>
+<li><strong>治理</strong>：治理逐步、可验证地从团队多签接管更多职责（参数管理、基金会支出、仲裁方指定等）。</li>
+</ul>
+<h2 id="203-45">20.3 第三阶段：成熟期（约第 4~5 年及以后）</h2>
+<p><strong>关键词：真实经济双轮驱动、社区自治。</strong></p>
+<ul>
+<li><strong>设备激励</strong>：预铸金库进入尾声，设备节点收入主要来自 EdgeAI 等真实经济活动，"手机全节点"的定位由真实现金流坐实。</li>
+<li><strong>网络安全</strong>：手续费成为质押安全的重要支柱，质押安全池 + 手续费"双轮驱动"，零通胀的可持续安全模型完全成立。</li>
+<li><strong>治理</strong>：治理基本由社区通过链上投票主导，团队回归"普通参与者 + 建设者"角色，MC 成为一个真正的去中心化自治网络（第二十一章）。</li>
+</ul>
+<h2 id="204">20.4 阶段之间没有硬边界</h2>
+<p>需要说明：上述"1~2 年""第 3 年"是节奏示意，不是承诺的时间表。真实的推进速度取决于网络采用、生态建设与安全状况。MC 用"标志性事件"（如手续费首次超过安全池滴灌、治理首次自主通过基金会支出）而非"日历日期"来判断阶段跃迁——<strong>用真实进展说话，而非用时间表画饼。</strong></p>
+<hr>
+<h1 id="_21">第二十一章　去中心化自治社区</h1>
+<p>一条链的终点，不是一个成功的公司，而是一个不再需要任何单一主体的自治网络。</p>
+<h2 id="211">21.1 从团队驱动到社区自治</h2>
+<p>MC 的长期方向非常明确：<strong>团队应当逐渐让位于社区。</strong> 这不是一句客套，而是由治理红线（第十六章）与渐进移交路径（第 16.4、二十章）共同保证的结构性安排。当以下条件逐步满足时，MC 就越来越接近真正的自治：</p>
+<ul>
+<li>关键可治理参数由社区投票决定，而非团队单方设定；</li>
+<li>基金会资金的动用由社区提案与投票掌控；</li>
+<li>EdgeAI 仲裁等曾由团队多签承担的职责，移交给治理指定的角色；</li>
+<li>验证人集合足够分散，无任何单一主体能左右共识。</li>
+</ul>
+<h2 id="212">21.2 自治社区的经济基础</h2>
+<p>自治不能只靠情怀，需要经济基础。MC 的经济设计为自治社区提供了三重经济根基：</p>
+<ol>
+<li><strong>稀缺且不可稀释的资产</strong>——10 亿固定总量、不可治理增发，让社区成员的持有具有可信的长期价值，值得为之投入治理精力。</li>
+<li><strong>真实贡献驱动的分发</strong>——设备激励、EdgeAI 收入让价值流向真实建设者，社区由"利益相关的建设者"而非"投机的旁观者"构成。</li>
+<li><strong>社区掌控的公共资金</strong>——13% 基金会池经治理动用，让社区有能力为自己的未来持续投资。</li>
+</ol>
+<h2 id="213">21.3 自治不等于无序</h2>
+<p>去中心化自治，不是没有规则的混乱，恰恰相反——<strong>它是规则被写进代码、任何人（包括创始团队）都无法凌驾于规则之上的状态。</strong> MC 的每一条核心规则（总量、分配、罚没、门槛、托管、仲裁）都已固化在代码里，自治社区的"秩序"正来自这些人人可审计、无人可暗改的代码。这就是为什么"开源可审计、参数写代码"不只是技术原则，更是自治得以成立的政治前提。</p>
+<hr>
+<h1 id="mc_1">第二十二章　MC 的愿景</h1>
+<h2 id="221">22.1 一个朴素而宏大的目标</h2>
+<p>MC 的愿景可以浓缩成一句话：</p>
+<blockquote>
+<p><strong>让全世界每一部手机，都能以最低的门槛，成为一条可被审计的公链真实的一部分，并从自己的真实贡献中获得回报。</strong></p>
+</blockquote>
+<p>这个目标朴素——它不谈颠覆世界、不谈取代谁；它又宏大——因为"每一部手机"意味着数十亿人第一次有机会，不靠矿机、不靠服务器、不靠巨额资本，就真实地参与一条公链，并分享它的价值。</p>
+<h2 id="222">22.2 我们相信会发生什么</h2>
+<p>如果 MC 成功，我们相信会看到：</p>
+<ul>
+<li>数以百万计的手机，构成一张真实的、去中心化的设备网络；</li>
+<li>无数普通人靠一部手机的在线与算力，获得来自真实贡献的、透明可查的回报；</li>
+<li>一个零通胀、稀缺可信、却依然能长期维持安全的经济体持续运转；</li>
+<li>闲置的设备算力被组织起来，成为去中心化 AI 时代的一块基础设施；</li>
+<li>控制权逐步、可验证地从团队交到社区手里，一个真正自治的网络长成。</li>
+</ul>
+<h2 id="223">22.3 我们不承诺什么</h2>
+<p>同样重要的是，我们要说清楚<strong>不承诺什么</strong>：不承诺任何价格、不承诺任何收益率、不承诺一个精确的时间表、不承诺规划中的功能一定会实现。我们只承诺一件事——<strong>我们会诚实地推进，把每一步都写在可被审计的代码与文档里，让你永远能自己验证 MC 走到了哪一步。</strong></p>
+<p>一个值得长存的项目，靠的不是把未来吹得多响，而是把现在做得多实。</p>
+<hr>
+<h1 id="_22">第二十三章　路线图</h1>
+<p>按照"链上求真"原则，路线图按"已完成 / 进行中 / 规划中"三档如实标注，不设虚假日期。</p>
+<h2 id="231">23.1 已完成</h2>
+<ul>
+<li>✅ 五大原生模块（mcchain / tokenomics / depin / phonenode / edgeai）开发完成并通过单元测试与仿真。</li>
+<li>✅ 五池代币经济（55/15/12/13/5）落地代码，创世校验强约束，端到端验证（真实出块、链上查询确认）。</li>
+<li>✅ 零通胀模型：创世一次性铸满 10 亿 MC，mint 通胀强制为 0，总量上限链上常量 + 创世双校验。</li>
+<li>✅ 手机节点安全体系：认证、女巫绑定、离线宽限、分级罚没、罚没冷却全部落地。</li>
+<li>✅ EdgeAI：任务发布、托管付费、乐观结算、争议仲裁、结果/争议查询与 CLI 落地。</li>
+<li>✅ 验证人最低自抵押门槛（3 万 MC）ante 装饰器落地。</li>
+<li>✅ 链下预言机服务安全加固（Bearer + 限流 + 可选 TLS）。</li>
+<li>✅ Web 仪表盘（钱包 + 区块浏览器）、事件订阅器、业务指标 exporter、监控栈。</li>
+<li>✅ 完整文档：模块白皮书、开发文档、部署 runbook、主网上线检查清单、Keplr 链注册信息。</li>
+</ul>
+<h2 id="232">23.2 进行中</h2>
+<ul>
+<li>🔄 主网上线准备：创世/原始节点部署、验证人招募、上线前最终审计。</li>
+<li>🔄 Web 端 RPC 可配置化与前端体验优化（协作方推进中）。</li>
+<li>🔄 移动端 SDK 与用户侧参与流程打磨。</li>
+</ul>
+<h2 id="233">23.3 规划中</h2>
+<ul>
+<li>📋 治理的渐进移交：可治理参数、基金会支出、EdgeAI 仲裁方逐步交由链上治理。</li>
+<li>📋 智能合约层评估（如 CosmWasm，第十五章）。</li>
+<li>📋 链下扩容 / 批量结算（第十八章）。</li>
+<li>📋 跨链互操作（IBC，第五章）。</li>
+<li>📋 EdgeAI 算力市场规模化，真实收入接棒预铸金库。</li>
+</ul>
+<blockquote>
+<p>路线图会随真实进展更新。我们用"标志性事件达成"而非"承诺日期"来衡量推进——请始终以链上状态与开源代码为准。</p>
+</blockquote>
+<hr>
+<h1 id="a">附录 A　完整链上参数表（可逐条对照源码审计）</h1>
+<p>本附录汇总白皮书正文引用的全部关键参数，并标注其源码位置。审计者可据此逐条核对"白皮书数字 = 代码数字"。<strong>凡与代码不符，以代码为准。</strong></p>
+<h2 id="a1">A.1 链级基础参数</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+<th>源码位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>共识引擎</td>
+<td>CometBFT v0.37.6</td>
+<td><code>go.mod</code></td>
+</tr>
+<tr>
+<td>应用框架</td>
+<td>Cosmos SDK v0.47.14</td>
+<td><code>go.mod</code></td>
+</tr>
+<tr>
+<td>语言</td>
+<td>Go 1.21</td>
+<td><code>go.mod</code></td>
+</tr>
+<tr>
+<td>主网链标识</td>
+<td><code>mcchain-mainnet-1</code></td>
+<td>创世配置</td>
+</tr>
+<tr>
+<td>测试网链标识</td>
+<td><code>mcchain-testnet-1</code></td>
+<td>创世配置</td>
+</tr>
+<tr>
+<td>账户地址前缀</td>
+<td><code>mc</code></td>
+<td><code>app/app.go</code>（<code>AccountAddressPrefix</code>）</td>
+</tr>
+<tr>
+<td>验证人地址前缀</td>
+<td><code>mcvaloper</code></td>
+<td><code>app/app.go</code></td>
+</tr>
+<tr>
+<td>共识地址前缀</td>
+<td><code>mcvalcons</code></td>
+<td><code>app/app.go</code></td>
+</tr>
+<tr>
+<td>主币最小单位</td>
+<td><code>umc</code></td>
+<td><code>x/tokenomics/types/keys.go</code></td>
+</tr>
+<tr>
+<td>精度</td>
+<td>6（1 MC = 1,000,000 umc）</td>
+<td>链配置</td>
+</tr>
+<tr>
+<td>SLIP-44 CoinType</td>
+<td>118</td>
+<td><code>docs/keplr-chain-registry.json</code></td>
+</tr>
+<tr>
+<td>增发通胀</td>
+<td>0（<code>x/mint</code> 强制为零）</td>
+<td>创世/mint 配置</td>
+</tr>
+</tbody>
+</table>
+<h2 id="a2-tokenomics">A.2 代币经济（tokenomics）</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值（umc）</th>
+<th>值（MC）</th>
+<th>源码常量</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>总量上限</td>
+<td>1,000,000,000,000,000（1e15）</td>
+<td>10 亿</td>
+<td><code>TotalSupplyCap</code></td>
+</tr>
+<tr>
+<td>设备激励 55%</td>
+<td>550,000,000,000,000</td>
+<td>5.5 亿</td>
+<td><code>DeviceIncentivePercentBps=5500</code></td>
+</tr>
+<tr>
+<td>质押安全 15%</td>
+<td>150,000,000,000,000</td>
+<td>1.5 亿</td>
+<td><code>StakingSecurityPercentBps=1500</code></td>
+</tr>
+<tr>
+<td>团队 12%</td>
+<td>120,000,000,000,000</td>
+<td>1.2 亿</td>
+<td><code>TeamPercentBps=1200</code></td>
+</tr>
+<tr>
+<td>基金会 13%</td>
+<td>130,000,000,000,000</td>
+<td>1.3 亿</td>
+<td><code>FoundationPercentBps=1300</code></td>
+</tr>
+<tr>
+<td>早期开发 5%</td>
+<td>50,000,000,000,000</td>
+<td>0.5 亿</td>
+<td><code>EarlyDevPercentBps=500</code></td>
+</tr>
+<tr>
+<td>基金会释放（T0 即时 + 2 年线性）</td>
+<td>50,000,000,000,000 / 80,000,000,000,000</td>
+<td>5000 万 / 8000 万</td>
+<td><code>FoundationT0Unlock=5e13</code></td>
+</tr>
+<tr>
+<td>早期开发释放（T0 全额）</td>
+<td>50,000,000,000,000</td>
+<td>5000 万</td>
+<td>—</td>
+</tr>
+<tr>
+<td>设备池注入 depin</td>
+<td>550,000,000,000,000</td>
+<td>5.5 亿</td>
+<td><code>DepinInitialPoolSlice</code></td>
+</tr>
+<tr>
+<td>团队多签阈值</td>
+<td>3-of-5</td>
+<td>—</td>
+<td><code>TeamMultisigThreshold=3</code></td>
+</tr>
+<tr>
+<td>团队释放</td>
+<td>1 年 cliff + 3 年线性</td>
+<td>—</td>
+<td><code>x/tokenomics/keeper/genesis.go</code></td>
+</tr>
+<tr>
+<td>分配笔数校验</td>
+<td>恰好 5，基点之和恰好 10000</td>
+<td>—</td>
+<td><code>x/tokenomics/types/genesis.go</code>（<code>Validate</code>）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="a3-depin">A.3 设备激励（depin）</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+<th>源码常量</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>初始金库</td>
+<td>550,000,000,000,000 umc（5.5 亿 MC，55%）</td>
+<td><code>DefaultInitialPool</code></td>
+</tr>
+<tr>
+<td>奖励 denom</td>
+<td><code>umc</code></td>
+<td><code>DefaultRewardDenom</code></td>
+</tr>
+<tr>
+<td>铸币权限</td>
+<td>无（只发放，不铸造）</td>
+<td>maccPerms（无 Minter）</td>
+</tr>
+<tr>
+<td>与 tokenomics 一致性</td>
+<td><code>DefaultInitialPool == DepinInitialPoolSlice</code>（创世断言）</td>
+<td><code>x/tokenomics/keeper/genesis.go</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="a4-phonenode">A.4 手机节点安全（phonenode）</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+<th>含义</th>
+<th>源码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AttestationRequired</code></td>
+<td>true</td>
+<td>必须认证才能参与</td>
+<td><code>x/phonenode/types/params.go</code></td>
+</tr>
+<tr>
+<td><code>AttestationValidity</code></td>
+<td>2,592,000 秒（30 天）</td>
+<td>认证有效期</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>SybilDeviceBinding</code></td>
+<td>true</td>
+<td>女巫设备绑定</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>OfflineGraceBlocks</code></td>
+<td>100 区块</td>
+<td>离线宽限</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>OfflineSlashBps</code></td>
+<td>500（5%）</td>
+<td>离线罚没</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>ContribSlashBps</code></td>
+<td>1000（10%）</td>
+<td>作弊贡献罚没</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>AttestSlashBps</code></td>
+<td>2000（20%）</td>
+<td>伪造认证罚没</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>SlashCooldownBlocks</code></td>
+<td>43200 区块（约 12 小时 @4s）</td>
+<td>罚没后再认证冷却</td>
+<td><code>DefaultSlashCooldownBlocks</code></td>
+</tr>
+<tr>
+<td>罚没基点硬约束</td>
+<td>所有 slash bps ≤ 10000</td>
+<td>防罚没超本金</td>
+<td>参数校验</td>
+</tr>
+</tbody>
+</table>
+<h2 id="a5-aiedgeai">A.5 边缘 AI（edgeai）</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+<th>含义</th>
+<th>源码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MaxTaskReward</code></td>
+<td>1,000,000,000 umc（1000 MC）</td>
+<td>单任务赏金上限</td>
+<td><code>x/edgeai/types/params.go</code></td>
+</tr>
+<tr>
+<td><code>DisputePeriodBlocks</code></td>
+<td>100 区块</td>
+<td>争议窗口</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>AntiCheatThresholdBps</code></td>
+<td>5000（50%）</td>
+<td>反作弊阈值</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>Arbitrator</code></td>
+<td>团队多签地址（部署设定，可治理化）</td>
+<td>争议裁决者</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>付费模型</td>
+<td>需求方托管（escrow）+ 乐观结算</td>
+<td>—</td>
+<td><code>x/edgeai</code> keeper</td>
+</tr>
+</tbody>
+</table>
+<h2 id="a6-ante">A.6 共识安全门槛（ante）</h2>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+<th>含义</th>
+<th>源码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MinSelfDelegationLowerBound</code></td>
+<td>30,000,000,000 umc（3 万 MC）</td>
+<td>验证人最低自抵押</td>
+<td><code>app/ante.go</code></td>
+</tr>
+<tr>
+<td>强制范围</td>
+<td>全链统一，任何建/改验证人交易</td>
+<td>—</td>
+<td><code>MinSelfDelegationDecorator</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="b">附录 B　模块与代码结构清单</h1>
+<table>
+<thead>
+<tr>
+<th>模块 / 组件</th>
+<th>路径</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>mcchain</td>
+<td><code>x/mcchain</code></td>
+<td>系统锚点模块</td>
+</tr>
+<tr>
+<td>tokenomics</td>
+<td><code>x/tokenomics</code></td>
+<td>总量上限、五池分配、团队 vesting、分配查询</td>
+</tr>
+<tr>
+<td>depin</td>
+<td><code>x/depin</code></td>
+<td>设备激励金库与按任务发放</td>
+</tr>
+<tr>
+<td>phonenode</td>
+<td><code>x/phonenode</code></td>
+<td>设备认证、女巫绑定、分级罚没</td>
+</tr>
+<tr>
+<td>edgeai</td>
+<td><code>x/edgeai</code></td>
+<td>AI 任务、托管付费、乐观结算、争议仲裁</td>
+</tr>
+<tr>
+<td>ante 装饰器</td>
+<td><code>app/ante.go</code></td>
+<td>验证人最低自抵押强制</td>
+</tr>
+<tr>
+<td>应用装配</td>
+<td><code>app/app.go</code></td>
+<td>模块账户权限（maccPerms）、地址前缀、模块装配</td>
+</tr>
+<tr>
+<td>链下预言机</td>
+<td><code>internal/oraclesvc</code></td>
+<td>受控地把链下事实提交上链</td>
+</tr>
+<tr>
+<td>事件订阅器</td>
+<td><code>cmd/event-subscriber</code></td>
+<td>链上事件指标导出与持久化</td>
+</tr>
+<tr>
+<td>Web 仪表盘</td>
+<td><code>web/</code></td>
+<td>钱包 + 区块浏览器 + 交易助手（协作方维护）</td>
+</tr>
+</tbody>
+</table>
+<p>主要文档（<code>docs/</code>）：模块白皮书 <code>MODULE_WHITEPAPER.md</code>、代币分配设计 <code>TOKEN_ALLOCATION.md</code>、开发文档 <code>DEVELOPMENT.md</code>、主网 runbook <code>MAINNET_RUNBOOK.md</code>、Keplr 链注册 <code>keplr-chain-registry.json</code>、mcchain 模块职责 <code>module_mcchain.md</code>、预言机框架 <code>ORACLE_FRAMEWORK.md</code>、移动端集成 <code>mobile_sdk_integration.md</code>。</p>
+<hr>
+<h1 id="c">附录 C　术语表</h1>
+<table>
+<thead>
+<tr>
+<th>术语</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MC / MobileChain</strong></td>
+<td>本项目与其主币的名称</td>
+</tr>
+<tr>
+<td><strong>umc</strong></td>
+<td>MC 的最小单位，1 MC = 1,000,000 umc（精度 6）</td>
+</tr>
+<tr>
+<td><strong>DePIN</strong></td>
+<td>去中心化物理基础设施网络，用代币激励协调现实设备提供基础设施</td>
+</tr>
+<tr>
+<td><strong>全节点（Full Node）</strong></td>
+<td>完整参与链的验证与数据的节点；MC 力求让手机也能承担</td>
+</tr>
+<tr>
+<td><strong>验证人（Validator）</strong></td>
+<td>参与共识出块的节点，MC 要求最低自抵押 3 万 MC</td>
+</tr>
+<tr>
+<td><strong>设备节点 / 手机节点</strong></td>
+<td>参与 DePIN 设备激励的手机，门槛极低，无需 3 万 MC</td>
+</tr>
+<tr>
+<td><strong>认证（Attestation）</strong></td>
+<td>证明设备真实可信的链上凭证，有效期 30 天</td>
+</tr>
+<tr>
+<td><strong>女巫攻击（Sybil Attack）</strong></td>
+<td>用大量伪造身份骗取激励；MC 用女巫设备绑定对抗</td>
+</tr>
+<tr>
+<td><strong>罚没（Slash）</strong></td>
+<td>对离线/作弊/伪造认证的惩罚，按基点分级，回流质押安全池</td>
+</tr>
+<tr>
+<td><strong>基点（bps）</strong></td>
+<td>万分之一，10000 bps = 100%</td>
+</tr>
+<tr>
+<td><strong>托管（Escrow）</strong></td>
+<td>EdgeAI 中需求方预先锁定赏金，保证算力方拿得到钱</td>
+</tr>
+<tr>
+<td><strong>乐观结算（Optimistic Settlement）</strong></td>
+<td>默认相信结果诚实，无争议自动放款，有争议才仲裁</td>
+</tr>
+<tr>
+<td><strong>五池（Five Pools）</strong></td>
+<td>设备激励 55 / 质押安全 15 / 团队 12 / 基金会 13 / 早期开发 5</td>
+</tr>
+<tr>
+<td><strong>零通胀（Zero Inflation）</strong></td>
+<td>创世一次性铸满，此后永不增发</td>
+</tr>
+<tr>
+<td><strong>质押安全池</strong></td>
+<td>15% 预铸储备，零通胀下养活验证人的核心资金来源</td>
+</tr>
+<tr>
+<td><strong>cliff / 线性释放</strong></td>
+<td>cliff 为完全锁定期；之后按区块逐步线性解锁</td>
+</tr>
+<tr>
+<td><strong>maccPerms</strong></td>
+<td>模块账户权限映射，决定各模块账户能否铸币/销毁等</td>
+</tr>
+<tr>
+<td><strong>共振分发（Resonance Distribution）</strong></td>
+<td>激励节奏与网络真实贡献同频，而非与时间机械流逝同频</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h1 id="d">附录 D　引用与依据</h1>
+<p>本白皮书所述一切均以 MC 开源代码库为唯一权威依据。核心依据包括：</p>
+<ul>
+<li>源码库：<code>x/tokenomics</code>、<code>x/depin</code>、<code>x/phonenode</code>、<code>x/edgeai</code>、<code>x/mcchain</code>、<code>app/ante.go</code>、<code>app/app.go</code>。</li>
+<li>依赖：Cosmos SDK v0.47.14、CometBFT v0.37.6（见 <code>go.mod</code>）。</li>
+<li>项目文档：<code>docs/</code> 目录下的模块白皮书、代币分配设计、开发与部署文档。</li>
+<li>验证记录：五池模型经 <code>go build/vet/test</code> 全绿、<code>init</code>+<code>validate-genesis</code> 通过、真实启动出块并链上查询确认（<code>bank total = 1e15</code>、<code>depin.initial_pool = 5.5e14</code>、<code>minted_supply = cap</code>、五池余额与团队 vesting 符合设计）。</li>
+</ul>
+<p>行业公开数据（如其它公链的分配结构）仅在内部设计研讨中作为参考，本正式白皮书不做任何竞品对比、不点名任何其它项目——<strong>MC 只讲自己要走的路。</strong></p>
+<hr>
+<h1 id="e">附录 E　典型场景数值演算</h1>
+<p>本附录用具体数字，把正文的机制走一遍，帮助读者直观理解 MC 的经济如何运转。所有数字均基于附录 A 的真实参数推导，仅为说明机制，<strong>不构成任何收益承诺</strong>。</p>
+<h2 id="e1">E.1 单位换算基准</h2>
+<ul>
+<li>1 MC = 1,000,000 umc（精度 6）。</li>
+<li>总量 = 10 亿 MC = 1e15 umc。</li>
+<li>五池：设备 5.5e14 / 质押 1.5e14 / 团队 1.2e14 / 基金会 1.3e14 / 早期 0.5e14（单位 umc）。</li>
+</ul>
+<h2 id="e2">E.2 创世时刻的账本快照</h2>
+<p>链启动的第 0 块结束时，账本应满足（已被真实出块验证）：</p>
+<table>
+<thead>
+<tr>
+<th>账户</th>
+<th>余额（umc）</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bank 总供应</td>
+<td>1,000,000,000,000,000</td>
+<td>仅此一次铸造，无双铸</td>
+</tr>
+<tr>
+<td>depin 模块账户</td>
+<td>550,000,000,000,000</td>
+<td>设备激励金库</td>
+</tr>
+<tr>
+<td>staking_security 模块账户</td>
+<td>150,000,000,000,000</td>
+<td>质押安全池</td>
+</tr>
+<tr>
+<td>基金会运营流动地址</td>
+<td>50,000,000,000,000</td>
+<td>基金会 T0 即时解锁（5000 万）</td>
+</tr>
+<tr>
+<td>基金会 2 年期 vesting 账户</td>
+<td>80,000,000,000,000</td>
+<td>基金会剩余 8000 万，2 年线性</td>
+</tr>
+<tr>
+<td>早期开发拨付地址</td>
+<td>50,000,000,000,000</td>
+<td>早期开发 T0 全额（5000 万）</td>
+</tr>
+<tr>
+<td>团队多签 vesting 账户</td>
+<td>120,000,000,000,000</td>
+<td>全额锁定（cliff 内）</td>
+</tr>
+<tr>
+<td><strong>五处之和</strong></td>
+<td><strong>1,000,000,000,000,000</strong></td>
+<td>恰好等于总供应，闭合</td>
+</tr>
+</tbody>
+</table>
+<p>五处之和恰好等于总供应，说明没有任何一枚 MC 凭空产生或凭空消失——这就是"闭合账本"，是可审计性的最直接体现。</p>
+<h2 id="e3-vesting">E.3 团队 vesting 释放演算</h2>
+<p>团队池 1.2 亿 MC，规则为 1 年 cliff + 3 年线性。忽略区块粒度、以月度近似说明趋势：</p>
+<table>
+<thead>
+<tr>
+<th>时间点</th>
+<th>已解锁（MC）</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>创世 ~ 第 12 月</td>
+<td>0</td>
+<td>cliff 悬崖期，一枚不解锁</td>
+</tr>
+<tr>
+<td>第 12 月（cliff 结束）</td>
+<td>0 → 开始线性</td>
+<td>从此按区块线性释放</td>
+</tr>
+<tr>
+<td>第 24 月（线性第 1 年末）</td>
+<td>≈ 4,000 万</td>
+<td>1.2 亿 × (12/36)</td>
+</tr>
+<tr>
+<td>第 36 月（线性第 2 年末）</td>
+<td>≈ 8,000 万</td>
+<td>1.2 亿 × (24/36)</td>
+</tr>
+<tr>
+<td>第 48 月（线性第 3 年末）</td>
+<td>12,000 万（全部）</td>
+<td>全部解锁完成</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>结论：团队在第 4 年末才拿满，且第 1 年一枚都拿不到。团队与网络利益被绑定至少 4 年，从机制上杜绝了"上线即砸盘"。实际释放以链上按区块的精确曲线为准，上表仅为趋势示意。</p>
+</blockquote>
+<h3 id="_23">基金会与早期开发释放演算</h3>
+<p>基金会池 1.3 亿 MC 拆分为两部分，早期开发池 5000 万 MC 则 T0 全额拨付：</p>
+<ul>
+<li><strong>基金会运营流动（5000 万 MC）</strong>：创世当刻即全额可支出，无锁仓；</li>
+<li><strong>基金会 2 年期线性（8000 万 MC）</strong>：T0 锁定，此后 2 年内按区块线性解锁；</li>
+<li><strong>早期开发（5000 万 MC）</strong>：T0 全额拨付到开发资助地址。</li>
+</ul>
+<p>以月度近似说明基金会线性部分趋势：</p>
+<table>
+<thead>
+<tr>
+<th>时间点</th>
+<th>基金会已解锁（MC，仅线性部分）</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>创世 ~ T0</td>
+<td>5000 万（运营）+ 0（线性）</td>
+<td>运营流动即时到账</td>
+</tr>
+<tr>
+<td>第 12 月</td>
+<td>5000 万 + ≈ 4000 万</td>
+<td>8000 万 × (12/24)</td>
+</tr>
+<tr>
+<td>第 24 月</td>
+<td>5000 万 + 8000 万（全部）</td>
+<td>线性释放完成</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>结论：基金会前期（T0）即向市场提供 5000 万流动币；剩余 8000 万在 2 年内平稳释放，避免一次性抛压。早期开发 5000 万同步 T0 到账。两者合计使创世当周即有约 1 亿 MC 自由流通（详见 2.2.6 节）。</p>
+</blockquote>
+<h2 id="e4">E.4 设备激励金库的耗用示意</h2>
+<p>设备激励金库 5.5 亿 MC，按真实任务逐笔发放、多年线性摊薄。以下为<strong>纯示意的机制说明</strong>（真实发放量取决于网络实际活跃度，无法也不应预测）：</p>
+<ul>
+<li>若某段时期网络高度活跃、真实任务多，金库消耗较快，激励充分——这正是"共振分发"希望看到的：<strong>网络越活跃，激励越充分</strong>。</li>
+<li>若某段时期网络冷清、真实任务少，金库消耗自动放缓，激励收敛——避免在没有真实贡献时空耗金库。</li>
+<li>金库是有限的 5.5 亿存量，发一笔少一笔，永不突破 55% 上限；耗尽后由 EdgeAI 等真实收入接棒（第 10.5、20 章）。</li>
+</ul>
+<p>关键点：<strong>没有一个"每天固定产出 X 枚"的机械公式</strong>，因为那会退化成"与时间共振"而非"与贡献共振"。MC 的设备激励，永远与真实任务挂钩。</p>
+<h2 id="e5">E.5 手续费回流演算示意</h2>
+<p>假设成熟期某月链上产生手续费净值 F（umc），按设计 F 回流质押安全池：</p>
+<pre><code>质押安全池月末余额 = 月初余额 − 本月滴灌给验证人的量 + 本月手续费回流 F + 本月罚没回充
+</code></pre>
+<ul>
+<li>启动期：F ≈ 0，池子净减少（靠预留的 1.5 亿撑），这是安全池的"燃料消耗期"。</li>
+<li>成熟期：F 增大，当 F + 罚没回充 ≥ 滴灌量时，池子由减转平乃至转增——<strong>零通胀链的安全实现了自我供血</strong>。</li>
+</ul>
+<p>这条从"净消耗"到"自我供血"的转折点，就是第二十章所说"成熟期"的经济标志。</p>
+<h2 id="e6">E.6 罚没的经济效果演算</h2>
+<p>假设一台设备伪造认证被罚没 20%（<code>AttestSlashBps=2000</code>），设其相关质押/激励基数为 B：</p>
+<pre><code>被罚没 = B × 20%
+诚实方净收益 = 被罚没额回流质押安全池 → 间接补贴验证人与诚实节点
+作恶方额外代价 = 进入约 12 小时（43200 区块）冷却，期间无法重新认证参与
+</code></pre>
+<blockquote>
+<p>结论：作恶不仅当场损失 20%，还失去约半天的参与资格，且损失变成诚实方的收益。作恶的期望收益为负，这是防作弊最根本的经济学——<strong>让作恶在数学上不划算。</strong></p>
+</blockquote>
+<hr>
+<h1 id="f">附录 F　安全威胁模型与对策</h1>
+<p>本附录系统梳理 MC 面对的主要威胁，以及每种威胁对应的、已写进代码的对策。安全不是一句"我们很安全"，而是"针对每一种具体攻击，我们有什么具体机制"。</p>
+<h2 id="f1">F.1 女巫攻击（批量伪造设备薅设备激励）</h2>
+<ul>
+<li><strong>威胁</strong>：用一台服务器模拟成千上万部"手机"，批量领取设备激励，掏空 5.5 亿金库。</li>
+<li><strong>对策</strong>：认证必需（<code>AttestationRequired</code>）+ 女巫设备绑定（<code>SybilDeviceBinding</code>）+ 认证 30 天时效 + 任务证明 + 伪造认证罚没 20% + 罚没冷却 + 预言机核验。七层叠加（第 10.4 节），每突破一层成本指数上升。</li>
+</ul>
+<h2 id="f2">F.2 验证人层面的女巫 / 低成本作恶</h2>
+<ul>
+<li><strong>威胁</strong>：用极小自抵押批量注册验证人，操纵共识或降低作恶成本。</li>
+<li><strong>对策</strong>：ante 强制最低自抵押 3 万 MC（<code>MinSelfDelegationLowerBound</code>），全链统一、无法绕过。作恶时自抵押被罚没，形成真实威慑。</li>
+</ul>
+<h2 id="f3">F.3 增发 / 稀释攻击</h2>
+<ul>
+<li><strong>威胁</strong>：通过治理或后门增发新币，稀释所有持币者。</li>
+<li><strong>对策</strong>：总量上限为链上常量（<code>TotalSupplyCap</code>），不进 params、不可治理修改；mint 通胀强制为 0；创世 Validate 双校验。想增发只能硬分叉，无法悄悄发生（第 2.1、16.2 节）。</li>
+</ul>
+<h2 id="f4-edgeai">F.4 EdgeAI 中的赖账与骗赏</h2>
+<ul>
+<li><strong>威胁</strong>：需求方收了结果不付钱；或算力方提交垃圾/伪造结果骗赏金。</li>
+<li><strong>对策</strong>：需求方付费用托管（escrow）先锁钱防赖账；乐观结算 + 争议期（100 区块）+ 仲裁 + 反作弊阈值（50%）防骗赏；全程上链可查（第十二、十三章）。</li>
+</ul>
+<h2 id="f5">F.5 单笔异常巨额任务</h2>
+<ul>
+<li><strong>威胁</strong>：借 EdgeAI 承载异常巨额资金（错误或攻击）。</li>
+<li><strong>对策</strong>：<code>MaxTaskReward = 1000 MC</code> 单任务赏金上限，把单点风险封顶。</li>
+</ul>
+<h2 id="f6">F.6 参数配置错误（如罚没超本金）</h2>
+<ul>
+<li><strong>威胁</strong>：误把某个罚没基点配成 &gt; 100%，导致罚没超过本金等荒谬后果。</li>
+<li><strong>对策</strong>：所有 bps 参数校验强制 ≤ 10000；创世 Validate 强制五池笔数为 5、基点之和为 10000。配置错误在启动前就被拦下。</li>
+</ul>
+<h2 id="f7">F.7 跨模块金额漂移</h2>
+<ul>
+<li><strong>威胁</strong>：tokenomics 说给 depin 55%，depin 却按别的数额初始化，两边对不上。</li>
+<li><strong>对策</strong>：创世断言 <code>DefaultInitialPool == DepinInitialPoolSlice</code>；模块初始化顺序（tokenomics 先于 depin）有显式断言保护。任何漂移在创世时立刻暴露（第 2.1.1、2.3 节）。</li>
+</ul>
+<h2 id="f8">F.8 链下数据源伪造</h2>
+<ul>
+<li><strong>威胁</strong>：伪造链下事实（虚假在线证明、虚假任务结果）喂给链上。</li>
+<li><strong>对策</strong>：预言机服务 Bearer 令牌鉴权 + 限流 + 可选 TLS；预言机只是"受约束的信使"，最终判定由链上写死规则执行（第八、十八章）。</li>
+</ul>
+<h2 id="f9">F.9 团队单点私自动用资金</h2>
+<ul>
+<li><strong>威胁</strong>：团队单方私自动用团队池或基金会池。</li>
+<li><strong>对策</strong>：团队池 3-of-5 多签 + vesting 锁定；基金会池动用须走链上治理提案与投票（第 2.2.3、2.2.4、十九章）。</li>
+</ul>
+<h2 id="f10">F.10 威胁模型的诚实边界</h2>
+<p>我们同样诚实地指出<strong>尚未完全解决 / 依赖后续的点</strong>：</p>
+<ul>
+<li>启动期的原始/少数验证人网络，去中心化程度不足，需靠发展阶段逐步分散（第 20.1 节，已明确不掩饰）。</li>
+<li>规划中的功能（智能合约、链下扩容、跨链）尚未实现，其安全性需在引入前专门评估（第五、十五、十八章）。</li>
+<li>移动端密钥安全最终依赖用户设备与使用习惯，链上机制无法完全替代用户侧的安全实践。</li>
+</ul>
+<p>把"没解决的"也写清楚，才是完整的威胁模型。</p>
+<hr>
+<h1 id="g-faq">附录 G　常见问题（FAQ）</h1>
+<p><strong>Q1：MC 会增发吗？</strong>
+不会。创世一次性铸满 10 亿 MC，此后区块奖励为 0，mint 通胀强制为 0，总量上限是不可治理修改的链上常量。想增发只能硬分叉，几乎不可能悄悄发生。</p>
+<p><strong>Q2：用一部普通手机，需要买 3 万 MC 才能参与吗？</strong>
+不需要。3 万 MC 是<strong>验证人</strong>的最低自抵押门槛。普通用户用手机参与的是<strong>设备激励（DePIN）</strong>，只需通过设备认证、保持在线并完成任务，门槛极低，与 3 万 MC 无关。这是两条完全不同的参与路径。</p>
+<p><strong>Q3：设备激励是每天固定发币吗？</strong>
+不是。设备激励按<strong>真实任务 + 通过认证</strong>逐笔发放，网络越活跃、真实贡献越多，激励越充分（共振分发）。没有真实贡献就没有发放，不存在"躺着每天领固定币"。</p>
+<p><strong>Q4：零通胀，那验证人靠什么活？会不会没人跑节点导致不安全？</strong>
+靠三条腿：预铸的 15% 质押安全池（启动期主力）、手续费回流（成熟期主力）、罚没回充（全程微调）。启动期靠预留撑住，成熟期靠真实使用产生的费用接棒（第三、十四章）。</p>
+<p><strong>Q5：团队会不会上线就砸盘？</strong>
+不能。团队池 12% 采用 1 年 cliff + 3 年线性释放，且 3-of-5 多签托管。第 1 年团队一枚都拿不到，第 4 年末才拿满（附录 E.3）。</p>
+<p><strong>Q6：基金会那 13% 会被团队随便花吗？</strong>
+不会。基金会池每一笔动用都应走链上治理提案与社区投票，实质是社区掌控的公共资金（第 2.2.4、十六、十九章）。</p>
+<p><strong>Q7：EdgeAI 我算完活，会不会拿不到钱？</strong>
+不会。需求方发任务时赏金已被链上托管（escrow）锁定。争议期无争议则赏金自动放给你；有争议进入仲裁。钱先锁链上，不必信任对方（第十二、十三章）。</p>
+<p><strong>Q8：MC 支持智能合约吗？</strong>
+当前不支持第三方智能合约，业务逻辑由原生 Go 模块承载。引入合约虚拟机（如 CosmWasm）属规划中，尚未实现（第十五章）。</p>
+<p><strong>Q9：MC 和其它公链比怎么样？</strong>
+本白皮书不做任何竞品对比、不点名任何其它项目。MC 只讲自己要走的路：手机全节点、固定总量零通胀、设备激励占最大份额、一切参数可审计。</p>
+<p><strong>Q10：我怎么验证白皮书里的数字是真的？</strong>
+逐条对照附录 A 的源码位置。白皮书的每一个关键数字都对应一行 Go 常量或创世校验，凡与代码不符以代码为准。这正是"开源可审计、参数写代码"的意义。</p>
+<p><strong>Q11：认证为什么 30 天就过期，麻烦吗？</strong>
+30 天有效期是在"安全"与"体验"间取平衡：太短用户频繁重认证，太长伪造认证收益窗口过大。且它是可治理调整的参数，未来可按实际情况优化（第 6.2、8.3 节）。</p>
+<p><strong>Q12：MC 现在是完全去中心化的吗？</strong>
+诚实地说：启动期不是。原始/少数验证人网络去中心化程度不足，团队多签承担较多协调职责。去中心化是一个需要时间、按发展阶段逐步达成的目标，MC 不掩饰这一点（第 16.4、20、21 章）。</p>
+<hr>
+<h1 id="h">附录 H　设计取舍记录（我们自己的权衡）</h1>
+<p>本附录记录 MC 在几个关键设计点上"为什么这样选、放弃了什么"的权衡。这里只讲 MC 自己的取舍，不与任何其它项目比较。</p>
+<h2 id="h1-vs">H.1 固定总量 vs 温和通胀</h2>
+<ul>
+<li><strong>选择</strong>：固定总量、零通胀。</li>
+<li><strong>放弃</strong>：用温和通胀持续养验证人的省心做法。</li>
+<li><strong>代价与弥补</strong>：代价是必须自己解决"没有增发怎么养安全"——用 15% 预留池 + 手续费回流 + 罚没回充弥补。</li>
+<li><strong>理由</strong>：稀缺性对一个面向大众的资产至关重要，"你什么都没做持仓却被稀释"是我们想避免的不公平。我们宁可多花力气设计可持续安全，也要守住零通胀。</li>
+</ul>
+<h2 id="h2-55-vs">H.2 设备激励 55% vs 更均衡的分配</h2>
+<ul>
+<li><strong>选择</strong>：设备激励占 55%，全场最大。</li>
+<li><strong>放弃</strong>：把份额更平均分给团队/基金会/生态的"稳妥"做法。</li>
+<li><strong>理由</strong>：MC 的立身之本是"手机全节点"。若用手机挖不到有意义的份额，卖点就是空话。最大份额必须给真实设备贡献者，这是定位决定的，不是可商量的。</li>
+</ul>
+<h2 id="h3-15-vs-10">H.3 质押池 15% vs 用户初想的 10%</h2>
+<ul>
+<li><strong>选择</strong>：把设备激励从 60% 下调 5%，给质押安全池，使其为 15%。</li>
+<li><strong>放弃</strong>：设备 60% / 质押 10% 的原始设想。</li>
+<li><strong>理由</strong>：在锁定团队 12/基金会 13/早期 5 的前提下，10% 质押对固定总量链偏薄，早期养不起验证人。15% 配合回流机制刚好够用，且设备 55% 仍是绝对最大池，不伤定位。这是"设备最大"与"安全够用"之间的精确平衡点。</li>
+</ul>
+<h2 id="h4-vs">H.4 原生模块 vs 通用智能合约</h2>
+<ul>
+<li><strong>选择</strong>：核心业务用原生 Go 模块实现。</li>
+<li><strong>放弃</strong>：一上来就上通用合约虚拟机的灵活性。</li>
+<li><strong>理由</strong>：对当前聚焦的"手机全节点 + DePIN + 边缘 AI"，原生模块性能更高、安全边界更清晰、可单独审计。合约层留作规划中的演进，等生态需求明确、安全评估充分再考虑。</li>
+</ul>
+<h2 id="h5-vs">H.5 乐观结算 vs 强制逐笔仲裁</h2>
+<ul>
+<li><strong>选择</strong>：EdgeAI 用乐观结算，默认相信、有争议才仲裁。</li>
+<li><strong>放弃</strong>：每笔都强制验证/仲裁的"绝对严格"。</li>
+<li><strong>理由</strong>：绝大多数任务是诚实的，逐笔仲裁会让市场又慢又贵。乐观结算让诚实任务走零成本快车道，把昂贵的仲裁只留给极少数争议，兼顾效率与公平。</li>
+</ul>
+<h2 id="h6-vs">H.6 参数写死 vs 全部可治理</h2>
+<ul>
+<li><strong>选择</strong>：极少数"信任根"（总量上限）写死不可治理，其余安全参数可治理。</li>
+<li><strong>放弃</strong>："什么都能治理"的极致灵活，以及"什么都写死"的极致刚性。</li>
+<li><strong>理由</strong>：有些东西必须能变（安全参数要适应现实攻防），有些必须永不能变（总量是稀缺承诺的根）。把红线划在正确的地方，既灵活又可信（第 16.2 节）。</li>
+</ul>
+<hr>
+<div align="center">
+
+## 结语
+
+没有什么是永恒的，唯有想法可以长存。
+
+MobileChain 的想法很简单：**把成为一条可审计公链的能力，交还给每一个拥有手机的普通人。**
+
+我们把这个想法写进了代码的每一行、参数的每一个数字、文档的每一句话，并且让它们全部可被审计、可被验证、可被质疑。
+
+这份白皮书会随代码更新，但有一件事永远不变——
+
+**我们只讲自己要走的路，并且诚实地讲。**
+
+<br>
+
+*本白皮书为对 MC 开源代码的解释，非承诺。凡与代码不符，以代码为准。*
+
+*版本 v3.0 · 链标识 mcchain-mainnet-1 · 固定总量 10 亿 · 零通胀*
+
+</div>
+</div>
+</body>
+</html>

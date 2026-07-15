@@ -30,12 +30,20 @@ func defaultAllocations() []PoolAllocation {
 		amt := cap.Mul(sdk.NewInt(int64(bps))).Quo(sdk.NewInt(10000)).Uint64()
 		addr := ""
 		switch name {
+		case DeviceIncentivePoolName:
+			// 设备激励池托管于 depin 模块账户（创世全额注入）。
+			addr = authtypes.NewModuleAddress(DepinModuleName).String()
+		case StakingSecurityPoolName:
+			addr = authtypes.NewModuleAddress(StakingSecurityPoolName).String()
 		case TeamPoolName:
 			addr = TeamAddress.String()
-		case CommunityPoolName:
-			addr = authtypes.NewModuleAddress(CommunityPoolName).String()
-		case EcosystemPoolName:
-			addr = authtypes.NewModuleAddress(EcosystemPoolName).String()
+		case FoundationPoolName:
+			// 基金会池创世时拆分为「运营流动地址（T0 即时 5000 万）」+「2 年期线性释放地址（8000 万）」，
+			// 此处主地址指向运营流动地址；释放明细见 InitGenesis 与基金会 vesting 账户。
+			addr = FoundationOpsAddress.String()
+		case EarlyDevPoolName:
+			// 早期开发池 T0 全额拨付到开发资助地址（可支出）。
+			addr = EarlyDevAddress.String()
 		}
 		return PoolAllocation{
 			Name:           name,
@@ -45,9 +53,11 @@ func defaultAllocations() []PoolAllocation {
 		}
 	}
 	return []PoolAllocation{
+		mk(DeviceIncentivePoolName, DeviceIncentivePercentBps),
+		mk(StakingSecurityPoolName, StakingSecurityPercentBps),
 		mk(TeamPoolName, TeamPercentBps),
-		mk(CommunityPoolName, CommunityPercentBps),
-		mk(EcosystemPoolName, EcosystemPercentBps),
+		mk(FoundationPoolName, FoundationPercentBps),
+		mk(EarlyDevPoolName, EarlyDevPercentBps),
 	}
 }
 
@@ -75,8 +85,8 @@ func (gs GenesisState) Validate() error {
 	if gs.TotalSupplyCap != TotalSupplyCap {
 		return fmt.Errorf("tokenomics: total_supply_cap %d != constant %d", gs.TotalSupplyCap, TotalSupplyCap)
 	}
-	if uint64(len(gs.Allocations)) != 3 {
-		return fmt.Errorf("tokenomics: expected 3 pool allocations, got %d", len(gs.Allocations))
+	if uint64(len(gs.Allocations)) != 5 {
+		return fmt.Errorf("tokenomics: expected 5 pool allocations, got %d", len(gs.Allocations))
 	}
 	var sum uint64
 	var bpsSum uint32

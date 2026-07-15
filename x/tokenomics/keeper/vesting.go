@@ -5,26 +5,33 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 
 	"mcchain/x/tokenomics/types"
 )
 
-// CreateTeamVestingAccount 在团队多签地址上创建连续锁仓账户并写入状态，
-// 实现「1 年 cliff（0 释放）+ 3 年线性（总 4 年）」释放模型（Q3/Q6）。
-// originalVesting 必须等于拨付给团队池的金额（1.5e14 umc）。
-func (k Keeper) CreateTeamVestingAccount(ctx sdk.Context, originalVesting sdk.Coins, startTime, endTime int64) error {
-	teamAddr := types.TeamAddress
-	baseAcc := k.accountKeeper.NewAccountWithAddress(ctx, teamAddr)
+// CreateVestingAccount 在指定地址上创建连续锁仓（ContinuousVesting）账户并写入状态。
+// originalVesting 在 [startTime, endTime] 区间内线性释放；startTime 之前锁定（0 释放）。
+// 团队池、基金会 vesting 池均复用此函数（Q3/Q6）。
+func (k Keeper) CreateVestingAccount(ctx sdk.Context, addr sdk.AccAddress, pubKey cryptotypes.PubKey, originalVesting sdk.Coins, startTime, endTime int64) error {
+	baseAcc := k.accountKeeper.NewAccountWithAddress(ctx, addr)
 	ba, ok := baseAcc.(*authtypes.BaseAccount)
 	if !ok {
-		return fmt.Errorf("tokenomics: expected base account for team address")
+		return fmt.Errorf("tokenomics: expected base account for vesting address %s", addr)
 	}
-	ba.SetPubKey(types.TeamMultisigPubKey)
+	ba.SetPubKey(pubKey)
 	bva := vestingtypes.NewBaseVestingAccount(ba, originalVesting, endTime)
 	cva := vestingtypes.NewContinuousVestingAccountRaw(bva, startTime)
 	k.accountKeeper.SetAccount(ctx, cva)
 	return nil
+}
+
+// CreateTeamVestingAccount 在团队多签地址上创建连续锁仓账户，
+// 实现「1 年 cliff（0 释放）+ 3 年线性（总 4 年）」释放模型（Q3/Q6）。
+// originalVesting 必须等于拨付给团队池的金额（1.2e14 umc）。
+func (k Keeper) CreateTeamVestingAccount(ctx sdk.Context, originalVesting sdk.Coins, startTime, endTime int64) error {
+	return k.CreateVestingAccount(ctx, types.TeamAddress, types.TeamMultisigPubKey, originalVesting, startTime, endTime)
 }
 
 // ComputeVested 按线性模型实时计算已释放额度（Q9：曲线元数据缓存、进度实时算）。

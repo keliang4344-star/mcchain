@@ -1,0 +1,50 @@
+syntax = "proto3";
+package mcchain.dex;
+option go_package = "mcchain/x/dex/types";
+
+service Msg {
+  rpc CreatePool       (MsgCreatePool       ) returns (MsgCreatePoolResponse       );
+  rpc AddLiquidity     (MsgAddLiquidity     ) returns (MsgAddLiquidityResponse     );
+  rpc RemoveLiquidity  (MsgRemoveLiquidity  ) returns (MsgRemoveLiquidityResponse  );
+  rpc SwapExactIn      (MsgSwapExactIn      ) returns (MsgSwapExactInResponse      );
+}
+
+message MsgCreatePool {
+  string creator = 1;
+  string denom_a = 2;
+  string denom_b = 3;
+  string amount_a = 4;
+  string amount_b = 5;
+  uint32 fee_rate_bps = 6;
+  uint64 pool_id = 7;
+}
+
+message MsgAddLiquidity {
+  string creator = 1;
+  uint64 pool_id = 2;
+  string amount_a_max = 3;
+  string amount_b_max = 4;
+  string min_lp_out = 5;
+}
+
+message MsgRemoveLiquidity {
+  string creator = 1;
+  uint64 pool_id = 2;
+  string lp_amount = 3;
+  string min_a_out = 4;
+  string min_b_out = 5;
+}
+
+message MsgSwapExactIn {
+  string creator = 1;
+  uint64 pool_id = 2;
+  string denom_in = 3;
+  string amount_in = 4;
+  string denom_out = 5;
+  string min_amount_out = 6;
+}
+
+message MsgCreatePoolResponse { uint64 pool_id = 1; }
+message MsgAddLiquidityResponse { string lp_minted = 1; string actual_a = 2; string actual_b = 3; }
+message MsgRemoveLiquidityResponse { string amount_a = 1; string amount_b = 2; }
+message MsgSwapExactInResponse { string amount_out = 1; }

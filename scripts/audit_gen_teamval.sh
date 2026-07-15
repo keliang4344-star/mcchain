@@ -30,7 +30,7 @@ echo "=== teammultisig address (expect mc105qnk0v3gn96naljmazvqjmnza08u5yn0vwpxz
 echo "multisig_rc=$?"
 
 echo "STEP5 gentx generate-only"
-"$BIN" gentx teammultisig 100000000000umc --chain-id "$CID" --min-self-delegation 100000000000 \
+"$BIN" gentx teammultisig 100000000000umc --chain-id "$CID" --min-self-delegation 30000000000 \
   --keyring-backend test --home "$HD" --generate-only > /tmp/gx.json 2>/tmp/gx.err
 echo "gentx_rc=$?"; cat /tmp/gx.err
 

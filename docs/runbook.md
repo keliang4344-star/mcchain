@@ -62,10 +62,10 @@ ignite chain start --force-reset
 
 ## 4. 关于 genesis 验证人 min_self_delegation（重要）
 
-P0-1 要求所有验证人（含 genesis 验证人 alice）的 `min_self_delegation == 100000000000`（=100k MC = 1e11 umc）。
+P0-1 要求所有验证人（含 genesis 验证人 alice）的 `min_self_delegation == 30000000000`（=30k MC = 3e10 umc）。
 
 - **创世验证人**由 `InitGenesis` 直接创建，**不经过 ante decorator**，因此单纯靠 ante 装饰器无法约束它。
-- 本增量已在 `app/app.go` 的 `InitChainer` 中、`app.mm.InitGenesis(...)` **之后**增加兜底逻辑：遍历全部验证人，将 `MinSelfDelegation < 1e11` 的强制抬到 `1e11` 并 `SetValidator`。
+- 本增量已在 `app/app.go` 的 `InitChainer` 中、`app.mm.InitGenesis(...)` **之后**增加兜底逻辑：遍历全部验证人，将 `MinSelfDelegation < 3e10` 的强制抬到 `3e10` 并 `SetValidator`。
 
 **因此你无需手动修改 `genesis.json` 的 `min_self_delegation` 字段**——代码启动时会自动纠正。同样，`BondDenom` 也会在 InitChainer 被强制覆盖为 `umc`。
 
@@ -73,7 +73,7 @@ P0-1 要求所有验证人（含 genesis 验证人 alice）的 `min_self_delegat
 
 ```bash
 mcchaind q staking params          # bond_denom: umc
-mcchaind q staking validators       # 任意验证人 min_self_delegation: "100000000000"
+mcchaind q staking validators       # 任意验证人 min_self_delegation: "30000000000"
 ```
 
 ## 5. DePIN 初始池（P1-1）
@@ -89,7 +89,7 @@ mcchaind q depin params                     # initial_pool / reward_denom
 
 | 现象 | 排查 |
 |---|---|
-| `min self delegation ... < lower bound` | 提交 `MsgCreateValidator`/`MsgEditValidator` 时 `min_self_delegation` 低于 1e11 umc，请抬高 |
+| `min self delegation ... < lower bound` | 提交 `MsgCreateValidator`/`MsgEditValidator` 时 `min_self_delegation` 低于 3e10 umc，请抬高 |
 | 出块间隔不在 3–5s | 确认已设置 `timeout_commit = "4s"` 并重启 |
 | 奖励发放为 0 / 报错 `creator not registered in phonenode` | 提交贡献前需先用同一设备地址（=节点 Address）调用 `MsgRegisterNode` 注册 phonenode 节点 |
 

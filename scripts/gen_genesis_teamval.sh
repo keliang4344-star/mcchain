@@ -9,8 +9,8 @@ TMP="$HOME/mcchain/audit_tmp"
 CHAIN_ID="mcchain-mainnet-1"
 CFG="$HOME/mcchain/scripts/mainnet-genesis-config.json"
 PY="$HOME/.workbuddy/binaries/python/versions/3.13.12/python.exe"
-SELF_DEL="150000000000000umc"   # 1.5e14 = 全部团队池自抵押
-MIN_SELF="100000000000"         # 1e11
+SELF_DEL="120000000000000umc"   # 1.2e14 = 全部团队池自抵押（五池模型团队 12%）
+MIN_SELF="30000000000"          # 3e10
 
 # 清理（用 rm -rf 清理整目录；msys safe-delete 可能拦截但 set +e 不中断）
 rm -rf "$HD" 2>/dev/null
@@ -45,7 +45,7 @@ print('phonenode+edgeai params fixed')
 "
 
 echo "== [1.7] 添加临时 TeamAddress genesis-account（gentx 需要，后面删掉）=="
-"$BIN" add-genesis-account mc1uq85t4erj44lf3x23xnrr97lt4wlyfz5kkf96f 150000000000000umc --home "$HD" 2>&1 | tail -2
+"$BIN" add-genesis-account mc1uq85t4erj44lf3x23xnrr97lt4wlyfz5kkf96f 120000000000000umc --home "$HD" 2>&1 | tail -2
 echo "add-genesis-account exit=$?"
 
 # 用真实团队助记词恢复 5 把私钥到 test keyring（仅审计用，演练后清理）

@@ -33,7 +33,7 @@ echo "=== 验证 ==="
 if [ "$SUPPLY" = "1000000000000000" ]; then echo "✅ 总供给 = 1e15 umc"; else echo "❌ 供给不符: $SUPPLY"; fi
 if echo "$MINT_INFL" | grep -q "0.000000"; then echo "✅ mint inflation = 0"; else echo "❌ mint inflation != 0: $MINT_INFL"; fi
 if [ "$TOK_CAP" = "1000000000000000" ]; then echo "✅ tokenomics cap = 1e15"; else echo "❌ tokenomics cap: $TOK_CAP"; fi
-if [ "$DEPIN" = "100000000000000" ]; then echo "✅ depin pool = 1e14"; else echo "❌ depin pool: $DEPIN"; fi
+if [ "$DEPIN" = "550000000000000" ]; then echo "✅ depin pool = 5.5e14 (设备激励 55%)"; else echo "❌ depin pool: $DEPIN"; fi
 
 echo "=== 停止链 ==="
 kill "$CPID" 2>/dev/null

@@ -16,8 +16,10 @@ var (
 )
 
 // DefaultInitialPool is the default size of the DePIN reward pool, in umc.
-// 1e14 umc == 1e8 MC (about 10% of the 1B total supply), minted once at genesis.
-const DefaultInitialPool uint64 = 1e14
+// 5.5e14 umc == 5.5e8 MC (55% of the 1B total supply) — the whole device-incentive
+// pool of the five-pool model, injected once at genesis by tokenomics.InitGenesis
+// (tokenomics → depin module account). Must equal tokenomics.DepinInitialPoolSlice.
+const DefaultInitialPool uint64 = 550_000_000_000_000
 
 // DefaultRewardDenom is the denom used for DePIN reward payouts.
 const DefaultRewardDenom = "umc"
