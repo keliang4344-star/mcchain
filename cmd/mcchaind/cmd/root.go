@@ -144,6 +144,7 @@ func initRootCmd(
 		queryCommand(),
 		txCommand(),
 		keys.Commands(app.DefaultNodeHome),
+		oracleCmd(),
 	)
 }
 

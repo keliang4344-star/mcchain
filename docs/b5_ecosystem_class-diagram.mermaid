@@ -1,0 +1,68 @@
+classDiagram
+    direction LR
+
+    class EcosystemQueryKeeper {
+        <<x/ecosystem (只读)>> 
+        -tokenomicsKeeper TokenomicsKeeper
+        -phonenodeKeeper PhonenodeKeeper
+        -edgeaiKeeper EdgeaiKeeper
+        -depinKeeper DepinKeeper
+        +QueryOverview(ctx) OverviewResp
+        +QueryNodeDetail(ctx, addr) NodeDetailResp
+        +QueryTaskDetail(ctx, id) TaskDetailResp
+    }
+
+    class TokenomicsKeeper {
+        <<read-only interface>>
+        +GetMintedSupply(ctx) sdk.Int
+        +GetAllocations(ctx) []PoolAllocation
+    }
+
+    class PhonenodeKeeper {
+        <<read-only interface>>
+        +GetNode(ctx, addr) *NodeState
+        +HasNode(ctx, addr) bool
+        +IsAttested(ctx, addr) bool
+        +GetAttestation(ctx, addr) Attestation
+        +CountNodes(ctx) int
+    }
+
+    class EdgeaiKeeper {
+        <<read-only interface>>
+        +GetTask(ctx, id) *Task
+        +GetResult(ctx, taskId) *Result
+        +GetDispute(ctx, id) *Dispute
+        +CountTasks(ctx) int
+    }
+
+    class DepinKeeper {
+        <<read-only interface>>
+        +GetDevice(ctx, addr) *Device
+        +CountDevices(ctx) int
+    }
+
+    class StandardEvent {
+        <<约定 topic>>
+        mcchain.tokenomics.{Mint,Allocation}
+        mcchain.depin.{Contribution,Payout}
+        mcchain.phonenode.{Attestation,Slash,StateProof}
+        mcchain.edgeai.{TaskCreated,ResultAccepted,Dispute,Resolved}
+    }
+
+    class OffChainContracts {
+        <<docs/*.md 链下>>
+        sdk_contract / explorer_contract
+        wallet_contract / depin_demand_contract
+    }
+
+    EcosystemQueryKeeper --> TokenomicsKeeper : 只读聚合
+    EcosystemQueryKeeper --> PhonenodeKeeper : 只读聚合
+    EcosystemQueryKeeper --> EdgeaiKeeper : 只读聚合
+    EcosystemQueryKeeper --> DepinKeeper : 只读聚合
+    StandardEvent ..> OffChainContracts : 订阅消费
+    OffChainContracts ..> PhonenodeKeeper : 钱包复用 B4 proof
+    OffChainContracts ..> EdgeaiKeeper : DePIN 复用 B3 任务类型
+
+    note for EcosystemQueryKeeper "纯只读：无状态/无Msg/无BeginBlock/无模块账户；绝不 MintCoins"
+    note for StandardEvent "前缀 mcchain.<module>.<Event>；状态变更点 EmitEvent"
+    note for OffChainContracts "链下契约，本批次不实现"

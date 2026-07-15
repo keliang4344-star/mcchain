@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package mcchain.phonenode;
+
+option go_package = "mcchain/x/phonenode/types";
+
+// Msg defines the Msg service.
+service Msg {
+  rpc SubmitStateProof (MsgSubmitStateProof) returns (MsgSubmitStateProofResponse);
+  rpc RegisterNode     (MsgRegisterNode    ) returns (MsgRegisterNodeResponse    );
+  rpc SubmitAttestation (MsgSubmitAttestation) returns (MsgSubmitAttestationResponse);
+}
+message MsgSubmitStateProof {
+  string creator = 1;
+  string root    = 2;
+  string leaf    = 3;
+  string index   = 4;
+  string proof   = 5;
+}
+
+message MsgSubmitStateProofResponse {}
+
+message MsgRegisterNode {
+  string creator = 1;
+  string address = 2;
+  string model   = 3;
+  string os      = 4;
+  string role    = 5;
+}
+
+message MsgRegisterNodeResponse {}
+
+// MsgSubmitAttestation 提交硬件 attestation 根哈希 + nonce（反女巫/链下重验证）。
+message MsgSubmitAttestation {
+  string creator       = 1;
+  string root_hash     = 2;
+  string nonce         = 3;
+  string device_id_hash = 4;
+}
+
+message MsgSubmitAttestationResponse {}
+

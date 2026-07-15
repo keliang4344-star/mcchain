@@ -1,0 +1,12 @@
+syntax = "proto3";
+package mcchain.edgeai;
+
+import "gogoproto/gogo.proto";
+import "mcchain/edgeai/params.proto";
+
+option go_package = "mcchain/x/edgeai/types";
+
+// GenesisState defines the edgeai module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+}

@@ -1,21 +1,23 @@
+# B1/tokenomics：三大池（团队/社区/生态）的拨付由 x/tokenomics 模块的
+# InitGenesis 程序化完成（mint 总量上限并分配/转账），无需在 config.yml 中
+# 增加任何池账户或币分配。config.yml 仅管用户/验证人账户（alice/bob）。
+chainID: mcchain-1
 version: 1
 accounts:
 - name: alice
   coins:
-  - 20000token
-  - 200000000stake
+  - 100000000000umc
 - name: bob
   coins:
-  - 10000token
-  - 100000000stake
+  - 1000000umc
 client:
   openapi:
     path: docs/static/openapi.yml
 faucet:
   name: bob
   coins:
-  - 5token
-  - 100000stake
+  - 5umc
+  - 100000umc
 validators:
 - name: alice
-  bonded: 100000000stake
+  bonded: 100000000000umc

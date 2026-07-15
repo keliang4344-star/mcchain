@@ -1,0 +1,19 @@
+syntax = "proto3";
+package mcchain.depin;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "mcchain/x/depin/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (gogoproto.goproto_stringer) = false;
+
+  // InitialPool is the size of the DePIN reward pool minted once at genesis,
+  // expressed in the reward denom (umc). 1e14 umc == 1e8 MC.
+  uint64 initial_pool = 1;
+
+  // RewardDenom is the denom used when paying out contribution rewards.
+  // Defaults to "umc" (never "stake").
+  string reward_denom = 2;
+}

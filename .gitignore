@@ -4,3 +4,47 @@ release/
 .idea/
 .vscode/
 .DS_Store
+
+# === MC chain: 仅源码入库，排除私钥/二进制/链状态/诊断垃圾 ===
+# testnet/: keyring 私钥 + 链状态，绝不入库，仅留本地电脑
+testnet/
+build/
+mcchaind.exe
+*.log
+node_*.log
+_*.log
+diag*.ps1
+unsigned.json
+signed*.json
+
+# 主网启动验证临时产物（含演示 keyring 副本，绝不入库）
+mainnetboot/
+mainnet_*.json
+mainnet_node.log
+mainnet_boot.log
+
+# === 团队多签密钥材料（含助记词/公钥生成产物，绝密，仅本机 ===
+team_multisig_vault.txt
+team_keys_gen.json
+team_pubkeys_b64.txt
+team_pubkeys.txt
+teamkeyring/
+teamkeyring_gen/
+
+# === 构建产物 / 测试输出 / 本地运行态（绝不入库） ===
+*.exe
+event-subscriber.exe
+keeper.test.exe
+testout*.txt
+testout_full*.txt
+audit_home/
+audit_tmp/
+test_home/
+verify_home/
+tmp_recover/
+*.bak
+mainnetboot/
+mainnet_*.json
+mainnet_node.log
+mainnet_boot.log
+

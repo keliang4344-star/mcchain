@@ -1,0 +1,91 @@
+classDiagram
+    direction LR
+
+    class PhoneNodeKeeper {
+        -cdc codec.BinaryCodec
+        -storeKey storetypes.StoreKey
+        -memKey storetypes.StoreKey
+        -paramstore paramtypes.Subspace
+        -stakingKeeper StakingKeeper
+        -slashingKeeper SlashingKeeper
+        -bankKeeper BankKeeper
+        +SetAttestation(ctx, addr, Attestation)
+        +GetAttestation(ctx, addr) Attestation
+        +IsAttested(ctx, addr) bool
+        +HasNode(ctx, addr) bool
+        +SlashIfBad(ctx, addr, reason, penaltyBps)
+        +RecordSlash(ctx, SlashRecord)
+        +BeginBlockOfflineCheck(ctx)
+    }
+
+    class Attestation {
+        +string root_hash
+        +string nonce
+        +string device_id_hash
+        +int64 expiry
+        +string status
+    }
+
+    class SlashRecord {
+        +string address
+        +string reason
+        +uint32 penalty_bps
+        +int64 time
+    }
+
+    class NodeState {
+        +string address
+        +bool registered
+        +int proof_count
+        +string last_root
+    }
+
+    class MsgSubmitAttestation {
+        +string creator
+        +string root_hash
+        +string nonce
+        +string device_id_hash
+    }
+
+    class StakingKeeper {
+        <<cosmos-sdk interface>>
+        +Slash(ctx, addr, fraction, power) int64
+        +Jail(ctx, consAddr)
+        +GetValidatorSet
+    }
+
+    class SlashingKeeper {
+        <<cosmos-sdk interface>>
+        +Jail
+        +Tombstone
+    }
+
+    class DepinKeeper {
+        <<x/depin>>
+        +SubmitContribution(...)
+        -phonenodeKeeper PhonenodeKeeper
+    }
+
+    class PhonenodeKeeper {
+        <<interface used by depin>>
+        +HasNode(ctx, addr) bool
+        +IsAttested(ctx, addr) bool
+    }
+
+    class TokenomicsKeeper {
+        <<x/tokenomics, 只读引用>>
+        +MintCoins(...)  // B2 绝不调用
+    }
+
+    PhoneNodeKeeper --> StakingKeeper : uses(Slash/Jail)
+    PhoneNodeKeeper --> SlashingKeeper : uses
+    PhoneNodeKeeper ..> Attestation : stores
+    PhoneNodeKeeper ..> SlashRecord : records
+    PhoneNodeKeeper ..> NodeState : reads LastRoot
+    PhoneNodeKeeper ..> MsgSubmitAttestation : handles
+    DepinKeeper --> PhonenodeKeeper : IsAttested 闸口
+    PhoneNodeKeeper ..|> PhonenodeKeeper : implements
+
+    note for PhoneNodeKeeper "BeginBlock 离线检测→SlashIfBad；slash 绝不 MintCoins（B1 cap 铁律）"
+    note for Attestation "链上仅存根/nonce/device_id_hash；重验证链下"
+    note for TokenomicsKeeper "B2 不改动；slash 不影响 minted_supply"

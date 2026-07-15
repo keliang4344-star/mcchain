@@ -1,0 +1,62 @@
+syntax = "proto3";
+package mcchain.edgeai;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "mcchain/x/edgeai/types";
+
+// Task 链上 AI 任务状态（protobuf 持久化，与全链状态编码一致）。
+message Task {
+  // id 任务唯一 ID（链上自增）。
+  string id = 1;
+  // creator 需求方地址（bech32）。
+  string creator = 2;
+  // description 任务描述。
+  string description = 3;
+  // reward 任务奖励（umc）。
+  uint64 reward = 4;
+  // status open/assigned/done/disputed/cheated。
+  string status = 5;
+  // assignee 领取该任务的节点地址（B3.1 任务分配语义）。
+  string assignee = 6;
+  // created_at 创建时区块时间（unix 秒）。
+  int64 created_at = 7;
+}
+
+// Result 一次任务结果提交（protobuf 持久化）。
+message Result {
+  // task_id 关联任务 ID。
+  string task_id = 1;
+  // submitter 提交结果节点地址（bech32）。
+  string submitter = 2;
+  // result_hash 结果指纹（链下验证用）。
+  string result_hash = 3;
+  // attestation_nonce 移动节点 attestation 随机数（B2  attested-execution gate）。
+  string attestation_nonce = 4;
+  // status pending/valid/rejected。
+  string status = 5;
+  // submitted_at 提交时区块时间（unix 秒）。
+  int64 submitted_at = 6;
+  // submitted_at_block B3.1 争议窗口起算区块高度。
+  int64 submitted_at_block = 7;
+}
+
+// Dispute 争议记录（protobuf 持久化）。
+message Dispute {
+  // task_id 关联任务 ID。
+  string task_id = 1;
+  // challenger 发起争议方地址（bech32）。
+  string challenger = 2;
+  // submitter B3.1 被质疑结果的提交者（裁定 cheat 时 slash 对象）。
+  string submitter = 3;
+  // reason 争议理由。
+  string reason = 4;
+  // status open/resolved。
+  string status = 5;
+  // resolution none/cheat/honest。
+  string resolution = 6;
+  // opened_at 争议开启时区块时间（unix 秒）。
+  int64 opened_at = 7;
+  // opened_at_block B3.1 争议窗口起算区块高度。
+  int64 opened_at_block = 8;
+}

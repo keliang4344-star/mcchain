@@ -1,0 +1,72 @@
+syntax = "proto3";
+package mcchain.edgeai;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "mcchain/edgeai/params.proto";
+
+option go_package = "mcchain/x/edgeai/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/mcchain/edgeai/params";
+  }
+
+  // Task returns a single task by id (JSON).
+  rpc Task(QueryTaskRequest) returns (QueryTaskResponse) {
+    option (google.api.http).get = "/mcchain/edgeai/task/{task_id}";
+  }
+
+  // Tasks returns all task ids.
+  rpc Tasks(QueryTasksRequest) returns (QueryTasksResponse) {
+    option (google.api.http).get = "/mcchain/edgeai/tasks";
+  }
+
+  // Results returns all submitted results (JSON).
+  rpc Results(QueryResultsRequest) returns (QueryResultsResponse) {
+    option (google.api.http).get = "/mcchain/edgeai/results";
+  }
+
+  // Disputes returns all disputes (JSON).
+  rpc Disputes(QueryDisputesRequest) returns (QueryDisputesResponse) {
+    option (google.api.http).get = "/mcchain/edgeai/disputes";
+  }
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryTaskRequest {
+  string task_id = 1;
+}
+
+// QueryTaskResponse returns a task serialized as JSON string
+// (tasks are stored as keeper-internal Go structs, exposed as proto-compatible JSON).
+message QueryTaskResponse {
+  string task_json = 1;
+}
+
+message QueryTasksRequest {}
+
+message QueryTasksResponse {
+  repeated string task_ids = 1;
+}
+
+message QueryResultsRequest {}
+
+// QueryResultsResponse returns submitted results serialized as JSON strings.
+message QueryResultsResponse {
+  repeated string results_json = 1;
+}
+
+message QueryDisputesRequest {}
+
+// QueryDisputesResponse returns disputes serialized as JSON strings.
+message QueryDisputesResponse {
+  repeated string disputes_json = 1;
+}

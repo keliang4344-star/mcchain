@@ -1,0 +1,44 @@
+%% ① 用户 MsgCreateValidator 被 ante decorator 拦截校验
+sequenceDiagram
+    participant U as 用户/Cli
+    participant AH as AnteHandler(闭包包裹)
+    participant MSD as MinSelfDelegationDecorator
+    participant DAH as 默认 AnteHandler
+    participant SV as StakingKeeper
+
+    U->>AH: 提交 MsgCreateValidator(MinSelfDelegation)
+    AH->>MSD: AnteHandle(ctx, tx, sim, DAH)
+    MSD->>MSD: 遍历 tx.GetMsgs() 做类型断言
+    alt MinSelfDelegation < 1e11 umc
+        MSD-->>U: 返回错误，交易拒绝（不发往 StakingKeeper）
+    else MinSelfDelegation >= 1e11 umc
+        MSD->>DAH: next(ctx, tx, sim)
+        DAH->>SV: 处理 MsgCreateValidator
+        SV-->>U: 验证人创建成功
+    end
+
+%% ② SubmitContribution 端到端（含 phonenode 关联校验 + 从池发 umc）
+sequenceDiagram
+    participant D as 设备(手机节点)
+    participant SC as MsgServer.SubmitContribution
+    participant K as depin.Keeper
+    participant PK as PhonenodeKeeper
+    participant BK as BankKeeper
+    participant M as depin 模块账户(InitialPool)
+
+    D->>SC: MsgSubmitContribution(Creator=addr, TaskId, TaskType, Score)
+    SC->>K: GetDevice(addr) 并检查 Attested
+    K-->>SC: 设备已 attest
+    SC->>K: SubmitAndReward(...) 计算 reward
+    K-->>SC: reward > 0
+    SC->>PK: HasNode(ctx, addr)  // 关联校验
+    alt 未在 phonenode 注册
+        PK-->>SC: false
+        SC-->>D: ErrPhonenodeNotRegistered(1107)，不发币
+    else 已注册节点
+        PK-->>SC: true
+        SC->>BK: SendCoinsFromModuleToAccount(M, addr, rewardCoin)
+        BK->>M: 从 InitialPool 扣减
+        BK->>D: umc 入账（denom=RewardDenom="umc"）
+        SC-->>D: MsgSubmitContributionResponse{}
+    end

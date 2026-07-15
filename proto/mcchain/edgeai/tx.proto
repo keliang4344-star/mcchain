@@ -1,0 +1,50 @@
+syntax = "proto3";
+package mcchain.edgeai;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "mcchain/x/edgeai/types";
+
+// Msg defines the Msg service.
+service Msg {
+  rpc CreateTask  (MsgCreateTask ) returns (MsgCreateTaskResponse );
+  rpc SubmitResult(MsgSubmitResult) returns (MsgSubmitResultResponse);
+  rpc OpenDispute (MsgOpenDispute ) returns (MsgOpenDisputeResponse );
+  rpc ResolveDispute (MsgResolveDispute) returns (MsgResolveDisputeResponse);
+}
+
+message MsgCreateTask {
+  string creator     = 1;
+  string description = 2;
+  uint64 reward      = 3; // umc
+}
+
+message MsgCreateTaskResponse {}
+
+message MsgSubmitResult {
+  string creator          = 1;
+  string task_id          = 2;
+  string result_hash      = 3;
+  string attestation_nonce = 4;
+}
+
+message MsgSubmitResultResponse {}
+
+message MsgOpenDispute {
+  string creator = 1;
+  string task_id = 2;
+  string reason  = 3;
+}
+
+message MsgOpenDisputeResponse {}
+
+// MsgResolveDispute B3.1：争议仲裁者裁定。
+// creator 必须是 edgeai 模块参数 arbitrator（部署时设为团队多签地址）；
+// resolution 取值 "honest"（维持乐观拨付）或 "cheat"（拒绝拨付并 slash 提交者）。
+message MsgResolveDispute {
+  string creator    = 1;
+  string task_id    = 2;
+  string resolution = 3;
+}
+
+message MsgResolveDisputeResponse {}

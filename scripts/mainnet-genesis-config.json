@@ -1,0 +1,14 @@
+{
+  "chain_id": "mcchain-mainnet-1",
+  "bond_denom": "umc",
+  "depin_initial_pool": "100000000000000",
+  "tokenomics_cap": "1000000000000000",
+  "assert_accounts": [],
+  "gov_min_deposit_amount": "10000000",
+  "gov_voting_period": "172800s",
+  "gov_max_deposit_period": "172800s",
+  "gov_quorum": "0.334000000000000000",
+  "gov_threshold": "0.500000000000000000",
+  "gov_veto_threshold": "0.334000000000000000",
+  "edgeai_arbitrator": "mc105qnk0v3gn96naljmazvqjmnza08u5yn0vwpxz"
+}

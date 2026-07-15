@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -110,9 +111,21 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/spf13/cast"
 
+	depinmodule "mcchain/x/depin"
+	depinmodulekeeper "mcchain/x/depin/keeper"
+	depinmoduletypes "mcchain/x/depin/types"
 	mcchainmodule "mcchain/x/mcchain"
 	mcchainmodulekeeper "mcchain/x/mcchain/keeper"
 	mcchainmoduletypes "mcchain/x/mcchain/types"
+	phonenodemodule "mcchain/x/phonenode"
+	phonenodemodulekeeper "mcchain/x/phonenode/keeper"
+	phonenodemoduletypes "mcchain/x/phonenode/types"
+	tokenomicsmodule "mcchain/x/tokenomics"
+	tokenomicsmodulekeeper "mcchain/x/tokenomics/keeper"
+	tokenomicsmoduletypes "mcchain/x/tokenomics/types"
+	edgeaimodule "mcchain/x/edgeai"
+	edgeaimodulekeeper "mcchain/x/edgeai/keeper"
+	edgeaimoduletypes "mcchain/x/edgeai/types"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
 	appparams "mcchain/app/params"
@@ -174,6 +187,10 @@ var (
 		vesting.AppModuleBasic{},
 		consensus.AppModuleBasic{},
 		mcchainmodule.AppModuleBasic{},
+		tokenomicsmodule.AppModuleBasic{},
+		depinmodule.AppModuleBasic{},
+		phonenodemodule.AppModuleBasic{},
+		edgeaimodule.AppModuleBasic{},
 		// this line is used by starport scaffolding # stargate/app/moduleBasic
 	)
 
@@ -187,6 +204,15 @@ var (
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		govtypes.ModuleName:            {authtypes.Burner},
 		ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
+		// Q7：depin 移除 Minter（不再自铸），仅保留 Burner/Staking；统一由 tokenomics 持有 Minter。
+		depinmoduletypes.ModuleName:      {authtypes.Burner, authtypes.Staking},
+		tokenomicsmoduletypes.ModuleName: {authtypes.Minter},
+		// 社区/生态池为独立模块账户（Q5），仅持有资金、无特殊权限。
+		tokenomicsmoduletypes.CommunityPoolName: nil,
+		tokenomicsmoduletypes.EcosystemPoolName:  nil,
+		// 需求方付费（escrow）：edgeai 模块账户托管 creator 托管的 reward，
+		// 结算时经 bank 向其拨付 submitter；仅需注册为模块账户，无 Minter/Burner 权限。
+		edgeaimoduletypes.ModuleName: nil,
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 )
@@ -250,6 +276,14 @@ type App struct {
 	ScopedICAHostKeeper  capabilitykeeper.ScopedKeeper
 
 	McchainKeeper mcchainmodulekeeper.Keeper
+
+	DepinKeeper depinmodulekeeper.Keeper
+
+	TokenomicsKeeper tokenomicsmodulekeeper.Keeper
+
+	PhonenodeKeeper phonenodemodulekeeper.Keeper
+
+	EdgeaiKeeper edgeaimodulekeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
 
 	// mm is the module manager
@@ -297,10 +331,14 @@ func New(
 		feegrant.StoreKey, evidencetypes.StoreKey, ibctransfertypes.StoreKey, icahosttypes.StoreKey,
 		capabilitytypes.StoreKey, group.StoreKey, icacontrollertypes.StoreKey, consensusparamtypes.StoreKey,
 		mcchainmoduletypes.StoreKey,
+		tokenomicsmoduletypes.StoreKey,
+		depinmoduletypes.StoreKey,
+		phonenodemoduletypes.StoreKey,
+		edgeaimoduletypes.StoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	)
 	tkeys := sdk.NewTransientStoreKeys(paramstypes.TStoreKey)
-	memKeys := sdk.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
+	memKeys := sdk.NewMemoryStoreKeys(capabilitytypes.MemStoreKey, edgeaimoduletypes.MemStoreKey)
 
 	app := &App{
 		BaseApp:           bApp,
@@ -527,6 +565,52 @@ func New(
 	)
 	mcchainModule := mcchainmodule.NewAppModule(appCodec, app.McchainKeeper, app.AccountKeeper, app.BankKeeper)
 
+	// P2/Q5 (接线顺序铁律): PhonenodeKeeper MUST be created before DepinKeeper
+	// because the depin keeper depends on the phonenode keeper (depin→phonenode
+	//关联校验).
+	app.PhonenodeKeeper = *phonenodemodulekeeper.NewKeeper(
+		appCodec,
+		keys[phonenodemoduletypes.StoreKey],
+		keys[phonenodemoduletypes.MemStoreKey],
+		app.GetSubspace(phonenodemoduletypes.ModuleName),
+		app.StakingKeeper,
+		app.SlashingKeeper,
+	)
+	phonenodeModule := phonenodemodule.NewAppModule(appCodec, app.PhonenodeKeeper, app.AccountKeeper, app.BankKeeper)
+
+	app.DepinKeeper = *depinmodulekeeper.NewKeeper(
+		appCodec,
+		keys[depinmoduletypes.StoreKey],
+		keys[depinmoduletypes.MemStoreKey],
+		app.GetSubspace(depinmoduletypes.ModuleName),
+
+		app.BankKeeper,
+		app.PhonenodeKeeper,
+	)
+	depinModule := depinmodule.NewAppModule(appCodec, app.DepinKeeper, app.AccountKeeper, app.BankKeeper)
+
+	// B3/edgeai：依赖 phonenode (IsAttested/SlashIfBad) + bank (payout)，genesis 排在 depin/phonenode 后
+	app.EdgeaiKeeper = *edgeaimodulekeeper.NewKeeper(
+		appCodec,
+		keys[edgeaimoduletypes.StoreKey],
+		keys[edgeaimoduletypes.MemStoreKey],
+		app.GetSubspace(edgeaimoduletypes.ModuleName),
+		app.PhonenodeKeeper,
+		app.BankKeeper,
+		app.DepinKeeper,
+	)
+	edgeaiModule := edgeaimodule.NewAppModule(appCodec, app.EdgeaiKeeper, app.AccountKeeper, app.BankKeeper)
+
+	// B1/tokenomics：唯一持 Minter 的「发行与分配总账」模块。
+	// 必须在 depin 模块之前创建并注册（genesis 顺序铁律：tokenomics 先于 depin）。
+	app.TokenomicsKeeper = *tokenomicsmodulekeeper.NewKeeper(
+		appCodec,
+		keys[tokenomicsmoduletypes.StoreKey],
+		app.AccountKeeper,
+		app.BankKeeper,
+	)
+	tokenomicsModule := tokenomicsmodule.NewAppModule(appCodec, app.TokenomicsKeeper, app.AccountKeeper, app.BankKeeper)
+
 	// this line is used by starport scaffolding # stargate/app/keeperDefinition
 
 	/**** IBC Routing ****/
@@ -589,6 +673,10 @@ func New(
 		transferModule,
 		icaModule,
 		mcchainModule,
+		tokenomicsModule,
+		depinModule,
+		phonenodeModule,
+		edgeaiModule,
 		// this line is used by starport scaffolding # stargate/app/appModule
 
 		crisis.NewAppModule(app.CrisisKeeper, skipGenesisInvariants, app.GetSubspace(crisistypes.ModuleName)), // always be last to make sure that it checks for all invariants and not only part of them
@@ -622,6 +710,10 @@ func New(
 		vestingtypes.ModuleName,
 		consensusparamtypes.ModuleName,
 		mcchainmoduletypes.ModuleName,
+		tokenomicsmoduletypes.ModuleName,
+		depinmoduletypes.ModuleName,
+		phonenodemoduletypes.ModuleName,
+		edgeaimoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	)
 
@@ -648,6 +740,10 @@ func New(
 		vestingtypes.ModuleName,
 		consensusparamtypes.ModuleName,
 		mcchainmoduletypes.ModuleName,
+		tokenomicsmoduletypes.ModuleName,
+		depinmoduletypes.ModuleName,
+		phonenodemoduletypes.ModuleName,
+		edgeaimoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
 	)
 
@@ -666,6 +762,11 @@ func New(
 		govtypes.ModuleName,
 		minttypes.ModuleName,
 		crisistypes.ModuleName,
+		// tokenomics 必须在 genutil 之前：genutil 处理 gentx 的自抵押时需要验证人
+		// 账户已有余额，而团队多签(TeamAddress)的余额由 tokenomics 在创世一次性铸造并拨付。
+		// 若 tokenomics 晚于 genutil，则团队多签作创世验证人时会因余额不足而 InitChain panic。
+		// 同时必须仍在 depin 之前（genesis 顺序铁律）。
+		tokenomicsmoduletypes.ModuleName,
 		genutiltypes.ModuleName,
 		ibctransfertypes.ModuleName,
 		ibcexported.ModuleName,
@@ -679,10 +780,42 @@ func New(
 		vestingtypes.ModuleName,
 		consensusparamtypes.ModuleName,
 		mcchainmoduletypes.ModuleName,
+		depinmoduletypes.ModuleName,
+		phonenodemoduletypes.ModuleName,
+		edgeaimoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 	app.mm.SetOrderInitGenesis(genesisModuleOrder...)
 	app.mm.SetOrderExportGenesis(genesisModuleOrder...)
+
+	// A3 创世顺序铁律断言：tokenomics → depin → phonenode → edgeai。
+	// 顺序错误在 InitChain 之前 fail-fast 并给出可读错误，避免静默 InitChain panic。
+	{
+		idx := make(map[string]int, len(genesisModuleOrder))
+		for i, name := range genesisModuleOrder {
+			idx[name] = i
+		}
+		order := []string{
+			tokenomicsmoduletypes.ModuleName,
+			depinmoduletypes.ModuleName,
+			phonenodemoduletypes.ModuleName,
+			edgeaimoduletypes.ModuleName,
+		}
+		for i := 1; i < len(order); i++ {
+			a, b := order[i-1], order[i]
+			ia, oka := idx[a]
+			ib, okb := idx[b]
+			if !oka {
+				panic(fmt.Sprintf("mcchain: required genesis module %q missing from init genesis order", a))
+			}
+			if !okb {
+				panic(fmt.Sprintf("mcchain: required genesis module %q missing from init genesis order", b))
+			}
+			if ia >= ib {
+				panic(fmt.Sprintf("mcchain: genesis order violation: %q must be initialized before %q", a, b))
+			}
+		}
+	}
 
 	// Uncomment if you want to set a custom migration order here.
 	// app.mm.SetOrderMigrations(custom order)
@@ -724,7 +857,14 @@ func New(
 		panic(fmt.Errorf("failed to create AnteHandler: %w", err))
 	}
 
-	app.SetAnteHandler(anteHandler)
+	// P0/Q1: wrap the default ante handler with a chain-wide minimum self
+	// delegation decorator. Every (non-genesis) validator must self-delegate at
+	// least MinSelfDelegationLowerBound (1e11 umc == 100k MC). Genesis validators
+	// are enforced separately in InitChainer because they bypass the ante chain.
+	msd := MinSelfDelegationDecorator{}
+	app.SetAnteHandler(func(ctx sdk.Context, tx sdk.Tx, sim bool) (sdk.Context, error) {
+		return msd.AnteHandle(ctx, tx, sim, anteHandler)
+	})
 	app.SetInitChainer(app.InitChainer)
 	app.SetBeginBlocker(app.BeginBlocker)
 	app.SetEndBlocker(app.EndBlocker)
@@ -738,6 +878,17 @@ func New(
 	app.ScopedIBCKeeper = scopedIBCKeeper
 	app.ScopedTransferKeeper = scopedTransferKeeper
 	// this line is used by starport scaffolding # stargate/app/beforeInitReturn
+
+	// T2 生产预言机切换：若设置 MC_ORACLE_PUBKEY（33 字节压缩 secp256k1 公钥的 base64），
+	// 则把默认 SoftOracle 切换为 TeeOracle 做链上验签；未设置则保持 Soft（测试网兼容）。
+	// 链下服务见 cmd/oracle（对 deviceAddr|challenge 签名）；公钥由运营离线保管。
+	if envPub := os.Getenv("MC_ORACLE_PUBKEY"); envPub != "" {
+		bz, berr := base64.StdEncoding.DecodeString(envPub)
+		if berr != nil || len(bz) != 33 {
+			panic(fmt.Errorf("MC_ORACLE_PUBKEY must be base64 of 33-byte compressed secp256k1 pubkey: %w", berr))
+		}
+		depinmoduletypes.SetOracle(depinmoduletypes.NewTeeOracle(depinmoduletypes.NewSecp256k1PubKey(bz)))
+	}
 
 	return app
 }
@@ -762,7 +913,44 @@ func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.Res
 		panic(err)
 	}
 	app.UpgradeKeeper.SetModuleVersionMap(ctx, app.mm.GetVersionMap())
-	return app.mm.InitGenesis(ctx, app.appCodec, genesisState)
+	res := app.mm.InitGenesis(ctx, app.appCodec, genesisState)
+
+	// ---- P0: post-genesis overrides (must run AFTER InitGenesis) ----
+
+	// Q8: force the staking BondDenom to "umc" regardless of what the genesis
+	// file may contain, so it stays consistent with config.yml accounts.
+	p := app.StakingKeeper.GetParams(ctx)
+	p.BondDenom = "umc"
+	app.StakingKeeper.SetParams(ctx, p)
+
+	// P0/R1: 固定总量链——tokenomics 模块一次性铸造并强约束 cap(1e15 umc)，
+	// 链上绝不允许二次通胀。mint 模块默认 inflation≈13% 且持有 Minter 权限、
+	// 会绕过 tokenomics 的 cap 直接铸币，必须强制清零。即便 genesis 漏设，
+	// 此处每次启动都兜底，保证总量上限不被破坏。
+	// 注意：GoalBonded 绝不能为 0——mint.BeginBlock 会算 bondedRatio/GoalBonded，
+	// 归零将在首区块除零 panic 导致链 halt。仅清零通胀上下限与本区块通胀率。
+	mp := app.MintKeeper.GetParams(ctx)
+	mp.InflationRateChange = sdk.ZeroDec()
+	mp.InflationMax = sdk.ZeroDec()
+	mp.InflationMin = sdk.ZeroDec()
+	app.MintKeeper.SetParams(ctx, mp)
+	minter := app.MintKeeper.GetMinter(ctx)
+	minter.Inflation = sdk.ZeroDec()
+	minter.AnnualProvisions = sdk.ZeroDec()
+	app.MintKeeper.SetMinter(ctx, minter)
+
+	// Q1/C: genesis validators are created by InitGenesis and therefore bypass
+	// the ante decorator. Lift any validator whose MinSelfDelegation is below
+	// the chain-wide floor up to the floor so acceptance (min_self_delegation
+	// == 100000000000) holds for the genesis validator as well.
+	for _, v := range app.StakingKeeper.GetAllValidators(ctx) {
+		if v.MinSelfDelegation.LT(sdk.NewInt(MinSelfDelegationLowerBound)) {
+			v.MinSelfDelegation = sdk.NewInt(MinSelfDelegationLowerBound)
+			app.StakingKeeper.SetValidator(ctx, v)
+		}
+	}
+
+	return res
 }
 
 // Configurator get app configurator
@@ -904,6 +1092,9 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(icacontrollertypes.SubModuleName)
 	paramsKeeper.Subspace(icahosttypes.SubModuleName)
 	paramsKeeper.Subspace(mcchainmoduletypes.ModuleName)
+	paramsKeeper.Subspace(depinmoduletypes.ModuleName)
+	paramsKeeper.Subspace(phonenodemoduletypes.ModuleName)
+	paramsKeeper.Subspace(edgeaimoduletypes.ModuleName)
 	// this line is used by starport scaffolding # stargate/app/paramSubspace
 
 	return paramsKeeper

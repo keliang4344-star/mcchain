@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    participant P as 提案人/DAO 成员
+    participant GOV as x/gov v1 (B2)
+    participant DAO as x/dao (CommunitySpendProposal Handler)
+    participant BM as x/bank
+    participant COM as community 模块账户(B1)
+    participant CAP as x/tokenomics (cap 铁律)
+
+    rect rgb(255,240,235)
+    note over P,CAP: ① 社区池治理支配（DAO 资金阶段）
+    P->>GOV: SubmitProposal(CommunitySpendProposal{recipient, amount})
+    GOV->>GOV: 投票（voting period/quorum/threshold，genesis 固化）
+    GOV->>DAO: 通过后调用 Handler
+    DAO->>BM: SendCoinsFromModuleToAccount(community, recipient, amount)
+    BM->>COM: 扣减 community 余额
+    DAO--x CAP: 绝不 MintCoins；minted_supply 不变
+    end
+
+    rect rgb(235,245,255)
+    note over GOV,CAP: ② 参数治理（B2 既有，不含 cap）
+    P->>GOV: SubmitProposal(ParameterChangeProposal)
+    GOV->>GOV: 改 phonenode/depin/slashing subspace 参数
+    GOV--x CAP: total_supply_cap 不在可改列表
+    end
+
+    rect rgb(235,255,238)
+    note over P,CAP: ③ 主网启链（文本可落盘，沙箱不执行）
+    P->>P: scripts/build_genesis.sh（固化 B1–B5 分配/参数/gentx）
+    P->>P: mcchaind init + collect-gentxs + start
+    P->>P: docker-compose up（validator/fullnode/snapshot）
+    P->>CAP: InitGenesis 触发 TotalSupplyCap 常量+校验（仍锁定）
+    end

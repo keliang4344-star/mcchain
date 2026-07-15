@@ -1,0 +1,12 @@
+syntax = "proto3";
+package mcchain.phonenode;
+
+import "gogoproto/gogo.proto";
+import "mcchain/phonenode/params.proto";
+
+option go_package = "mcchain/x/phonenode/types";
+
+// GenesisState defines the phonenode module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+}

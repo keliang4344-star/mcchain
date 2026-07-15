@@ -1,0 +1,73 @@
+syntax = "proto3";
+package mcchain.tokenomics;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "mcchain/x/tokenomics/types";
+
+// Query 定义 tokenomics 只读查询服务（R3：透明查询）。
+// tokenomics 无 Msg service，运行期不增发/不销毁。
+service Query {
+  // Supply 查询总量上限与已发行量。
+  rpc Supply(QuerySupplyRequest) returns (QuerySupplyResponse) {
+    option (google.api.http).get = "/mcchain/tokenomics/supply";
+  }
+
+  // Allocations 查询三大池分配占比与当前余额。
+  rpc Allocations(QueryAllocationsRequest) returns (QueryAllocationsResponse) {
+    option (google.api.http).get = "/mcchain/tokenomics/allocations";
+  }
+
+  // Release 查询团队池释放进度（基于曲线元数据 + 当前区块时间实时计算）。
+  rpc Release(QueryReleaseRequest) returns (QueryReleaseResponse) {
+    option (google.api.http).get = "/mcchain/tokenomics/release";
+  }
+}
+
+// QuerySupplyRequest 是 Supply 的空请求。
+message QuerySupplyRequest {}
+
+// QuerySupplyResponse 返回总量上限与已发行量。
+message QuerySupplyResponse {
+  uint64 total_supply_cap = 1;
+  uint64 minted_supply = 2;
+  string denom = 3;
+}
+
+// PoolView 单个分配池的视图。
+message PoolView {
+  string name = 1;
+  uint32 percent_bps = 2;
+  uint64 allocated_amount = 3;
+  uint64 current_balance = 4;
+  string address = 5;
+}
+
+// QueryAllocationsRequest 是 Allocations 的空请求。
+message QueryAllocationsRequest {}
+
+// QueryAllocationsResponse 返回三大池分配视图。
+message QueryAllocationsResponse {
+  repeated PoolView allocations = 1 [(gogoproto.nullable) = false];
+}
+
+// TeamRelease 团队池释放进度。
+message TeamRelease {
+  string address = 1;
+  uint64 total_locked = 2;
+  uint64 vested = 3;
+  uint64 remaining = 4;
+  uint32 progress_bps = 5;
+  int64 start_time = 6;
+  int64 cliff_time = 7;
+  int64 end_time = 8;
+}
+
+// QueryReleaseRequest 是 Release 的空请求。
+message QueryReleaseRequest {}
+
+// QueryReleaseResponse 返回团队池释放进度。
+message QueryReleaseResponse {
+  TeamRelease team = 1 [(gogoproto.nullable) = false];
+}

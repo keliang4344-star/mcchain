@@ -1,0 +1,57 @@
+sequenceDiagram
+    autonumber
+    participant U as 设备/用户(客户端)
+    participant PN as x/phonenode (MsgServer+Keeper)
+    participant DP as x/depin (MsgServer)
+    participant SK as x/staking
+    participant SL as x/slashing
+    participant BM as x/bank
+    participant TK as x/tokenomics(只读)
+    participant GOV as x/gov / x/params
+
+    rect rgb(235,245,255)
+    note over U,PN: ① 注册 + 硬件 attestation 登记
+    U->>PN: RegisterNode(addr, model, os, role)
+    PN->>PN: 写 NodeState{registered=true}
+    U->>PN: MsgSubmitAttestation(creator, root_hash, nonce, device_id_hash)
+    PN->>PN: 校验 nonce 未重放 & device_id_hash 未 1:1 绑定其它地址
+    PN->>PN: 写 Attestation{root_hash, nonce, device_id_hash, expiry, status=valid}
+    PN-->>U: 回执 (Attestation valid)
+    end
+
+    rect rgb(255,240,235)
+    note over PN,SK: ② BeginBlock 离线检测 → SlashIfBad
+    PN->>PN: BeginBlockOfflineCheck(ctx) 遍历 NodeState
+    PN->>PN: now - LastRoot_time > OfflineGraceBlocks ?
+    alt 超时离线
+        PN->>PN: SlashIfBad(addr, reason="offline", OfflineSlashBps)
+        PN->>SK: Slash(ctx, addr, fraction, power)  // 扣自质押
+        PN->>SL: Jail(consAddr) + 吊销 Attestation(status=invalid)
+        PN->>PN: RecordSlash(SlashRecord{...}); EmitEvent("phonenode.Slash")
+        PN--x TK: 绝不调用 MintCoins（B1 cap 铁律）
+    end
+    end
+
+    rect rgb(235,255,238)
+    note over U,DP: ③ depin 拨付前 IsAttested 双闸口
+    U->>DP: SubmitContribution(deviceAddr, taskType, proof)
+    DP->>DP: 现有 st.Attested 校验
+    DP->>PN: phonenodeKeeper.HasNode(deviceAddr)
+    DP->>PN: phonenodeKeeper.IsAttested(deviceAddr)  // B2 新增闸口
+    alt 未 attest
+        DP-->>U: ErrDeviceNotAttested（拒付）
+    else 已 attest
+        DP->>DP: ComputeReward(...) → amt
+        DP->>BM: SendCoinsFromModuleToAccount(depinModule, toAddr, amt)  // 来自 InitialPool
+        DP-->>U: 拨付成功
+    end
+    end
+
+    rect rgb(245,240,255)
+    note over GOV,PN: ④ 最小治理 —— 安全参数变更（不含 cap）
+    GOV->>GOV: ParameterChangeProposal(phonenode/slashing subspace)
+    GOV->>GOV: 投票通过
+    GOV->>PN: ParamStore.Set(attestation_validity / offline_grace_blocks / *slash_bps ...)
+    PN-->>U: q phonenode params 可见新值
+    GOV--x TK: total_supply_cap 不在可改列表（治理白名单排除）
+    end

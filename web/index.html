@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MC 公链 · 区块链仪表盘 / 钱包 / 浏览器</title>
+<script src="cosmjs-bundle.js"></script>
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#121826; --panel2:#0e1420; --line:#1f2a3d;
+    --txt:#e6edf6; --sub:#8b9bb4; --acc:#3fb950; --acc2:#58a6ff; --acc3:#bc8cff;
+    --warn:#f0883e; --bad:#f85149; --chip:#1b2435;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#15233b 0%,var(--bg) 60%);
+    color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:16px;font-size:14px}
+  a{color:var(--acc2)}
+  .top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:14px}
+  .brand{font-size:18px;font-weight:800;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+  .conn{display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:280px}
+  .conn input{flex:1;min-width:200px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    padding:9px 11px;border-radius:9px;font-family:monospace;font-size:13px}
+  .pill{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;background:var(--chip);color:var(--sub);border:1px solid var(--line)}
+  .pill.ok{color:var(--acc);border-color:#1f3b29}
+  .pill.err{color:var(--bad);border-color:#3b1f1f}
+  button{cursor:pointer;border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;color:#fff;background:var(--acc)}
+  button.alt{background:var(--acc2)} button.warn{background:var(--bad)}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--sub)}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .card{background:linear-gradient(180deg,var(--panel) 0%,var(--panel2) 100%);border:1px solid var(--line);
+    border-radius:14px;padding:14px 16px;position:relative;overflow:hidden}
+  .card h3{margin:0 0 12px;font-size:13px;color:var(--sub);font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+    border-left:3px solid var(--acc);padding-left:9px}
+  .card.blue h3{border-color:var(--acc2)} .card.purple h3{border-color:var(--acc3)} .card.warn h3{border-color:var(--warn)}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .kv:last-child{border-bottom:none}
+  .kv .k{color:var(--sub)} .kv .v{font-family:monospace;text-align:right;word-break:break-all}
+  .big{font-size:30px;font-weight:800;line-height:1.05;margin:2px 0 2px}
+  .big.acc{color:var(--acc)} .big.blue{color:var(--acc2)} .big.purple{color:var(--acc3)}
+  .mono{font-family:monospace;font-size:12px;word-break:break-all}
+  .cp{color:var(--sub);cursor:pointer;border-bottom:1px dotted var(--line)}
+  .cp:hover{color:var(--acc2)}
+  textarea,input.mn{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    padding:9px 11px;border-radius:9px;font-family:monospace;font-size:12px;resize:vertical}
+  .row{display:flex;gap:8px;flex-wrap:wrap} .row>*{flex:1;min-width:120px}
+  .btnrow{display:flex;gap:8px;margin-top:8px}
+  .btnrow button{flex:1}
+  .explore{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;
+    font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto;color:#9fe6b0}
+  .rank{margin:0;padding:0;list-style:none;max-height:230px;overflow:auto}
+  .rank li{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line)}
+  .rank .idx{color:var(--sub);font-weight:700;text-align:center}
+  .rank .nm{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rank .nm small{color:var(--sub);display:block;font-size:11px}
+  .rank .pw{font-family:monospace;font-size:12px;text-align:right;color:var(--acc3)}
+  .bar{height:4px;border-radius:3px;background:var(--line);margin-top:4px;overflow:hidden}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--acc3),var(--acc2))}
+  .hint{font-size:11px;color:var(--sub);margin-top:6px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#000d;color:#fff;
+    padding:9px 16px;border-radius:10px;font-size:13px;border:1px solid var(--line);opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .full{grid-column:1/-1}
+  .tag{display:inline-block;font-size:10px;padding:2px 7px;border-radius:6px;background:var(--chip);color:var(--sub);margin-left:6px}
+  @media(max-width:520px){.big{font-size:24px}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="brand"><span class="dot" id="liveDot"></span> MC 公链 · 仪表盘</div>
+  <div class="conn">
+    <input id="rpc" placeholder="RPC 地址 (cometbft, 默认 26657)" />
+    <button id="btnConnect">连接节点</button>
+    <button class="ghost" id="btnSaveCfg" title="保存当前配置">保存配置</button>
+    <span class="pill err" id="connPill">未连接</span>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- 链概览 -->
+  <div class="card blue">
+    <h3>链概览</h3>
+    <div class="kv"><span class="k">Chain ID</span><span class="v" id="oChain">—</span></div>
+    <div class="kv"><span class="k">当前高度</span><span class="v" id="oHeight">—</span></div>
+    <div class="kv"><span class="k">最新区块时间</span><span class="v" id="oTime">—</span></div>
+    <div class="kv"><span class="k">出块间隔</span><span class="v">4 s</span></div>
+    <div class="kv"><span class="k">总供应量</span><span class="v" id="oSupply">—</span></div>
+    <div class="kv"><span class="k">验证人数</span><span class="v" id="oValN">—</span></div>
+  </div>
+
+  <!-- 我的钱包 -->
+  <div class="card purple">
+    <h3>我的钱包</h3>
+    <div id="walletLocked">
+      <textarea id="mnemonic" rows="2" class="mn" placeholder="粘贴助记词（12/24 词，空格分隔）解锁钱包"></textarea>
+      <div class="btnrow"><button id="btnUnlock">解锁钱包</button></div>
+      <div class="hint">⚠️ 密钥仅存浏览器内存，关闭页面即丢弃。转账前务必核对地址。</div>
+    </div>
+    <div id="walletOpen" style="display:none">
+      <div class="kv"><span class="k">地址</span><span class="v"><span class="cp" id="oAddr" title="点击复制"></span></span></div>
+      <div class="big purple" id="oBal">0.000000 MC</div>
+      <div class="mono" id="oBalUmc" style="color:var(--sub)">0 umc</div>
+      <div class="row" style="margin-top:10px">
+        <input id="toAddr" class="mn" placeholder="接收地址 mc1..." />
+        <input id="amount" class="mn" placeholder="金额 MC" />
+      </div>
+      <div class="btnrow"><button id="btnSend">发送转账</button>
+        <button class="ghost" id="btnLock">锁定</button></div>
+    </div>
+  </div>
+
+  <!-- 最新区块 -->
+  <div class="card">
+    <h3>最新区块</h3>
+    <div class="big acc" id="oBlockH">—</div>
+    <div class="kv"><span class="k">区块哈希</span><span class="v"><span class="cp" id="oBlockHash" title="点击复制"></span></span></div>
+    <div class="kv"><span class="k">时间</span><span class="v" id="oBlockTime">—</span></div>
+    <div class="kv"><span class="k">交易数</span><span class="v" id="oBlockTx">—</span></div>
+    <div class="kv"><span class="k">出块者</span><span class="v"><span class="cp" id="oProposer" title="点击复制"></span></span></div>
+  </div>
+
+  <!-- 验证人 / 地址排名 -->
+  <div class="card warn">
+    <h3>地址排名 · 验证人 Top<span class="tag">按投票权</span></h3>
+    <ul class="rank" id="rankList"><li style="color:var(--sub)">连接节点后加载…</li></ul>
+    <div class="hint">链上质押地址排名（按投票权）。余额 Rich List 需索引服务，暂以验证人榜替代。</div>
+  </div>
+
+  <!-- 区块浏览器 -->
+  <div class="card blue full">
+    <h3>区块浏览器</h3>
+    <div class="row">
+      <input id="qBlock" class="mn" placeholder="按高度查区块，如 100" />
+      <button class="alt" id="btnBlock">查区块</button>
+      <input id="qTx" class="mn" placeholder="按 TxHash 查交易，0x…" />
+      <button class="alt" id="btnTx">查交易</button>
+    </div>
+    <div class="explore" id="exploreOut">连接节点后，输入高度或 TxHash 查询。</div>
+  </div>
+
+  <!-- DePIN 交互 -->
+  <div class="card">
+    <h3>DePIN · 设备贡献<span class="tag">depin</span></h3>
+    <div class="kv"><span class="k">设备地址</span><input id="dpDevice" class="mn" placeholder="mc1...（=提交者）" /></div>
+    <div class="row">
+      <input id="dpTask" class="mn" placeholder="任务 ID" />
+      <input id="dpType" class="mn" placeholder="类型 inference/data_label/bandwidth" />
+    </div>
+    <input id="dpScore" class="mn" placeholder="质量分数 0-100" style="margin-top:8px" />
+    <div class="btnrow"><button id="btnDpContrib">提交贡献(发币闸口)</button></div>
+    <div class="hint">提交者须先在 phonenode 注册并通过 attestation，否则经「发币闸口」拒绝拨付。</div>
+  </div>
+
+  <!-- PhoneNode 交互 -->
+  <div class="card blue">
+    <h3>PhoneNode · 移动节点<span class="tag">phonenode</span></h3>
+    <div class="kv"><span class="k">节点地址</span><input id="pnNode" class="mn" placeholder="mc1...（=提交者）" /></div>
+    <div class="row">
+      <input id="pnModel" class="mn" placeholder="设备型号" />
+      <input id="pnSystem" class="mn" placeholder="系统版本" />
+    </div>
+    <div class="btnrow"><button id="btnPnRegister">注册节点</button>
+      <button class="alt" id="btnPnAttest">提交 attestation</button></div>
+    <div class="hint">attestation 需 root_hash / device_id_hash / nonce（nonce 防重放、设备 1:1 绑定）。</div>
+  </div>
+
+  <!-- EdgeAI 交互 -->
+  <div class="card purple">
+    <h3>EdgeAI · 任务市场<span class="tag">edgeai</span></h3>
+    <div class="kv"><span class="k">任务描述</span><input id="eaDesc" class="mn" placeholder="任务描述" /></div>
+    <div class="row">
+      <input id="eaReward" class="mn" placeholder="奖励(umc)" />
+      <input id="eaAssignee" class="mn" placeholder="Assignee(可选)" />
+    </div>
+    <div class="btnrow"><button id="btnEaCreate">创建任务</button>
+      <button class="alt" id="btnEaResult">提交结果</button></div>
+    <div class="hint">结果提交需节点已 attest（B2 闸口）；争议窗口过后经 depin 拨付（贡献即挖矿）。</div>
+  </div>
+
+  <!-- 模块实时查询 (gRPC-gateway REST) -->
+  <div class="card blue full">
+    <h3>模块实时查询 · gRPC-gateway REST<span class="tag">只读</span></h3>
+    <div class="row" style="margin-bottom:8px">
+      <button class="alt" onclick="qMod('edgeai/params','EdgeAI Params')">EdgeAI 参数</button>
+      <button class="alt" onclick="qMod('edgeai/tasks','EdgeAI Tasks')">任务列表</button>
+      <button class="alt" onclick="qMod('edgeai/results','EdgeAI Results')">结果列表</button>
+      <button class="alt" onclick="qMod('edgeai/disputes','EdgeAI Disputes')">争议列表</button>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <input id="qTaskId" class="mn" placeholder="EdgeAI task_id（查单个任务，默认 1）" />
+      <button class="alt" onclick="qMod('edgeai/task/'+encodeURIComponent($('qTaskId').value.trim()||'1'),'EdgeAI Task')">查任务</button>
+      <button class="alt" onclick="qMod('depin/params','DePIN Params')">DePIN 参数</button>
+      <button class="alt" onclick="qMod('phonenode/params','PhoneNode Params')">PhoneNode 参数</button>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <input id="qPnAddr" class="mn" placeholder="PhoneNode 地址 mc1..." />
+      <button class="alt" onclick="qMod('phonenode/attestation/'+encodeURIComponent($('qPnAddr').value.trim()),'PhoneNode Attestation')">查 attestation</button>
+      <button class="alt" onclick="qMod('phonenode/slashes/'+encodeURIComponent($('qPnAddr').value.trim()),'PhoneNode Slashes')">查 slashes</button>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <button class="alt" onclick="qMod('tokenomics/supply','Tokenomics Supply')">供应量</button>
+      <button class="alt" onclick="qMod('tokenomics/allocations','Tokenomics Allocations')">分配</button>
+      <button class="alt" onclick="qMod('tokenomics/release','Tokenomics Release')">释放进度</button>
+      <button class="ghost" onclick="copy($('queryOut').textContent)">复制</button>
+    </div>
+    <div class="explore" id="queryOut">连接节点（需开启 API/REST 端口 1317）后点击查询。</div>
+    <div class="hint">查询走节点 gRPC-gateway（默认 LCD = RPC 端口换 1317）。若返回空/404，请确认节点已启用 api server（<code>app.toml</code> 中 <code>enable = true</code>）。EdgeAI 的 tasks/results/disputes 为 JSON 字符串列表，页面已自动解析。</div>
+  </div>
+
+  <!-- 交易助手：CLI 命令生成 -->
+  <div class="card purple full">
+    <h3>交易助手 · 生成 mcchaind 命令<span class="tag">广播替代</span></h3>
+    <div class="kv"><span class="k">选择操作</span>
+      <select id="cliAction" class="mn" onchange="renderCliFields()" style="flex:2">
+        <option value="edgeai.create-task">edgeai · create-task</option>
+        <option value="edgeai.submit-result">edgeai · submit-result</option>
+        <option value="edgeai.open-dispute">edgeai · open-dispute</option>
+        <option value="depin.register-device">depin · register-device</option>
+        <option value="depin.attest-device">depin · attest-device</option>
+        <option value="depin.submit-contribution">depin · submit-contribution</option>
+        <option value="phonenode.register-node">phonenode · register-node</option>
+        <option value="phonenode.submit-attestation">phonenode · submit-attestation</option>
+        <option value="phonenode.submit-state-proof">phonenode · submit-state-proof</option>
+      </select>
+    </div>
+    <div id="cliFields" class="row" style="margin-top:8px"></div>
+    <div class="btnrow">
+      <button id="btnGenCli">生成命令</button>
+      <button class="ghost" onclick="copy($('cliOut').textContent)">复制命令</button>
+    </div>
+    <div class="explore" id="cliOut">选择操作并填写字段后点击「生成命令」。</div>
+    <div class="hint">静态页面未内置 MC 自定义模块 proto 类型，无法直接用 cosmjs 广播。此处生成等价的可复制 <code>mcchaind tx</code> 命令，在已配置 keyring 的节点执行（将 <code>--from</code> 的值替换为你的 key 名称，或先 <code>mcchaind keys add mykey --recover</code> 导入助记词）。</div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let RPC="", LCD="", C=null, myWallet=null, myAddress="";
+const $ = id => document.getElementById(id);
+
+// ---------- 配置文件加载/保存 ----------
+const CFG_URL = "config.json";
+let _cfgCache = { rpc: "http://localhost:26657", autoConnect: false, chainId: "", nodeName: "MC 公链" };
+
+async function loadConfig() {
+  try {
+    const r = await fetch(CFG_URL, { cache: "no-cache" });
+    if (r.ok) { _cfgCache = await r.json(); }
+  } catch (e) { /* config.json 不存在时使用默认值 */ }
+  const rpcEl = $("rpc");
+  rpcEl.value = _cfgCache.rpc || "http://localhost:26657";
+  if (_cfgCache.autoConnect && !C) {
+    rpcEl.style.borderColor = "var(--acc2)";
+    setTimeout(() => connect(), 300);
+  }
+}
+async function saveConfig() {
+  const c = { rpc: $("rpc").value.trim() || _cfgCache.rpc, autoConnect: !!_cfgCache.autoConnect, chainId: _cfgCache.chainId, nodeName: _cfgCache.nodeName };
+  const blob = new Blob([JSON.stringify(c, null, 2)], { type: "application/json" });
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "config.json"; a.click();
+    URL.revokeObjectURL(url);
+    toast("config.json 已下载，请将其放到 web 目录下替换旧文件");
+  } catch (e) { toast("保存配置失败: " + (e && e.message ? e.message : e)); }
+}
+$("btnSaveCfg").onclick = saveConfig;
+
+// 页面加载时读取配置
+loadConfig();
+
+function toast(m){ const t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),1600); }
+function short(s){ if(!s) return "—"; s=String(s); return s.length>22 ? s.slice(0,12)+"…"+s.slice(-8) : s; }
+async function copy(t){ if(!t||t==="—")return; try{ await navigator.clipboard.writeText(t); toast("已复制"); }
+  catch(e){ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select();
+    try{document.execCommand("copy"); toast("已复制");}catch(_){toast("复制失败");} document.body.removeChild(ta); } }
+function setPill(ok,text){ const p=$("connPill"); p.textContent=text; p.className="pill "+(ok?"ok":"err");
+  $("liveDot").style.background=ok?"var(--acc)":"var(--bad)"; $("liveDot").style.boxShadow="0 0 12px "+(ok?"var(--acc)":"var(--bad)"); }
+async function api(path){ const r=await fetch(RPC.replace(/\/$/,"")+path); if(!r.ok) throw new Error("HTTP "+r.status);
+  return r.json(); }
+async function lc(path){ const r=await fetch(LCD.replace(/\/$/,"")+path); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
+
+// 绑定缩略复制
+function bindCp(elId, getVal){ $(elId).onclick=()=>copy(getVal()); }
+
+async function connect(){
+  RPC=$("rpc").value.trim(); if(!RPC){ alert("请输入 RPC 地址"); return; }
+  LCD=RPC.replace(/:\d+$/, ":1317");
+  try{
+    C=await cosmjs.stargate.StargateClient.connect(RPC);
+    const [chainId,height]=await Promise.all([C.getChainId(),C.getHeight()]);
+    $("oChain").textContent=chainId; $("oHeight").textContent=height.toLocaleString();
+    setPill(true,"已连接");
+    await loadSupply(); await loadValidators(); await loadLatestBlock(height);
+    startPoll();
+  }catch(e){ setPill(false,"连接失败"); $("oChain").textContent="—"; toast("连接失败: "+(e&&e.message?e.message:e)); }
+}
+
+async function loadSupply(){
+  try{ const j=await lc("/cosmos/bank/v1beta1/supply/umc");
+    const amt=j.amount? j.amount.amount : (j.supply? j.supply.amount : "0");
+    $("oSupply").textContent = formatMC(amt)+" MC";
+  }catch(e){ $("oSupply").textContent="需 REST(1317)"; }
+}
+async function loadValidators(){
+  try{
+    const j=await lc("/cosmos/staking/v1beta1/validators?status=BONDING&pagination.limit=30");
+    const vs=(j.validators||[]).map(v=>({addr:v.operator_address, moniker:(v.description&&v.description.moniker)||short(v.operator_address), tokens:Number(v.tokens||0), jailed:!!v.jailed}));
+    const tot=vs.reduce((s,v)=>s+v.tokens,0)||1;
+    vs.sort((a,b)=>b.tokens-a.tokens);
+    $("oValN").textContent=vs.length;
+    const ul=$("rankList"); ul.innerHTML="";
+    vs.slice(0,15).forEach((v,i)=>{
+      const li=document.createElement("li");
+      const pct=(v.tokens/tot*100).toFixed(1);
+      li.innerHTML=`<span class="idx">${i+1}</span>
+        <span class="nm">${esc(v.moniker)} ${v.jailed?'<small style="color:var(--bad)">jailed</small>':''}
+          <small class="cp" data-cp="${v.addr}">${short(v.addr)}</small>
+          <span class="bar"><i style="width:${Math.max(2,pct)}%"></i></span></span>
+        <span class="pw">${formatMC(v.tokens)}<br><small style="color:var(--sub)">${pct}%</small></span>`;
+      ul.appendChild(li);
+    });
+    ul.querySelectorAll("[data-cp]").forEach(el=>el.onclick=()=>copy(el.getAttribute("data-cp")));
+  }catch(e){ $("oValN").textContent="需 REST(1317)"; $("rankList").innerHTML='<li style="color:var(--sub)">验证人榜需节点开启 REST(1317)</li>'; }
+}
+async function loadLatestBlock(height){
+  try{
+    const b=await C.getBlock(Number(height));
+    const h=b.block.header;
+    $("oBlockH").textContent=Number(h.height).toLocaleString();
+    const hash=b.blockId&&b.blockId.hash? b.blockId.hash : "—";
+    $("oBlockHash").textContent=short(hash); bindCp("oBlockHash",()=>hash);
+    $("oBlockTime").textContent=fmtTime(h.time);
+    const txs=(b.block.data&&b.block.data.txs)? b.block.data.txs.length : 0;
+    $("oBlockTx").textContent=txs;
+    const prop=h.proposer_address||"—";
+    $("oProposer").textContent=short(prop); bindCp("oProposer",()=>prop);
+  }catch(e){}
+}
+
+let timer=null;
+function startPoll(){ stopPoll(); timer=setInterval(async()=>{
+  if(!C) return;
+  try{ const h=await C.getHeight(); $("oHeight").textContent=h.toLocaleString(); await loadLatestBlock(h); }catch(e){}
+  try{ await loadValidators(); }catch(e){}
+  try{ if(myAddress) await refreshBal(); }catch(e){}
+},6000); }
+function stopPoll(){ if(timer) clearInterval(timer); }
+
+async function unlock(){
+  const m=$("mnemonic").value.trim(); if(!m){ alert("请输入助记词"); return; }
+  try{
+    myWallet=await cosmjs.amino.Secp256k1HdWallet.fromMnemonic(m,{prefix:"mc"});
+    const [acc]=await myWallet.getAccounts(); myAddress=acc.address;
+    $("walletLocked").style.display="none"; $("walletOpen").style.display="block";
+    $("oAddr").textContent=short(myAddress); bindCp("oAddr",()=>myAddress);
+    await refreshBal();
+  }catch(e){ toast("解锁失败: "+(e&&e.message?e.message:e)); }
+}
+function lock(){ myWallet=null; myAddress=""; $("walletOpen").style.display="none"; $("walletLocked").style.display="block"; $("mnemonic").value=""; }
+
+async function refreshBal(){
+  if(!C||!myAddress) return;
+  const bal=await C.getAllBalances(myAddress);
+  const u=bal.find(c=>c.denom==="umc");
+  const amt=u?u.amount:"0";
+  $("oBal").textContent=formatMC(amt)+" MC";
+  $("oBalUmc").textContent=amt+" umc";
+}
+async function send(){
+  if(!myWallet){ alert("请先解锁钱包"); return; }
+  const to=$("toAddr").value.trim(); const mc=parseFloat($("amount").value);
+  if(!to||!(mc>0)){ alert("请填写接收地址和金额"); return; }
+  try{
+    const signer=await cosmjs.stargate.SigningStargateClient.connectWithSigner(RPC,myWallet);
+    const [acc]=await myWallet.getAccounts();
+    const res=await signer.sendTokens(acc.address,to,[{denom:"umc",amount:String(Math.round(mc*1e6))}],"auto");
+    setExplore(`转账广播成功\ncode=${res.code}\ntxHash=${res.transactionHash}\nheight=${res.height}`);
+    await refreshBal();
+  }catch(e){ setExplore("转账失败: "+(e&&e.message?e.message:e)); }
+}
+
+async function queryBlock(){
+  if(!C){ alert("请先连接节点"); return; }
+  const hh=$("qBlock").value.trim(); if(!hh){ alert("请输入高度"); return; }
+  try{ const b=await C.getBlock(Number(hh)); setExplore(b); }
+  catch(e){ setExplore("查区块失败: "+(e&&e.message?e.message:e)); }
+}
+async function queryTx(){
+  if(!RPC){ alert("请先连接节点"); return; }
+  let h=$("qTx").value.trim(); if(!h){ alert("请输入 TxHash"); return; }
+  if(!h.startsWith("0x")) h="0x"+h;
+  try{ const j=await api("/tx?hash="+h); setExplore(j); }
+  catch(e){ setExplore("查交易失败: "+(e&&e.message?e.message:e)); }
+}
+
+function setExplore(o){ $("exploreOut").textContent=typeof o==="string"?o:JSON.stringify(o,null,2); }
+function formatMC(amt){ const n=Number(amt||0)/1e6; return n.toLocaleString(undefined,{maximumFractionDigits:6}); }
+function fmtTime(t){ if(!t) return "—"; try{ return new Date(t).toLocaleString(); }catch(e){ return String(t); } }
+function esc(s){ return String(s).replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c])); }
+
+$("btnConnect").onclick=connect;
+$("btnUnlock").onclick=unlock;
+$("btnLock").onclick=lock;
+$("btnSend").onclick=send;
+$("btnBlock").onclick=queryBlock;
+$("btnTx").onclick=queryTx;
+
+// ---------- 自定义模块交互（depin / phonenode / edgeai） ----------
+// 说明：静态 cosmjs-bundle 未内置 MC 各模块的 proto 生成类型，直接广播会失败。
+// 故提供两条可用路径：
+//   (A) 广播：尝试 cosmjs；若因缺少类型失败，自动回退生成等效 CLI 命令（sendModuleTxMsgs）。
+//   (B) 「交易助手」卡片：显式生成可复制的 mcchaind 命令。
+// 查询则走 gRPC-gateway REST（只读，开箱即用）。
+function buildRegistry(){
+  const reg = new cosmjs.stargate.Registry();
+  const P = cosmjs.proto && cosmjs.proto.mcchain;
+  if(P){
+    try{
+      if(P.edgeai){ reg.register("/mcchain.edgeai.MsgCreateTask", P.edgeai.MsgCreateTask);
+        reg.register("/mcchain.edgeai.MsgSubmitResult", P.edgeai.MsgSubmitResult); }
+      if(P.depin){ reg.register("/mcchain.depin.MsgSubmitContribution", P.depin.MsgSubmitContribution); }
+      if(P.phonenode){ reg.register("/mcchain.phonenode.MsgRegisterNode", P.phonenode.MsgRegisterNode);
+        reg.register("/mcchain.phonenode.MsgSubmitAttestation", P.phonenode.MsgSubmitAttestation); }
+    }catch(e){ /* 部分类型缺失时忽略，交由下方校验 */ }
+  }
+  return reg;
+}
+// 生成 mcchaind tx 命令的通用脚手架（--from/--chain-id/--node/--gas）。
+function cliFlags(){
+  const from = myAddress || "<key-or-address>";
+  const cid = ($("oChain").textContent && $("oChain").textContent!=="—") ? $("oChain").textContent : "<chain-id>";
+  const node = (RPC||"http://localhost:26657").replace(/\/$/,"");
+  return "--from "+from+" --chain-id "+cid+" --node "+node+" --gas auto -y";
+}
+function shellEscape(s){ s=String(s); return /[\s"'`\\]/.test(s) ? '"'+s.replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"' : s; }
+function randHex(n){ let s=""; for(let i=0;i<n;i++) s+=Math.floor(Math.random()*16).toString(16); return s; }
+// 构建命令；args: [{v,ph}]，v 缺省时以 <ph> 占位并提醒。
+function buildCmd(module, sub, args){
+  const parts=[]; let missing=false;
+  for(const a of args){ const v=(a.v==null?"":String(a.v)).trim(); if(v){ parts.push(shellEscape(v)); } else { parts.push("<"+a.ph+">"); missing=true; } }
+  const cmd="mcchaind tx "+module+" "+sub+" "+parts.join(" ")+" "+cliFlags();
+  return missing ? cmd+"\n\n⚠️ 请将 <...> 占位符替换为真实值后再执行。" : cmd;
+}
+
+// (A) 广播 + 失败回退到 CLI 命令
+function sendModuleTxMsgs(msgs, genFn){
+  if(!myWallet){ alert("请先解锁钱包（广播需签名）；或改用下方「交易助手」生成 CLI 命令在节点执行。"); return; }
+  (async()=>{
+    try{
+      const reg = buildRegistry();
+      const client = await cosmjs.stargate.SigningStargateClient.connectWithSigner(RPC, myWallet, { registry: reg });
+      const [acc] = await myWallet.getAccounts();
+      const res = await client.signAndBroadcast(acc.address, msgs, "auto");
+      setExplore("模块交易广播成功\ncode="+(res.code||0)+"\ntxHash="+res.transactionHash+"\nheight="+res.height);
+      toast("已广播");
+    }catch(e){
+      const msg=(e&&e.message)?e.message:e;
+      if(/not found in registry|unknown message|TypeUrl/i.test(msg) && genFn){
+        setExplore("当前页面所用静态 cosmjs-bundle 未内置 MC 自定义模块 Msg 类型，无法直接广播。\n已生成等效的节点侧命令，复制到已配置 keyring 的 mcchaind 环境执行：\n\n"+genFn());
+      } else { setExplore("广播失败: "+msg); }
+    }
+  })();
+}
+
+// 各操作的 CLI 命令生成器（供广播失败时回退）
+function genEaCreate(){ return buildCmd("edgeai","create-task",[{v:$("eaDesc").value,ph:"description"},{v:$("eaReward").value||"0",ph:"reward"}]); }
+function genEaResult(){ return buildCmd("edgeai","submit-result",[{v:"1",ph:"task_id"},{v:"0x"+randHex(16),ph:"result_hash"},{v:String(Date.now()),ph:"attestation_nonce"}]); }
+function genEaDispute(){ return buildCmd("edgeai","open-dispute",[{v:"1",ph:"task_id"},{v:"dispute reason",ph:"reason"}]); }
+function genDpContrib(){ return buildCmd("depin","submit-contribution",[{v:$("dpTask").value,ph:"task-id"},{v:$("dpType").value,ph:"task-type"},{v:$("dpScore").value,ph:"score"}]); }
+function genDpRegister(){ return buildCmd("depin","register-device",[{v:$("dpDevice").value,ph:"address"},{v:"model-x",ph:"model"},{v:"android",ph:"os"}]); }
+function genDpAttest(){ return buildCmd("depin","attest-device",[{v:$("dpDevice").value,ph:"address"},{v:"challenge-"+Date.now(),ph:"challenge"},{v:"<signature-from-oracle>",ph:"signature"}]); }
+function genPnRegister(){ return buildCmd("phonenode","register-node",[{v:$("pnNode").value,ph:"address"},{v:$("pnModel").value,ph:"model"},{v:$("pnSystem").value,ph:"os"},{v:"node",ph:"role"}]); }
+function genPnAttest(){ return buildCmd("phonenode","submit-attestation",[{v:"0x"+randHex(16),ph:"root_hash"},{v:String(Date.now()),ph:"nonce"},{v:"0x"+randHex(16),ph:"device_id_hash"}]); }
+function genPnStateProof(){ return buildCmd("phonenode","submit-state-proof",[{v:"0x"+randHex(16),ph:"root"},{v:"0x"+randHex(16),ph:"leaf"},{v:"0",ph:"index"},{v:"0x"+randHex(16),ph:"proof"}]); }
+
+// 广播表单 → cosmjs Msg（用于尝试广播）
+function msgCreateTask(){ const desc=$("eaDesc").value.trim(), r=parseInt($("eaReward").value||"0",10), a=$("eaAssignee").value.trim();
+  if(!desc){ alert("请填写任务描述"); return null; }
+  return [{ typeUrl:"/mcchain.edgeai.MsgCreateTask", value:{ creator:myAddress, description:desc, reward:String(r), assignee:a } }]; }
+function msgContrib(){ const dev=$("dpDevice").value.trim(), task=$("dpTask").value.trim(), type=$("dpType").value.trim(), score=$("dpScore").value.trim();
+  if(!dev||!task||!type||!score){ alert("请填写 DePIN 贡献全部字段"); return null; }
+  return [{ typeUrl:"/mcchain.depin.MsgSubmitContribution", value:{ creator:dev, task_id:task, task_type:type, score:score } }]; }
+function msgRegisterNode(){ const node=$("pnNode").value.trim(), model=$("pnModel").value.trim(), sys=$("pnSystem").value.trim();
+  if(!node){ alert("请填写节点地址"); return null; }
+  return [{ typeUrl:"/mcchain.phonenode.MsgRegisterNode", value:{ creator:node, model:model, system:sys, role:"node" } }]; }
+function msgAttest(){ const node=$("pnNode").value.trim();
+  if(!node){ alert("请填写节点地址"); return null; }
+  return [{ typeUrl:"/mcchain.phonenode.MsgSubmitAttestation", value:{ creator:node, root_hash:"0x"+Date.now().toString(16),
+    device_id_hash:"0x"+Date.now().toString(16), nonce:String(Date.now()), challenge:"challenge-"+Date.now() } }]; }
+function msgResult(){ return [{ typeUrl:"/mcchain.edgeai.MsgSubmitResult", value:{ creator:myAddress, task_id:"1", result_hash:"0x"+Date.now().toString(16), attestation_nonce:String(Date.now()) } }]; }
+
+$("btnEaCreate").onclick=()=>{ const m=msgCreateTask(); if(m) sendModuleTxMsgs(m, genEaCreate); };
+$("btnDpContrib").onclick=()=>{ const m=msgContrib(); if(m) sendModuleTxMsgs(m, genDpContrib); };
+$("btnPnRegister").onclick=()=>{ const m=msgRegisterNode(); if(m) sendModuleTxMsgs(m, genPnRegister); };
+$("btnPnAttest").onclick=()=>{ const m=msgAttest(); if(m) sendModuleTxMsgs(m, genPnAttest); };
+$("btnEaResult").onclick=()=>{ const m=msgResult(); if(m) sendModuleTxMsgs(m, genEaResult); };
+
+// (B) 交易助手卡片：动态字段 + 命令生成
+const CLI_SPECS = {
+  "edgeai.create-task":          { mod:"edgeai",    sub:"create-task",        f:[["description","描述"],["reward","奖励(umc)"]] },
+  "edgeai.submit-result":        { mod:"edgeai",    sub:"submit-result",      f:[["task_id","任务ID"],["result_hash","结果哈希"],["attestation_nonce","attestation nonce"]] },
+  "edgeai.open-dispute":         { mod:"edgeai",    sub:"open-dispute",       f:[["task_id","任务ID"],["reason","争议原因"]] },
+  "depin.register-device":       { mod:"depin",     sub:"register-device",    f:[["address","设备地址 mc1..."],["model","型号"],["os","系统"]] },
+  "depin.attest-device":         { mod:"depin",     sub:"attest-device",      f:[["address","设备地址 mc1..."],["challenge","challenge"],["signature","签名(来自oracle)"]] },
+  "depin.submit-contribution":   { mod:"depin",     sub:"submit-contribution",f:[["task-id","任务ID"],["task-type","类型 inference/data_label/bandwidth"],["score","分数 0-100"]] },
+  "phonenode.register-node":     { mod:"phonenode", sub:"register-node",      f:[["address","节点地址 mc1..."],["model","型号"],["os","系统"],["role","角色(node)"]] },
+  "phonenode.submit-attestation":{ mod:"phonenode", sub:"submit-attestation", f:[["root_hash","root_hash"],["nonce","nonce"],["device_id_hash","device_id_hash"]] },
+  "phonenode.submit-state-proof":{ mod:"phonenode", sub:"submit-state-proof", f:[["root","root"],["leaf","leaf"],["index","index"],["proof","proof"]] },
+};
+function renderCliFields(){
+  const key=$("cliAction").value; const spec=CLI_SPECS[key]; const box=$("cliFields"); box.innerHTML="";
+  spec.f.forEach(([name,ph])=>{
+    const inp=document.createElement("input"); inp.className="mn"; inp.placeholder=ph; inp.dataset.cli=name; box.appendChild(inp);
+  });
+}
+function genCliFromCard(){
+  const key=$("cliAction").value; const spec=CLI_SPECS[key];
+  const args=spec.f.map(([name])=>({ v:document.querySelector('#cliFields [data-cli="'+name+'"]').value, ph:name }));
+  $("cliOut").textContent=buildCmd(spec.mod, spec.sub, args);
+}
+$("btnGenCli").onclick=genCliFromCard;
+renderCliFields();
+
+// ---------- 模块查询（gRPC-gateway REST） ----------
+async function qMod(path, label){
+  if(!LCD){ alert("请先连接节点（需开启 API/REST 端口 1317）"); return; }
+  try{
+    const j=await lc(path);
+    let pretty=j;
+    if(j.task_json!=null){ try{ pretty=JSON.parse(j.task_json); }catch(e){ pretty=j.task_json; } }
+    else if(Array.isArray(j.results_json)){ pretty=j.results_json.map(s=>{try{return JSON.parse(s)}catch(e){return s}}); }
+    else if(Array.isArray(j.disputes_json)){ pretty=j.disputes_json.map(s=>{try{return JSON.parse(s)}catch(e){return s}}); }
+    setQuery(label+"\n"+JSON.stringify(pretty,null,2));
+  }catch(e){ setQuery(label+" 查询失败: "+((e&&e.message)?e.message:e)); }
+}
+function setQuery(o){ $("queryOut").textContent=typeof o==="string"?o:JSON.stringify(o,null,2); }
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+version: "3.8"
+
+# MobileChain 主网部署：验证人 / 全节点 / 快照节点 + 监控告警栈 + 链下预言机
+# 镜像默认本地构建（见 Dockerfile）。生产可改为预构建镜像 tag 并推到私有 registry。
+services:
+  validator:
+    build: .
+    container_name: mc-validator
+    command: ["start"]
+    environment:
+      - MC_HOME=/root/.mcchain
+      # 生产启用 TeeOracle：把 mc-oracle 的 /pubkey 返回的 pubkey_base64 填到这里
+      # - MC_ORACLE_PUBKEY=****
+    volumes:
+      - ./deploy/validator:/root/.mcchain
+    ports:
+      - "26656:26656"   # p2p
+      - "26657:26657"   # rpc
+      - "1317:1317"     # rest api
+      - "9090:9090"     # gRPC
+      - "26660:26660"   # cometbft prometheus
+      - "26661:26661"   # cosmos-sdk telemetry
+    restart: unless-stopped
+
+  fullnode:
+    build: .
+    container_name: mc-fullnode
+    command: ["start"]
+    environment:
+      - MC_HOME=/root/.mcchain
+    volumes:
+      - ./deploy/fullnode:/root/.mcchain
+    ports:
+      - "12656:26656"
+      - "12657:26657"
+    restart: unless-stopped
+
+  snapshot:
+    build: .
+    container_name: mc-snapshot
+    command: ["start"]
+    environment:
+      - MC_HOME=/root/.mcchain
+    volumes:
+      - ./deploy/snapshot:/root/.mcchain
+    ports:
+      - "13656:26656"
+      - "13657:26657"
+    restart: unless-stopped
+
+  # 链下预言机签名服务（T2 生产 attestation 闭环）
+  # 生产：用固定 ORACLE_KEY（32 字节 hex）启动，否则每次重启密钥会变。
+  oracle:
+    build: .
+    container_name: mc-oracle
+    command: ["oracle"]
+    environment:
+      - ORACLE_LISTEN=:8080
+      # - ORACLE_KEY=****
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  # ===== 监控告警栈 =====
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: mc-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prom_data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: mc-alertmanager
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: mc-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=mcchain
+    volumes:
+      - ./monitoring/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./monitoring/grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  prom_data:
+  grafana_data:

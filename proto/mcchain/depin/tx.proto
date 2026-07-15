@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package mcchain.depin;
+
+option go_package = "mcchain/x/depin/types";
+
+// Msg defines the Msg service.
+service Msg {
+  rpc RegisterDevice     (MsgRegisterDevice    ) returns (MsgRegisterDeviceResponse    );
+  rpc AttestDevice       (MsgAttestDevice      ) returns (MsgAttestDeviceResponse      );
+  rpc SubmitContribution (MsgSubmitContribution) returns (MsgSubmitContributionResponse);
+}
+message MsgRegisterDevice {
+  string creator = 1;
+  string address = 2;
+  string model   = 3;
+  string os      = 4;
+}
+
+message MsgRegisterDeviceResponse {}
+
+message MsgAttestDevice {
+  string creator   = 1;
+  string address   = 2;
+  string challenge = 3;
+  string signature = 4;
+}
+
+message MsgAttestDeviceResponse {}
+
+message MsgSubmitContribution {
+  string creator  = 1;
+  string taskId   = 2;
+  string taskType = 3;
+  string score    = 4;
+}
+
+message MsgSubmitContributionResponse {}
+

@@ -1,0 +1,26 @@
+syntax = "proto3";
+package mcchain.phonenode;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "mcchain/x/phonenode/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (gogoproto.goproto_stringer) = false;
+
+  // attestation_required 是否强制硬件 attestation 才能领取 DePIN 奖励（反女巫）。
+  bool attestation_required = 1;
+  // attestation_validity attestation 有效期（秒），过期须重新提交。
+  int64 attestation_validity = 2;
+  // sybil_device_binding 是否将 device_id_hash 1:1 绑定地址（防女巫批量注册）。
+  bool sybil_device_binding = 3;
+  // offline_grace_blocks 离线宽限区块数，超过则触发离线 slash（BeginBlock 检测）。
+  int64 offline_grace_blocks = 4;
+  // offline_slash_bps 离线 slash 惩罚基点（万分之 offlined 自质押）。
+  uint32 offline_slash_bps = 5;
+  // contrib_slash_bps 作弊贡献 slash 惩罚基点（链下/争议确认作弊时）。
+  uint32 contrib_slash_bps = 6;
+  // attest_slash_bps 伪造 attestation slash 惩罚基点。
+  uint32 attest_slash_bps = 7;
+}

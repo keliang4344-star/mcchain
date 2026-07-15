@@ -1,0 +1,20 @@
+syntax = "proto3";
+package mcchain.edgeai;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "mcchain/x/edgeai/types";
+
+// Params defines the parameters for the edgeai module (B3).
+message Params {
+  option (gogoproto.goproto_stringer) = false;
+  // dispute_period_blocks 争议期（区块数），结果提交后此期限内可被挑战。
+  int64 dispute_period_blocks = 1;
+  // anti_cheat_threshold_bps 反作弊阈值（基点），超过处罚门槛。
+  uint32 anti_cheat_threshold_bps = 2;
+  // max_task_reward 单任务最大奖励（umc 字符串，防溢出）。
+  string max_task_reward = 3;
+  // arbitrator B3.1 争议仲裁者地址（部署时设为团队多签地址）。
+  // 为空表示尚未配置，ResolveDispute 将被拒绝。
+  string arbitrator = 4;
+}

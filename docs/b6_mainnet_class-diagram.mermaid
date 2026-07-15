@@ -1,0 +1,58 @@
+classDiagram
+    direction LR
+
+    class DaoKeeper {
+        <<x/dao (极简)>>
+        -bankKeeper BankKeeper
+        -communityModuleName string
+        +SpendFromCommunity(ctx, recipient, amt) error
+        +NewCommunitySpendProposalHandler(k) Handler
+    }
+
+    class CommunitySpendProposal {
+        +string title
+        +string description
+        +string recipient
+        +sdk.Coins amount
+    }
+
+    class BankKeeper {
+        <<cosmos-sdk interface>>
+        +SendCoinsFromModuleToAccount(ctx, senderModule, toAddr, amt) error
+    }
+
+    class GovModule {
+        <<x/gov v1 (B2 已装配)>>
+        +SubmitProposal / Vote
+        +通过后调用提案处理者
+    }
+
+    class CommunityModuleAcct {
+        <<B1 模块账户(community)>>
+        +余额 = B1 社区池分配(3500bps)
+    }
+
+    class TokenomicsCap {
+        <<B1 铁律>>
+        +TotalSupplyCap=1e15 umc
+        +MintCoins 唯一入口
+    }
+
+    class MainnetArtifacts {
+        <<docs / 运维文本>>
+        genesis.production.json
+        docker-compose.yml
+        runbook_mainnet.md
+        audit_checklist.md
+        dao_roadmap.md
+    }
+
+    DaoKeeper --> BankKeeper : SendCoinsFromModuleToAccount(community)
+    DaoKeeper ..> CommunitySpendProposal : 处理
+    GovModule --> DaoKeeper : 通过后触发 Handler
+    BankKeeper ..> CommunityModuleAcct : 转移余额
+    CommunityModuleAcct ..> TokenomicsCap : 源自 B1 已铸社区池(受 cap)
+
+    note for DaoKeeper "绝不加 MintCoins；仅 gov 通过后转移 community 余额"
+    note for TokenomicsCap "B6 仍锁定：不开放 cap 治理化（仅路线图）"
+    note for MainnetArtifacts "文本可落盘，不在沙箱执行"
