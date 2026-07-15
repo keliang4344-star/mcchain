@@ -1,0 +1,88 @@
+{
+  "$schema": "https://github.com/cosmos/chain-registry/blob/master/chain.schema.json",
+  "chain_name": "mobilechain",
+  "status": "live",
+  "network_type": "mainnet",
+  "pretty_name": "MobileChain",
+  "chain_id": "mcchain-mainnet-1",
+  "bech32_prefix": "mc",
+  "daemon_name": "mcchaind",
+  "node_home": "$HOME/.mcchain",
+  "key_algos": ["secp256k1"],
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "umc",
+        "low_gas_price": 0.0025,
+        "average_gas_price": 0.025,
+        "high_gas_price": 0.05,
+        "fixed_min_gas_price": 0,
+        "low_gas_price_decimals": 6
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      { "denom": "umc" }
+    ],
+    "min_commission_rate": "0.000000000000000000"
+  },
+  "coins": [
+    {
+      "denom": "umc",
+      "base": "umc",
+      "name": "MobileChain",
+      "display": "MC",
+      "symbol": "MC",
+      "type": "native",
+      "decimals": 6,
+      "description": "MobileChain 原生代币（MC）。1 MC = 1,000,000 umc。硬顶 1,000,000,000 MC（1e15 umc），genesis 一次性铸造，零二次通胀。"
+    }
+  ],
+  "governance": {
+    "param_change": true,
+    "proposal": true,
+    "voting_period": "172800s",
+    "quorum": "0.334000000000000000",
+    "threshold": "0.500000000000000000",
+    "veto": "0.334000000000000000"
+  },
+  "apis": {
+    "rpc": [
+      { "address": "tcp://localhost:26657", "provider": "self" }
+    ],
+    "rest": [
+      { "address": "http://localhost:1317", "provider": "self" }
+    ],
+    "grpc": [
+      { "address": "localhost:9090", "provider": "self" }
+    ]
+  },
+  "explorers": [],
+  "peers": {
+    "seeds": [],
+    "persistent_peers": []
+  },
+  "codebase": {
+    "git_repo": "https://github.com/<your-org>/mcchain",
+    "recommended_version": "v1.0.0",
+    "cosmos_sdk_version": "0.47.14",
+    "tendermint_version": "0.37.6",
+    "go_version": "1.21"
+  },
+  "_notes": {
+    "purpose": "Keplr / Leap 钱包接入前置资产（chain-registry 格式）。解决 LAUNCH_READINESS.md 标注的「Keplr/Leap 未做」缺口。",
+    "action_required": [
+      "将 apis.rpc / apis.rest / apis.grpc 的 localhost 替换为你的新加坡服务器公网地址（如 tcp://<公网IP>:26657）。",
+      "在 explorers 填入你的区块浏览器 URL（若有）。",
+      "正式接入：把本文件托管到可访问 URL，或在前端用 Keplr suggestChain API 注入同样的字段（前端接入属于 web/ 范畴，由另一协作者负责）。",
+      "codebase.git_repo 替换为真实仓库地址。"
+    ],
+    "address_examples": {
+      "account": "mc1...（bech32 前缀 mc）",
+      "validator": "mcvaloper1...",
+      "consensus": "mcvalcons1..."
+    }
+  }
+}
