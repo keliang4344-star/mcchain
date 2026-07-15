@@ -50,7 +50,7 @@ $env:GOOS="linux"; $env:GOARCH="amd64"
 ## 2. 初始化节点
 
 ```bash
-export CHAIN_ID=mcchain-1
+export CHAIN_ID=mcchain-mainnet-1
 export MONIKER=<你的节点名，如 mc-sg-val-1>
 export HOME_DIR=$HOME/.mcchain
 
@@ -78,7 +78,7 @@ mcchaind keys show validator --bech val -a --keyring-backend file --home $HOME_D
 ### 4.1 代币 genesis 账户
 ```bash
 # 给验证人地址预置初始质押金（示例 1000 MC = 1e9 umc）
-mcchaind add-genesis-account $(mcchaind keys show validator -a --keyring-backend file --home $HOME_DIR) 1000000000umc --home $HOME_DIR
+mcchaind add-genesis-account $(mcchaind keys show validator -a --keyring-backend file --home $HOME_DIR) 200000000000umc --home $HOME_DIR
 # 如有生态/团队/基金账户，继续 add-genesis-account
 ```
 
@@ -97,7 +97,7 @@ mcchaind add-genesis-account $(mcchaind keys show validator -a --keyring-backend
 
 ```bash
 # 自抵押（示例 1000 MC），commission 5%
-mcchaind gentx validator 1000000000umc \
+mcchaind gentx validator 100000000000umc \
   --chain-id $CHAIN_ID \
   --moniker $MONIKER \
   --commission-rate "0.05" \
@@ -178,8 +178,8 @@ curl http://localhost:26657/status | jq '.result.sync_info'
 3. **验证人密钥隔离**：部署 **TMKMS**（或 HSM）在独立机签名，出块机只持热公钥；
    采用 **sentry 节点**拓扑（出块机藏在内网，sentry 对外扛 P2P）。
 4. **Anti-DDoS**：云服务商开启 Anti-DDoS 基础防护/高防包，P2P 入口前置清洗。
-5. **oracle `/sign` 生产加固（P0 安全）**：当前仅基础限流/校验，缺 TLS 终止 + 访问控制。
-   主网前必须补（否则预言机签名接口可被滥用）。
+5. **oracle `/sign` 生产加固（P0 安全）**：代码已实现 `ORACLE_SIGN_TOKEN`（Bearer 认证）+ `ORACLE_RATE_LIMIT`（限流）+ `ORACLE_TLS_CERT/KEY`（HTTPS 可选）。
+   主网部署**必须**设 `ORACLE_SIGN_TOKEN` 且将服务置于 TLS 反向代理之后（详见 `internal/oraclesvc/service.go` 与 `docs/ORACLE_FRAMEWORK.md`）。
 6. **链上作弊验证（zk/TEE）**：当前争议窗口过期走"乐观默认 honest 拨付"，缺真实验证。
    属经济模型决策，需你拍板是否接入 zk/TEE。
 7. **链上治理参数**：设置 `voting_period` / `quorum` / `threshold`，让参数变更走治理而非你独断。
@@ -190,7 +190,7 @@ curl http://localhost:26657/status | jq '.result.sync_info'
 
 | 项 | 状态 | 主网前动作 |
 |----|------|-----------|
-| oracle `/sign` TLS+ACL | 仅基础限流 | 必补（P0） |
+| oracle `/sign` TLS+ACL | ✅ 已实现（Bearer+限流+HTTPS 可选） | 主网部署须设 ORACLE_SIGN_TOKEN + TLS 反向代理 |
 | 作弊验证 zk/TEE | 未实现（乐观默认） | 产品/经济决策 |
 | 仿真全绿 | ✅ 已完成 | 无需 |
 | 前端实时查询+CLI 助手 | ✅ 已完成 | 无需 |
@@ -201,11 +201,11 @@ curl http://localhost:26657/status | jq '.result.sync_info'
 ## 快速命令清单（复制即用，替换 <> 占位）
 
 ```bash
-CHAIN_ID=mcchain-1; MONIKER=<节点名>; HD=$HOME/.mcchain
+CHAIN_ID=mcchain-mainnet-1; MONIKER=<节点名>; HD=$HOME/.mcchain
 mcchaind init $MONIKER --chain-id $CHAIN_ID --home $HD
 mcchaind keys add validator --keyring-backend file --home $HD
 mcchaind add-genesis-account $(mcchaind keys show validator -a --keyring-backend file --home $HD) 1000000000umc --home $HD
-mcchaind gentx validator 1000000000umc --chain-id $CHAIN_ID --moniker $MONIKER --commission-rate 0.05 --keyring-backend file --home $HD
+mcchaind gentx validator 100000000000umc --chain-id $CHAIN_ID --moniker $MONIKER --commission-rate 0.05 --keyring-backend file --home $HD
 mcchaind collect-gentxs --home $HD
 mcchaind validate-genesis --home $HD
 # 配好 §6 安全组 + §7 systemd 后：

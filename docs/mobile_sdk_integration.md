@@ -2,13 +2,13 @@
 
 > 范围界定（Q7）：本文档为**轻量对接文档**，不新建独立 SDK 工程。移动端（手机即节点即设备）通过 **gRPC / REST** 直接调用 `mcchaind` 暴露的 `depin` 与 `phonenode` 模块服务即可完成节点注册、设备注册/证明、贡献提交与余额查询。
 >
-> 底座：Cosmos SDK v0.47.3 + cometbft v0.37.1；链 ID `mcchain-1`；地址前缀 `mc`；**统一 denom = `umc`**（1 MC = 1e6 umc）。
+> 底座：Cosmos SDK v0.47.3 + cometbft v0.37.1；链 ID `mcchain-mainnet-1`；地址前缀 `mc`；**统一 denom = `umc`**（1 MC = 1e6 umc）。
 
 ## 1. 通用约定
 
 | 项 | 值 |
 |---|---|
-| 链 ID | `mcchain-1` |
+| 链 ID | `mcchain-mainnet-1` |
 | 地址前缀 | `mc`（账户/验证人：`mc...`；模块账户同样 `mc...`） |
 | 基础 denom | `umc`（微 MC）。奖励、质押、转账均用 `umc`，**不存在 `stake`** |
 | 代币换算 | 100k MC = `100000000000` umc（1e11 umc）；DePIN 初始池默认 `1e14` umc（=1e8 MC） |
@@ -51,7 +51,7 @@
 
 ## 4. 交易（Msg）示例
 
-> 字段名来自 `proto/mcchain/{depin,phonenode}/tx.proto`。gRPC 调用可用 `grpcurl`；或本机用 `mcchaind tx ... --from <key> --chain-id mcchain-1 --fees <x>umc -y`。
+> 字段名来自 `proto/mcchain/{depin,phonenode}/tx.proto`。gRPC 调用可用 `grpcurl`；或本机用 `mcchaind tx ... --from <key> --chain-id mcchain-mainnet-1 --fees <x>umc -y`。
 
 ### 4.1 MsgRegisterNode（phonenode）
 
