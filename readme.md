@@ -1,71 +1,97 @@
-# MC 公链（MobileChain）
+# MobileChain（MC）
 
-面向「手机即节点」的 DePIN + 边缘 AI 贡献激励公链，基于 **Cosmos SDK v0.47 + Ignite** 构建。
-底座复用 Cosmos SDK 标准模块，业务差异化由 5 个自定义模块承载，经济闭环为：
+> 一条把全节点装进每一部手机的公链  
+> **A Public Chain That Puts a Full Node in Every Phone**
 
-`tokenomics（唯一铸币 / 固化总量）→ depin（设备贡献奖励）→ phonenode（移动节点认证 / slash 闸口）→ edgeai（任务市场 / 贡献即挖矿拨付）`
+[![Cosmos SDK](https://img.shields.io/badge/Cosmos_SDK-v0.47.14-blue?logo=cosmos)](https://github.com/cosmos/cosmos-sdk)
+[![CometBFT](https://img.shields.io/badge/CometBFT-v0.37.6-purple)](https://github.com/cometbft/cometbft)
+[![Go](https://img.shields.io/badge/Go-1.22.5-00ADD8?logo=go)](https://go.dev)
+[![License](https://img.shields.io/badge/License-Apache_2.0-green)](./LICENSE)
 
-## 架构概览
+MC 是基于 **Cosmos SDK + CometBFT** 构建的 DePIN + 边缘 AI 公链。核心创新是让智能手机以「轻全节点」方式参与共识与贡献，解决当前公链节点集中化问题。链上经济由 5 个自定义模块驱动，通证固定总量 10 亿 MC、零通胀。
 
-```mermaid
-graph TD
-    APP[app 应用装配] --> MC[x/mcchain]
-    APP --> TK[x/tokenomics 唯一Minter 固化总量]
-    APP --> DP[x/depin 设备贡献 / 奖励引擎]
-    APP --> PN[x/phonenode 移动节点认证 / slash]
-    APP --> EA[x/edgeai 边缘AI任务市场]
-    TK --> DP
-    DP --> PN
-    EA --> PN
-    EA --> DP
-    PN --> STAK[staking / slashing]
-    DP --> BANK[bank]
-    EA --> BANK
-    CMD[cmd/mcchaind] --> APP
-    ORACLE[oraclesvc] -.TeeOracle 验签.-> DP
-    WEB[web] --> NODE[节点 RPC / LCD]
+**开源可审计 · 参数写代码 · 链上求真 · 共识共生**
+
+---
+
+## 架构
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    app (应用装配层)                   │
+├──────────┬──────────┬──────────┬──────────┬─────────┤
+│ mcchain  │tokenomics│  depin   │phonenode │ edgeai  │
+│ (参数)   │(铸币总账) │(设备激励)│(移动节点)│(AI市场) │
+├──────────┴──────────┴──────────┴──────────┴─────────┤
+│              Cosmos SDK 标准模块                      │
+│  (bank / staking / gov / ibc / auth / crisis...)     │
+├─────────────────────────────────────────────────────┤
+│                 CometBFT 共识引擎                     │
+└─────────────────────────────────────────────────────┘
 ```
 
-## 模块清单（18 个自有代码模块）
+## 自定义模块
 
-| 模块 | 职责 |
+| 模块 | 职责 | 关键特性 |
+|------|------|---------|
+| `x/tokenomics` | 代币发行与分配总账 | 唯一 Minter，固化总量 10 亿 MC，三池分配（团队 15% / 社区 35% / 生态 50%） |
+| `x/depin` | 设备贡献激励引擎 | 设备注册、贡献计量、奖励拨付闸口 |
+| `x/phonenode` | 移动全节点管理 | 硬件 attestation、心跳检测、离线 slash |
+| `x/edgeai` | 边缘 AI 任务市场 | 任务创建/提交/争议仲裁/贡献即挖矿 |
+| `x/mcchain` | 链级参数管理 | 系统配置、查询入口 |
+| `x/dex` | 原生 AMM 交易所 | 常量积做市商 (x×y=k)，pool/swap/liquidity |
+
+## 配套工具
+
+| 项目 | 说明 |
 |------|------|
-| `x/mcchain` | 系统参数 / 查询占位模块 |
-| `x/tokenomics` | 代币发行与分配总账，唯一持 Minter，固化总量 1B MC |
-| `x/depin` | DePIN 设备注册 / 认证 / 贡献 / 奖励引擎 / 发币闸口 |
-| `x/phonenode` | 移动全节点注册 / 硬件 attestation / 心跳 / 离线 slash |
-| `x/edgeai` | 边缘 AI 任务市场：创建 / 提交 / 争议仲裁 / 贡献即挖矿拨付 |
-| `app` | App 装配 / AnteHandler / 预言机切换 / 创世兜底 / export |
-| `cmd/mcchaind` | 节点守护进程 + CLI |
-| `cmd/oracle` + `internal/oraclesvc` | 链下预言机签名服务 |
-| `cmd/event-subscriber` | 链下业务事件订阅器 |
-| `web` | 区块链仪表盘（链概览 / 钱包 / 区块浏览器） |
-| `proto` / `docs` / `testutil` / `tools` / `scripts` / `deploy` / `monitoring` | 协议 / 文档 / 测试 / 工具 / 运维 / 部署 / 监控 |
+| `mc-miner/` | Android 挖矿 App，WebView + CosmJS，本地助记词生成 |
+| `cosmjs-bundle/` | 前端 CosmJS v0.32.4 UMD Bundle |
+| `cosmos/` | Cosmos SDK 离线测试模块 |
+| `mc_wp/` | 白皮书构建管线（Markdown → HTML） |
+| `mainnet-launch/` | 一键主网启动脚本 |
+
+## 关键参数
+
+| 参数 | 值 |
+|------|-----|
+| 链 ID | `mcchain-mainnet-1` |
+| 主币 | MC（最小单位 umc，1 MC = 10⁶ umc，精度 6） |
+| 总量 | 10 亿 MC（10¹⁵ umc） |
+| 通胀 | 零（总量永久锁定） |
+| 共识 | CometBFT BFT |
+| IBC | ibc-go v7.1.0 |
 
 ## 快速开始
 
 ```bash
-# 依赖：Go 1.22.5（本项目固定在 D 盘，见 DEVELOPMENT.md）
-make build          # 或 go build ./...
-make install        # 安装 mcchaind
+# 依赖：Go 1.22+
+git clone https://github.com/keliang4344-star/mcchain.git
+cd mcchain
+make build           # go build ./...
+make install         # 安装 mcchaind
 
-# 本地单节点（开发）
+# 本地单节点
 mcchaind init mynode --chain-id mcchain-1
-mcchaind keys add alice
-mcchaind gentx ... && mcchaind collect-gentxs
+mcchaind keys add alice --keyring-backend test
+# ... 配置创世后启动
 mcchaind start
 ```
 
-> 注意：Ignite 的 `ignite chain serve` 与 `ignite generate proto-go` 在本项目 Windows 沙箱环境中不可用，
-> 协议代码需**手动 protoc 生成**（步骤见 [DEVELOPMENT.md](./DEVELOPMENT.md)）。
+> 详细开发环境搭建见 [DEVELOPMENT.md](./DEVELOPMENT.md)。
 
-## 文档导航
+## 文档
 
-- [模块系统梳理与完成度白皮书](./docs/MODULE_WHITEPAPER.md) — 全量模块总览、完成度、改进路线图
-- [系统设计](./docs/system_design.md) / [审计](./docs/audit.md) / [安全](./docs/security.md)
-- [预言机框架](./docs/ORACLE_FRAMEWORK.md) / [移动 SDK 集成](./docs/mobile_sdk_integration.md)
-- [主网部署计划](./docs/MAINNET_DEPLOY_PLAN.md) / [主网 Runbook](./docs/MAINNET_RUNBOOK.md)
-- [开发环境搭建](./DEVELOPMENT.md)
+| 文档 | 说明 |
+|------|------|
+| [白皮书](./docs/WHITEPAPER.md) | MC 公链完整技术与理念 |
+| [通证分配](./docs/TOKEN_ALLOCATION.md) | 总量、分配池、解锁规则 |
+| [模块白皮书](./docs/MODULE_WHITEPAPER.md) | 各模块完成度与改进路线 |
+| [系统设计](./docs/system_design.md) | 架构、数据流、接口 |
+| [审计清单](./docs/audit_checklist.md) | 安全审计范围与标准 |
+| [主网 Runbook](./docs/MAINNET_RUNBOOK.md) | 上线部署操作手册 |
+| [DAO 路线图](./docs/dao_roadmap.md) | 去中心化治理分阶段计划 |
+| [新手部署指南](./BEGINNER_GUIDE.md) | 云服务商一键启动教程 |
 
 ## 测试
 
@@ -73,5 +99,17 @@ mcchaind start
 go test ./...
 ```
 
-自定义模块测试覆盖：depin（14）、phonenode（7）、tokenomics（~7）、edgeai（17）、app（6）、mcchain（5）。
+模块测试覆盖：depin (14) · phonenode (7) · tokenomics (~7) · edgeai (17) · mcchain (5) · dex (开发中)
+
 关键模块目标覆盖率 ≥ 70%（CI 门禁见 `.github/workflows/ci.yml`）。
+
+## 贡献
+
+欢迎提 Issue 和 Pull Request。参与前请阅读：
+
+- [审计清单](./docs/audit_checklist.md) — 安全标准
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — 代码规范与提交流程（即将上线）
+
+## 许可证
+
+[Apache License 2.0](./LICENSE)
