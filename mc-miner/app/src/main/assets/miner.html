@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="cosmjs-bundle.js"></script>
+</head><body>
+<script>
+// WebView 里没有 Node 的 Buffer，自己实现 Uint8Array -> base64
+function toBase64(bytes) {
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+}
+
+// 生成钱包（本地 bundle，无需联网）
+async function genWallet(prefix) {
+    const mnemonic = cosmjs.amino.Bip39.encode(cosmjs.crypto.Random.getBytes(16));
+    const wallet = await cosmjs.amino.Secp256k1HdWallet.fromMnemonic(mnemonic, {prefix: prefix || 'mc'});
+    const accounts = await wallet.getAccounts();
+    const acc = accounts[0];
+    return {
+        mnemonic: mnemonic,
+        address: acc.address,
+        pubkey: toBase64(acc.pubkey),
+        algo: acc.algo
+    };
+}
+
+// 从已有助记词恢复钱包（用于持久化后重新注入，避免每次启动都生成全新钱包导致丢币）
+async function restoreWallet(mnemonic, prefix) {
+    const wallet = await cosmjs.amino.Secp256k1HdWallet.fromMnemonic(mnemonic, {prefix: prefix || 'mc'});
+    const accounts = await wallet.getAccounts();
+    const acc = accounts[0];
+    return {
+        mnemonic: mnemonic,
+        address: acc.address,
+        pubkey: toBase64(acc.pubkey),
+        algo: acc.algo
+    };
+}
+
+// 注册节点
+async function registerNode(mnemonic, nodeAddr, nodePort) {
+    const wallet = await cosmjs.amino.Secp256k1HdWallet.fromMnemonic(mnemonic, {prefix: 'mc'});
+    const [account] = await wallet.getAccounts();
+    const client = await cosmjs.stargate.SigningStargateClient.connectWithSigner(
+        `http://${nodeAddr}:${nodePort}`, wallet
+    );
+    const msg = {
+        typeUrl: '/mcchain.phonenode.MsgRegisterNode',
+        value: {
+            creator: account.address,
+            address: account.address,
+            model: 'android-miner',
+            os: 'android-14',
+            role: 'light-client'
+        }
+    };
+    const fee = {amount: [], gas: '200000'};
+    const result = await client.signAndBroadcast(account.address, [msg], fee, 'MC Miner v1');
+    return {code: result.code, txHash: result.transactionHash, height: result.height};
+}
+
+// 注册设备
+async function registerDevice(mnemonic, nodeAddr, nodePort) {
+    const wallet = await cosmjs.amino.Secp256k1HdWallet.fromMnemonic(mnemonic, {prefix: 'mc'});
+    const [account] = await wallet.getAccounts();
+    const client = await cosmjs.stargate.SigningStargateClient.connectWithSigner(
+        `http://${nodeAddr}:${nodePort}`, wallet
+    );
+    const msg = {
+        typeUrl: '/mcchain.depin.MsgRegisterDevice',
+        value: {
+            creator: account.address,
+            address: account.address,
+            model: 'android-device',
+            os: 'android-14'
+        }
+    };
+    const fee = {amount: [], gas: '200000'};
+    const result = await client.signAndBroadcast(account.address, [msg], fee, '');
+    return {code: result.code, txHash: result.transactionHash, height: result.height};
+}
+
+// 提交贡献（挖矿）
+async function submitContribution(mnemonic, nodeAddr, nodePort, taskId, taskType, score) {
+    const wallet = await cosmjs.amino.Secp256k1HdWallet.fromMnemonic(mnemonic, {prefix: 'mc'});
+    const [account] = await wallet.getAccounts();
+    const client = await cosmjs.stargate.SigningStargateClient.connectWithSigner(
+        `http://${nodeAddr}:${nodePort}`, wallet
+    );
+    const msg = {
+        typeUrl: '/mcchain.depin.MsgSubmitContribution',
+        value: {
+            creator: account.address,
+            taskId: taskId,
+            taskType: taskType,
+            score: String(score)
+        }
+    };
+    const fee = {amount: [], gas: '200000'};
+    const result = await client.signAndBroadcast(account.address, [msg], fee, '');
+    return {code: result.code, txHash: result.transactionHash, height: result.height};
+}
+
+// 查询余额
+async function getBalance(address, nodeAddr, nodePort) {
+    const client = await cosmjs.stargate.StargateClient.connect(`http://${nodeAddr}:${nodePort}`);
+    return await client.getAllBalances(address);
+}
+
+// 查询链配置
+async function getChainId(nodeAddr, nodePort) {
+    const client = await cosmjs.stargate.StargateClient.connect(`http://${nodeAddr}:${nodePort}`);
+    return {chainId: await client.getChainId(), height: await client.getHeight()};
+}
+
+// 统一调度：Android 调用 MC.dispatch(id, name, argsJson)，完成时回传 Android.bridge(id, json)
+window.MC = {
+    dispatch: function (id, name, args) {
+        var fns = {
+            genWallet: genWallet,
+            restoreWallet: restoreWallet,
+            registerNode: registerNode,
+            registerDevice: registerDevice,
+            submitContribution: submitContribution,
+            getBalance: getBalance,
+            getChainId: getChainId
+        };
+        var fn = fns[name];
+        if (!fn) {
+            Android.bridge(id, JSON.stringify({ok: false, error: 'unknown function ' + name}));
+            return;
+        }
+        Promise.resolve().then(function () { return fn.apply(null, args); })
+            .then(function (res) {
+                Android.bridge(id, JSON.stringify({ok: true, data: res === undefined ? null : res}));
+            })
+            .catch(function (e) {
+                Android.bridge(id, JSON.stringify({ok: false, error: String(e && e.message ? e.message : e)}));
+            });
+    }
+};
+</script></body></html>

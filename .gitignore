@@ -53,3 +53,11 @@ mainnet_*.json
 mainnet_node.log
 mainnet_boot.log
 
+
+# === MC 配套项目：构建产物 / 依赖 / 本地配置 ===
+mc-miner/app/build/
+mc-miner/.gradle/
+mc-miner/build/
+mc-miner/local.properties
+cosmjs-bundle/node_modules/
+cosmjs-bundle/dist/
