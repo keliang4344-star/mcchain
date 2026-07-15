@@ -23,6 +23,11 @@ mainnet_*.json
 mainnet_node.log
 mainnet_boot.log
 
+# 验证人私钥材料（本地 genesis 测试产物，绝不入库）
+validator_key.json
+priv_validator_key.json
+node_key.json
+
 # === 团队多签密钥材料（含助记词/公钥生成产物，绝密，仅本机 ===
 team_multisig_vault.txt
 team_keys_gen.json
