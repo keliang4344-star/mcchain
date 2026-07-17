@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import re, markdown
 
-SRC = r"$HOME/mcchain/docs/WHITEPAPER.md"
-OUT = r"$HOME/mcchain/docs/WHITEPAPER.html"
+import os
+SRC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "WHITEPAPER.md")
+OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "WHITEPAPER.html")
 
 with open(SRC, "r", encoding="utf-8") as f:
     md_text = f.read()
@@ -36,7 +37,7 @@ cover = """
     <div><b>主币</b> MC（最小单位 umc · 精度 6）</div>
     <div><b>总量</b> 固定 10 亿 · 零通胀</div>
     <div><b>共识</b> CometBFT v0.37.6 · Cosmos SDK v0.47.14</div>
-    <div><b>版本</b> v3.0（叙事体）</div>
+    <div><b>版本</b> v4.0（叙事体）</div>
   </div>
   <div class="cover-foot">开源可审计 · 参数写代码 · 链上求真 · 共识共生</div>
 </section>
@@ -51,7 +52,7 @@ html = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MobileChain（MC）白皮书 v3.0</title>
+<title>MobileChain（MC）白皮书 v4.0</title>
 <style>
 :root{
   --bg:#ffffff; --ink:#1f2328; --muted:#5a6169; --line:#e3e6ea;
