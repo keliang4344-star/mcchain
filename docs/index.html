@@ -8,9 +8,10 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; line-height: 1.6; }
   .hero { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 80px 20px; text-align: center; }
-  .hero h1 { font-size: 3em; font-weight: 700; margin-bottom: 12px; letter-spacing: -1px; }
-  .hero .subtitle { font-size: 1.2em; opacity: 0.85; max-width: 700px; margin: 0 auto 8px; }
-  .hero .cn-subtitle { font-size: 1.05em; opacity: 0.65; margin-bottom: 30px; }
+  .hero .brand { font-size: 8em; font-weight: 900; letter-spacing: 4px; background: linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.82) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; margin-bottom: 20px; }
+  .hero h1 { font-size: 2em; font-weight: 600; margin-bottom: 8px; letter-spacing: 1px; opacity: 0.92; }
+  .hero .subtitle { font-size: 1.05em; opacity: 0.72; max-width: 700px; margin: 0 auto 6px; }
+  .hero .cn-subtitle { font-size: 0.95em; opacity: 0.55; margin-bottom: 30px; }
   .stats-bar { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; margin-top: 36px; padding: 20px 0; border-top: 1px solid rgba(255,255,255,0.12); border-bottom: 1px solid rgba(255,255,255,0.12); }
   .stat { text-align: center; min-width: 90px; }
   .stat .value { font-size: 1.4em; font-weight: 700; color: #fff; }
@@ -44,6 +45,7 @@
 <body>
 
 <div class="hero">
+  <div class="brand">MC</div>
   <h1>One Phone, One Node, One Network</h1>
   <p class="subtitle">MobileChain — The Mobile-First Layer 1 Blockchain</p>
   <p class="cn-subtitle">一部手机 · 一个节点 · 一张网络</p>
