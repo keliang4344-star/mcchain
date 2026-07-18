@@ -36,7 +36,7 @@ sudo mv mcchaind /usr/local/bin/
 mcchaind version
 ```
 
-**方式 B：从 Windows 开发机交叉编译后上传**
+**方式 B：Cross-compile from build environment**
 ```powershell
 # 在 $HOME/mcchain 下（D 盘 Go 工具链）
 $env:PATH = "D:\go\bin;D:\gopath\bin;" + $env:PATH; $env:GOROOT="D:\go"

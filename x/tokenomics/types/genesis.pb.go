@@ -25,7 +25,7 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // PoolAllocation 记录某一分配池的占比与已拨付金额（R2：分配+释放）。
 type PoolAllocation struct {
-	// name 池名称："team" | "community" | "ecosystem"
+	// name 池名称（5 池模型）："device_incentive" | "staking_security" | "team" | "foundation" | "early_dev"
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// percent_bps 占比（基点，10000 = 100%）
 	PercentBps uint32 `protobuf:"varint,2,opt,name=percent_bps,json=percentBps,proto3" json:"percent_bps,omitempty"`

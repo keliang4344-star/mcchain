@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
 
     private String walletMnemonic = "";
     private String walletAddress = "";
-    private String nodeHost = "192.168.1.100";
+    private String nodeHost = "localhost";
     private String nodePort = "26657";
     private int taskCounter = 0;
     private boolean mining = false;

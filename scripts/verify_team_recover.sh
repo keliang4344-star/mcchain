@@ -13,7 +13,7 @@ cmd //c "if exist \"$HD\" rmdir /s /q \"$HD\"" 2>/dev/null
 mkdir -p "$HD"
 
 # 用 python 提取 5 个助记词
-MN=$($HOME/.workbuddy/binaries/python/versions/3.13.12/python.exe -c "import json;d=json.load(open(r'$JSON'));print('\n'.join(x['mnemonic'] for x in d))")
+MN=$(python3 -c "import json;d=json.load(open(r'$JSON'));print('\n'.join(x['mnemonic'] for x in d))")
 i=1
 while IFS= read -r line; do
   printf '%s\n' "$line" | "$BIN" keys add "team$i" --recover --keyring-backend test --home "$HD" >/dev/null 2>&1

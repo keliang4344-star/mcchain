@@ -2,7 +2,7 @@
 # MC 公链 - 团队多签作创世验证人的生产 genesis 生成器（审计/部署共用）
 set +e
 BIN=$HOME/mcchain/build/mcchaind.exe
-PY=$HOME/.workbuddy/binaries/python/versions/3.13.12/python.exe
+PY=python3
 HD=$HOME/mcchain/audit_home
 KEYS=$HOME/mcchain/team_keys_gen.json
 CFG=$HOME/mcchain/scripts/genesis-config.example.json

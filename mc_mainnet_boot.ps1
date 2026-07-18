@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Continue'
 $NODE = '$HOME/mcchain\build\mcchaind.exe'
-$PY = '$HOME\.workbuddy\binaries\python\versions\3.13.12\python.exe'
+$PY = 'python3'
 $CHAINHOME = '$HOME/mcchain\mainnetboot'
 $CHAIN = 'mcchain-mainnet-1'
 $MINER = 'mc1zpzk062u54sv4j9w4qvlwkyjpxauqpuh72fz9w'

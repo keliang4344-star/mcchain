@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Continue"
 $CHAIN = "$HOME/mcchain"
 $NODE  = "$CHAIN\build\mcchaind.exe"
-$PY    = "$HOME\.workbuddy\binaries\python\versions\3.13.12\python.exe"
+$PY    = "python3"
 $TMP   = "$HOME/mcchain\audit_home"
 $CID   = "mcchain-audit-1"
 $RPC   = "tcp://localhost:26677"

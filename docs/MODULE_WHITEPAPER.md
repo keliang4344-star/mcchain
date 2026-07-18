@@ -157,7 +157,7 @@ graph TD
 - **cmd/mcchaind**：`root.go`/`config.go`(MinGasPrices=0stake)/`genaccounts.go`(支持 vesting 账户)/`oracle.go` 子命令，完整。
 - **oraclesvc**：HTTP 签名服务可用；**生产加固项**：`/sign` 无认证/限流/TLS，密钥仅 env 注入，需加防护。
 - **event-subscriber**：基础事件订阅打印，无指标导出/持久化。
-- **web**：链概览/钱包/转账/区块浏览器可用；**未接入 depin/phonenode/edgeai 交互**，RPC 硬编码 `192.168.1.100`，无构建打包流程。
+- **web**：链概览/钱包/转账/区块浏览器可用；**未接入 depin/phonenode/edgeai 交互**，RPC 硬编码 `localhost`，无构建打包流程。
 - **docs**：PRD/系统设计/审计/安全/预言机/移动 SDK/主网部署/runbook + mermaid + openapi.yml，**设计层非常完整**；缺统一模块总览与完成度报告（本文档填补）。
 - **monitoring**：Grafana 看板目录存在，但未验证接入 Prometheus 与自定义业务指标（reward paid / slash 等）。
 - **legacy-blueprint**：8 个 go 文件，未编入构建，**死代码，应清理**。

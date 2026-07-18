@@ -24,7 +24,7 @@ type BankKeeper interface {
 	BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
 	// SendCoinsFromModuleToAccount 从模块账户向外部地址拨付（团队 vesting 账户）。
 	SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
-	// SendCoinsFromModuleToModule 模块账户间转账（社区/生态/生态→depin 切片）。
+	// SendCoinsFromModuleToModule 模块账户间转账（如 foundation / device_incentive → depin 切片，5 池模型内部拨付）。
 	SendCoinsFromModuleToModule(ctx sdk.Context, senderModule, recipientModule string, amt sdk.Coins) error
 	// GetBalance 返回某地址某 denom 的余额（查询 allocations 当前余额）。
 	GetBalance(ctx sdk.Context, addr sdk.AccAddress, denom string) sdk.Coin

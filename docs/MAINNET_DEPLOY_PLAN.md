@@ -14,7 +14,7 @@
 | CPU | Intel mid-range consumer CPU，6 核 12 线程，2.5GHz |
 | 内存 | 32 GB（2×16GB） |
 | 磁盘 | C 盘 SSD 已用 81.7G / 余 38.3G；D 盘 已用 59.2G / 余 53.4G |
-| 网络 | WLAN 3 @ typical bandwidth（standard broadband，动态 IP，NAT 后）；WSL vEthernet 10Gbps（仅本机） |
+| 网络 | Standard network environment；WSL vEthernet 10Gbps（仅本机） |
 
 **负载能力判断**：单条 CometBFT 验证人对算力要求极低（官方推荐 2 vCPU / 4GB 即可），本机硬件**绝对满足单节点负载**。
 

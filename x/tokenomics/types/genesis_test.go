@@ -9,7 +9,7 @@ import (
 )
 
 // TestDefaultGenesis_Validate 验证默认创世状态通过校验（R1/R2 双保险）：
-//   - bps 和 = 10000（团队15/社区35/生态50）；
+//   - bps 和 = 10000（设备激励55/质押安全15/团队12/基金会13/早期开发5，5 池模型）；
 //   - 各池分配额之和 = 总量上限 cap；
 //   - cap 必须等于 Go 常量 TotalSupplyCap（Q8 不可治理）。
 func TestDefaultGenesis_Validate(t *testing.T) {

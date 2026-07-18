@@ -8,7 +8,7 @@ HD="$HOME/mcchain/audit_home"
 TMP="$HOME/mcchain/audit_tmp"
 CHAIN_ID="mcchain-mainnet-1"
 CFG="$HOME/mcchain/scripts/mainnet-genesis-config.json"
-PY="$HOME/.workbuddy/binaries/python/versions/3.13.12/python.exe"
+PY=python3
 SELF_DEL="120000000000000umc"   # 1.2e14 = 全部团队池自抵押（五池模型团队 12%）
 MIN_SELF="30000000000"          # 3e10
 

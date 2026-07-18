@@ -3,7 +3,7 @@
 本手册记录主网节点从初始化到稳定运行、升级的完整运维步骤。配套 `Dockerfile` / `docker-compose.yml` / `deploy/init.sh` / `deploy/start.sh`。
 
 > 前提：目标机为 Linux（Ubuntu 22.04 LTS），已装 Docker 或 Go 1.22+；链 home 目录为空。
-> 沙箱（Windows 开发机）仅用于构建与单节点验证，不承载公网主网。
+> Build environment is used for compilation and single-node validation only，不承载公网主网。
 
 ---
 

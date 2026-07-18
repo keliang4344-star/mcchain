@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Continue"
 $CHAIN = "$HOME/mcchain"
 $NODE  = "$CHAIN\build\mcchaind.exe"
-$PY    = "$HOME\.workbuddy\binaries\python\versions\3.13.12\python.exe"
+$PY    = "python3"
 $TMP   = "$HOME/mcchain\audit_home"
 $CID   = "mcchain-mainnet-1"   # 最终 chain-id（gentx 必须用它签名，与 make_genesis 覆盖后一致）
 
