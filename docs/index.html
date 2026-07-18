@@ -1,98 +1,146 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MC — 一条把全节点装进每部手机的公链</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    color: #fff;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .wrapper { text-align: center; padding: 40px 20px; }
-  .brand {
-    font-size: 96px;
-    font-weight: 900;
-    letter-spacing: 20px;
-    background: linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.80) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1;
-    margin-bottom: 24px;
-  }
-  .tagline {
-    font-size: 20px;
-    font-weight: 500;
-    opacity: 0.88;
-    margin-bottom: 4px;
-  }
-  .tagline-en {
-    font-size: 15px;
-    opacity: 0.50;
-    margin-bottom: 60px;
-  }
-  .principles {
-    display: flex;
-    justify-content: center;
-    gap: 36px;
-    flex-wrap: wrap;
-    margin-bottom: 80px;
-  }
-  .principle {
-    font-size: 15px;
-    opacity: 0.60;
-    letter-spacing: 1px;
-  }
-  .links {
-    display: flex;
-    justify-content: center;
-    gap: 24px;
-    flex-wrap: wrap;
-    font-size: 14px;
-    opacity: 0.45;
-  }
-  .links a {
-    color: #fff;
-    text-decoration: none;
-    transition: opacity 0.2s;
-  }
-  .links a:hover { opacity: 0.75; }
-  .links .sep { opacity: 0.25; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MobileChain — MC</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(160deg, #0a0e17 0%, #111827 40%, #0d1524 100%);
+      color: #e0e5ec;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .page {
+      text-align: center;
+      max-width: 880px;
+      padding: 60px 32px;
+    }
+    h1 {
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: 6px;
+      background: linear-gradient(135deg, #c8d6e5 20%, #ffffff 50%, #a0b4cc 80%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 20px;
+    }
+    h3 {
+      font-size: 20px;
+      font-weight: 400;
+      color: #b0c0d4;
+      margin-bottom: 8px;
+    }
+    .en-tagline {
+      font-size: 17px;
+      font-weight: 600;
+      color: #6a7d94;
+      margin-bottom: 28px;
+    }
+    .meta {
+      font-size: 15px;
+      color: #5a6b7e;
+      line-height: 1.8;
+      margin-bottom: 40px;
+    }
+    .meta code {
+      background: rgba(255,255,255,0.06);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #a0b8d0;
+    }
+    .divider {
+      width: 120px;
+      height: 1px;
+      background: #2a3546;
+      margin: 40px auto;
+    }
+    .principles {
+      text-align: left;
+      max-width: 680px;
+      margin: 0 auto 48px;
+      padding: 24px 32px;
+      border-left: 2px solid #2a3a50;
+      background: rgba(255,255,255,0.015);
+      border-radius: 0 8px 8px 0;
+    }
+    .principles .intro {
+      font-size: 15px;
+      color: #7a8ea0;
+      margin-bottom: 16px;
+      line-height: 1.7;
+    }
+    .principles ol {
+      list-style: none;
+      counter-reset: princ;
+    }
+    .principles ol li {
+      counter-increment: princ;
+      font-size: 14px;
+      color: #8899af;
+      line-height: 1.7;
+      margin-bottom: 6px;
+      padding-left: 24px;
+      position: relative;
+    }
+    .principles ol li::before {
+      content: counter(princ) ".";
+      position: absolute;
+      left: 0;
+      color: #5a7088;
+      font-weight: 600;
+    }
+    .links {
+      font-size: 14px;
+      color: #4a5c70;
+    }
+    .links a {
+      color: #6a8aaa;
+      text-decoration: none;
+      margin: 0 10px;
+      transition: color 0.2s;
+    }
+    .links a:hover { color: #a0c8e8; }
+  </style>
 </head>
 <body>
+  <div class="page">
 
-<div class="wrapper">
-  <div class="brand">MC</div>
-  <div class="tagline">一条把全节点装进每部手机的公链</div>
-  <div class="tagline-en">A Public Chain That Puts a Full Node in Every Phone</div>
+    <h1>MobileChain（MC）白皮书</h1>
 
-  <div class="principles">
-    <span class="principle">开源可审计</span>
-    <span class="principle">参数写代码</span>
-    <span class="principle">链上求真</span>
-    <span class="principle">共识共生</span>
+    <h3>一条把全节点装进每一部手机的公链</h3>
+
+    <div class="en-tagline">A Public Chain That Puts a Full Node in Every Phone</div>
+
+    <div class="meta">
+      版本 v4.0（叙事体）· 2026 年 · 面向社区的完整技术与理念阐述<br>
+      链标识 <code>mcchain-mainnet-1</code> · 主币 MC（最小单位 umc，精度 6）· 固定总量 10 亿 · 零通胀
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="principles">
+      <div class="intro">这份文档只讲我们自己要走的路。四条原则贯穿全文，且都已经写进代码、可被任何人审计：</div>
+      <ol>
+        <li>开源可审计——所有关键参数、分配比例、罚没规则都以链上常量或创世校验的形式固化，任何人都能在源码里读到、在链上验证到。</li>
+        <li>参数写代码——白皮书里出现的每一个数字都对应一行真实的 Go 常量，本文不写"愿景数字"，只写"代码数字"。</li>
+        <li>链上求真——没有实现的功能标注为"规划中"，绝不把设想写成既成事实。</li>
+        <li>共识共生——MC 的激励来自真实的设备贡献与网络安全，设有社区推荐激励体系，推荐奖励从设备激励池额外拨付，不从被推荐人收益中扣除，保持'激励来自真实贡献'的根本原则。</li>
+      </ol>
+    </div>
+
+    <div class="links">
+      <a href="WHITEPAPER.md">白皮书</a>
+      <a href="TOKEN_ALLOCATION.md">通证分配</a>
+      <a href="AUDIT_CHECKLIST.md">审计清单</a>
+      <a href="RUNBOOK.md">Runbook</a>
+      <a href="https://github.com/keliang4344-star/mcchain">GitHub</a>
+    </div>
+
   </div>
-
-  <div class="links">
-    <a href="https://github.com/keliang4344-star/mcchain/blob/main/docs/WHITEPAPER.md">白皮书</a>
-    <span class="sep">·</span>
-    <a href="https://github.com/keliang4344-star/mcchain/blob/main/docs/TOKEN_ALLOCATION.md">通证分配</a>
-    <span class="sep">·</span>
-    <a href="https://github.com/keliang4344-star/mcchain/blob/main/docs/audit_checklist.md">审计清单</a>
-    <span class="sep">·</span>
-    <a href="https://github.com/keliang4344-star/mcchain/blob/main/docs/MAINNET_RUNBOOK.md">主网 Runbook</a>
-    <span class="sep">·</span>
-    <a href="https://github.com/keliang4344-star/mcchain">GitHub</a>
-  </div>
-</div>
-
 </body>
 </html>
