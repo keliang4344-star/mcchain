@@ -15,11 +15,13 @@ type AccountKeeper interface {
 	NewAccountWithAddress(ctx sdk.Context, addr sdk.AccAddress) authtypes.AccountI
 }
 
-// BankKeeper 定义 tokenomics 依赖的 bank keeper 最小接口（移动/铸造模块币）。
+// BankKeeper 定义 tokenomics 依赖的 bank keeper 最小接口（移动/铸造/销毁模块币）。
 type BankKeeper interface {
 	// MintCoins 向指定模块账户铸造新币（仅 tokenomics 持有 Minter，Q7）。
 	// 签名必须与 cosmos-sdk v0.47.3 bank.BaseKeeper.MintCoins 一致。
 	MintCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
+	// BurnCoins 从指定模块账户销毁代币（MC 销毁机制）。
+	BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
 	// SendCoinsFromModuleToAccount 从模块账户向外部地址拨付（团队 vesting 账户）。
 	SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 	// SendCoinsFromModuleToModule 模块账户间转账（社区/生态/生态→depin 切片）。

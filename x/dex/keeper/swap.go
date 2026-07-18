@@ -41,8 +41,15 @@ func (k Keeper) SwapExactIn(
 		return sdk.ZeroInt(), types.ErrSlippageExceeded
 	}
 
-	// Update reserves
-	newReserveIn := reserveIn.Add(amountIn)
+	// Calculate fee and non-LP portion to deduct from pool reserves.
+	// The LP portion (20%) stays in the reserve; burn (50%) + treasury (30%)
+	// portions are extracted from the pool.
+	feeTotal := amountIn.MulRaw(int64(pool.FeeRateBps)).QuoRaw(10000)
+	nonLPFee := feeTotal.MulRaw(nonLPFeeBps).QuoRaw(10000)
+
+	// Update reserves: subtract non-LP fee so only the LP portion (20%)
+	// remains in the pool reserve.
+	newReserveIn := reserveIn.Add(amountIn).Sub(nonLPFee)
 	newReserveOut := reserveOut.Sub(amountOut)
 	k.updateReservesByDenom(&pool, denomIn, newReserveIn)
 	k.updateReservesByDenom(&pool, denomOut, newReserveOut)
@@ -61,6 +68,11 @@ func (k Keeper) SwapExactIn(
 	// Transfer output from module to trader
 	coinsOut := sdk.NewCoins(sdk.NewCoin(denomOut, amountOut))
 	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, traderAddr, coinsOut); err != nil {
+		return sdk.ZeroInt(), err
+	}
+
+	// Distribute the collected fee: burn 50%, treasury 30%, LP 20%
+	if err := k.ProcessSwapFee(ctx, poolID, denomIn, amountIn, pool.FeeRateBps); err != nil {
 		return sdk.ZeroInt(), err
 	}
 

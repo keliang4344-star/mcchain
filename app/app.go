@@ -129,6 +129,9 @@ import (
 	dexmodule "mcchain/x/dex"
 	dexmodulekeeper "mcchain/x/dex/keeper"
 	dexmoduletypes "mcchain/x/dex/types"
+	referralmodule "mcchain/x/referral"
+	referralmodulekeeper "mcchain/x/referral/keeper"
+	referralmoduletypes "mcchain/x/referral/types"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
 	appparams "mcchain/app/params"
@@ -195,6 +198,7 @@ var (
 		phonenodemodule.AppModuleBasic{},
 		edgeaimodule.AppModuleBasic{},
 		dexmodule.AppModuleBasic{},
+		referralmodule.AppModuleBasic{},
 		// this line is used by starport scaffolding # stargate/app/moduleBasic
 	)
 
@@ -221,6 +225,8 @@ var (
 		// 结算时经 bank 向其拨付 submitter；仅需注册为模块账户，无 Minter/Burner 权限。
 		edgeaimoduletypes.ModuleName: nil,
 		dexmoduletypes.ModuleName: {authtypes.Minter, authtypes.Burner},
+		referralmoduletypes.ModuleName: nil, // ecosystem pool rewards are paid via bank
+		referralmoduletypes.EcosystemModuleAccount: nil, // ecosystem pool for referral rewards
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 )
@@ -293,6 +299,7 @@ type App struct {
 
 	EdgeaiKeeper edgeaimodulekeeper.Keeper
 	DexKeeper    dexmodulekeeper.Keeper
+	ReferralKeeper referralmodulekeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
 
 	// mm is the module manager
@@ -345,6 +352,7 @@ func New(
 		phonenodemoduletypes.StoreKey,
 		edgeaimoduletypes.StoreKey,
 		dexmoduletypes.StoreKey,
+		referralmoduletypes.StoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	)
 	tkeys := sdk.NewTransientStoreKeys(paramstypes.TStoreKey)
@@ -632,6 +640,17 @@ func New(
 	)
 	dexModule := dexmodule.NewAppModule(appCodec, app.DexKeeper, app.AccountKeeper, app.BankKeeper)
 
+	// x/referral: 推荐裂变模块。
+	// 依赖 BankKeeper（生态基金支付）、PhonenodeKeeper（防女巫）。
+	app.ReferralKeeper = *referralmodulekeeper.NewKeeper(
+		appCodec,
+		keys[referralmoduletypes.StoreKey],
+		app.GetSubspace(referralmoduletypes.ModuleName),
+		app.BankKeeper,
+		app.PhonenodeKeeper,
+	)
+	referralModule := referralmodule.NewAppModule(appCodec, app.ReferralKeeper, app.BankKeeper)
+
 	// this line is used by starport scaffolding # stargate/app/keeperDefinition
 
 	/**** IBC Routing ****/
@@ -699,6 +718,7 @@ func New(
 		phonenodeModule,
 		edgeaiModule,
 		dexModule,
+		referralModule,
 		// this line is used by starport scaffolding # stargate/app/appModule
 
 		crisis.NewAppModule(app.CrisisKeeper, skipGenesisInvariants, app.GetSubspace(crisistypes.ModuleName)), // always be last to make sure that it checks for all invariants and not only part of them
@@ -737,6 +757,7 @@ func New(
 		depinmoduletypes.ModuleName,
 		phonenodemoduletypes.ModuleName,
 		edgeaimoduletypes.ModuleName,
+		referralmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	)
 

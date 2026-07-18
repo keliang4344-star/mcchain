@@ -1,0 +1,35 @@
+syntax = "proto3";
+package mcchain.referral;
+option go_package = "mcchain/x/referral/types";
+
+// Msg defines the referral module's message service.
+service Msg {
+  rpc CreateReferral (MsgCreateReferral) returns (MsgCreateReferralResponse);
+  rpc ClaimReferralReward (MsgClaimReferralReward) returns (MsgClaimReferralRewardResponse);
+}
+
+// MsgCreateReferral is used by an inviter to create a referral link for an invitee.
+// Anti-sybil rules are enforced in the message handler:
+//   - invitee must already be a registered phonenode (verified via phonenodeKeeper.HasNode)
+//   - invitee cannot already be referred by anyone
+//   - inviter cannot invite themselves
+//   - cooldown_blocks between consecutive referrals from the same inviter
+message MsgCreateReferral {
+  string inviter     = 1; // inviter's bech32 address
+  string invitee     = 2; // invitee's bech32 address
+  string invite_code = 3; // optional invite code for channel tracking
+}
+
+message MsgCreateReferralResponse {
+  uint64 referral_id = 1;
+}
+
+// MsgClaimReferralReward allows an inviter to claim accumulated referral rewards.
+// Rewards are paid from the ecosystem module account, NOT deducted from the invitee.
+message MsgClaimReferralReward {
+  string claimer = 1;
+}
+
+message MsgClaimReferralRewardResponse {
+  string amount = 1; // total reward amount claimed (e.g. "500000000" = 500 MC)
+}

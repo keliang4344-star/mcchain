@@ -22,6 +22,10 @@ type PhonenodeKeeper interface {
 	IsAttested(ctx sdk.Context, addr string) bool
 	// SlashIfBad is used for anti-cheat punishment when a dispute resolves as cheat.
 	SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint32) error
+	// GetVerifierNodes returns addresses of nodes eligible for EdgeAI verifier sampling:
+	// attestation valid, heartbeat recent, and staked >= 30000 MC (30000000000 umc).
+	// Non-validator nodes are excluded (verifier must be a bonded validator).
+	GetVerifierNodes(ctx sdk.Context) []string
 }
 
 // BankKeeper defines the expected bank keeper (for module account operations).

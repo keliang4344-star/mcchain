@@ -21,6 +21,8 @@ message Task {
   string assignee = 6;
   // created_at 创建时区块时间（unix 秒）。
   int64 created_at = 7;
+  // created_at_block 创建时区块高度（用于任务过期判定）。
+  int64 created_at_block = 8;
 }
 
 // Result 一次任务结果提交（protobuf 持久化）。

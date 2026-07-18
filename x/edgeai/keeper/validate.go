@@ -150,17 +150,26 @@ func DeterminePayout(task *Task, params types.Params) uint64 {
 //   - 无未决争议且已超过 DisputePeriodBlocks → 乐观判定有效，从任务托管金拨付 submitter；
 //   - 存在 open 争议且争议窗口已过 → 因暂无链上作弊证明机制，乐观判定诚实（honest），
 //     结案并拨付（争议仲裁者机制留待后续引入，见 audit.md 已知不足）。
+//   - 超时未结算的 open 任务（TaskExpireBlocks）→ 标记 expired，退还托管金给创建者。
 //
 // 拨付经 bankKeeper 从 edgeai 模块账户（creator 创建任务时托管的 reward）出币给 submitter，
 // "谁出币"= edgeai 模块账户（来自需求方托管），不直接 mint，受 B1 总量 cap 约束。
 // 模块账户余额异常（如托管金不足）等错误仅记录事件、不阻塞出块。
+//
+// 每区块结算上限由 MaxTasksPerBlock 控制，防止 BeginBlock 过重阻塞出块。
 func (k Keeper) BeginBlock(ctx sdk.Context) {
 	// Phase 0: 多节点结果一致性投票（AntiCheatThresholdBps 自动作弊检测）
 	k.detectCheatByConsensus(ctx)
 
 	params := k.GetParams(ctx)
 	results := k.AllResults(ctx)
+	settledCount := uint64(0)
+	settledTaskIDs := make(map[string]bool) // 追踪已结算的任务，避免同一任务重复计数
+
 	for _, r := range results {
+		if settledCount >= types.MaxTasksPerBlock {
+			break
+		}
 		if r.Status != types.ResultStatusPending {
 			continue
 		}
@@ -225,6 +234,16 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 		_ = k.SetResult(ctx, r)
 		task.Status = types.TaskStatusDone
 		_ = k.SetTask(ctx, task)
+
+		// 发射结算事件（对应伪代码中的 edgeai.Settled）
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent("edgeai.Settled",
+				sdk.NewAttribute("task_id", r.TaskId),
+				sdk.NewAttribute("submitter", r.Submitter),
+				sdk.NewAttribute("amount", strconv.FormatUint(amount, 10)),
+				sdk.NewAttribute("result_status", types.ResultStatusValid),
+			),
+		)
 		ctx.EventManager().EmitEvent(
 			sdk.NewEvent("edgeai.RewardPaid",
 				sdk.NewAttribute("task_id", r.TaskId),
@@ -235,7 +254,76 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 		// O1 业务指标：edgeai 贡献即挖矿拨付计数（经 app telemetry 在 /metrics 暴露）。
 		telemetry.IncrCounter(1, "edgeai", "reward_paid_count")
 		telemetry.IncrCounter(float32(amount), "edgeai", "reward_paid_amount")
+
+		if !settledTaskIDs[r.TaskId] {
+			settledTaskIDs[r.TaskId] = true
+			settledCount++
+		}
 	}
+
+	// Phase 2: 任务过期处理
+	// 遍历所有 open 状态的任务，超时未结算（TaskExpireBlocks）的标记为 expired，
+	// 退还托管金给任务创建者。
+	if settledCount < types.MaxTasksPerBlock {
+		taskIDs := k.AllTaskIDs(ctx)
+		for _, tid := range taskIDs {
+			if settledCount >= types.MaxTasksPerBlock {
+				break
+			}
+			task, err := k.GetTask(ctx, tid)
+			if err != nil || task == nil {
+				continue
+			}
+			if task.Status != types.TaskStatusOpen {
+				continue
+			}
+			// 任务过期判定：优先使用 CreatedAtBlock（protobuf 持久化后生效），
+			// 若为 0（旧任务或 proto 未重新生成），回退到基于 CreatedAt 时间戳的近似计算。
+			expired := false
+			if task.CreatedAtBlock > 0 {
+				expired = uint64(ctx.BlockHeight()-task.CreatedAtBlock) >= types.TaskExpireBlocks
+			} else {
+				// 回退：假设 ~6 秒/区块，将 TaskExpireBlocks 映射为秒
+				expireSec := int64(types.TaskExpireBlocks) * 6
+				expired = ctx.BlockTime().Unix()-task.CreatedAt > expireSec
+			}
+			if !expired {
+				continue
+			}
+
+			task.Status = types.TaskStatusExpired
+			_ = k.SetTask(ctx, task)
+
+			// 退还托管金给创建者
+			if task.Reward > 0 {
+				creatorAddr, addrErr := sdk.AccAddressFromBech32(task.Creator)
+				if addrErr == nil {
+					rewardCoins := sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(task.Reward)))
+					if refundErr := k.bankKeeper.SendCoinsFromModuleToAccount(
+						ctx, types.ModuleName, creatorAddr, rewardCoins,
+					); refundErr != nil {
+						k.Logger(ctx).Error("edgeai: task expired refund failed",
+							"task_id", tid, "creator", task.Creator, "err", refundErr.Error())
+					}
+				}
+			}
+
+			ctx.EventManager().EmitEvent(
+				sdk.NewEvent("edgeai.TaskExpired",
+					sdk.NewAttribute("task_id", tid),
+					sdk.NewAttribute("creator", task.Creator),
+					sdk.NewAttribute("reward", strconv.FormatUint(task.Reward, 10)),
+				),
+			)
+			settledCount++
+		}
+	}
+
+	// Phase 3: Verifier 抽检（B3.1 R5）
+	// 从已结算（done）任务中随机抽检一个，分配给在线的验证者节点复核。
+	// 抽检结果自动通过（honest），验证者获得 VerifierRewardPerSample 奖励。
+	// 若验证者发现作弊则自动创建 dispute。
+	k.SampleAndVerify(ctx)
 }
 
 // resolveDispute 将争议标记结案（供 BeginBlock 乐观结算使用）。

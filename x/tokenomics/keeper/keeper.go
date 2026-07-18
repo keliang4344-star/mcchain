@@ -60,3 +60,10 @@ func (k Keeper) MintCoins(ctx sdk.Context, amt sdk.Coins) error {
 	k.SetMintedSupply(ctx, newMinted)
 	return nil
 }
+
+// BurnMC 是 MC 销毁入口。调用 bankKeeper.BurnCoins 从指定模块账户销毁代币。
+// 通常由 DEX 的 ProcessSwapFee 调用，实现 swap 手续费的 50% 销毁机制。
+func (k Keeper) BurnMC(ctx sdk.Context, amt sdk.Coin) error {
+	coins := sdk.NewCoins(amt)
+	return k.bankKeeper.BurnCoins(ctx, types.ModuleName, coins)
+}

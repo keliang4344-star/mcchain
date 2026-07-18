@@ -1,0 +1,33 @@
+package types
+
+const (
+	ModuleName   = "referral"
+	StoreKey     = ModuleName
+	RouterKey    = ModuleName
+	MemStoreKey  = "mem_" + ModuleName
+
+	// ---- 存储前缀 ----
+	ReferralKeyPrefix        = "Referral/value/"
+	ReferralCountKeyPrefix   = "Referral/count/"
+	ReferralByInviterPrefix  = "Referral/inviter/"
+	ReferralByInviteePrefix  = "Referral/invitee/"
+	PendingRewardKeyPrefix   = "PendingReward/value/"
+	RewardPoolKey            = "RewardPool"
+
+	// ---- 推荐状态 ----
+	ReferralStatusActive  = "active"
+	ReferralStatusClaimed = "claimed"
+
+	// ---- 默认参数 ----
+	DefaultRewardRateBps       uint32 = 500          // 5%
+	DefaultMinPayout                  = "100000000"   // 100 MC = 100,000,000 umc
+	DefaultMaxReferralsPerUser uint64 = 100
+	DefaultCooldownBlocks      uint64 = 100
+
+	// ---- 生态基金模块账户 ----
+	EcosystemModuleAccount = "ecosystem"
+)
+
+func KeyPrefix(p string) []byte {
+	return []byte(p)
+}

@@ -31,12 +31,13 @@ func (k msgServer) CreateTask(goCtx context.Context, msg *types.MsgCreateTask) (
 
 	id := k.nextTaskID(ctx)
 	t := &Task{
-		Id:          id,
-		Creator:     msg.Creator,
-		Description: msg.Description,
-		Reward:      msg.Reward,
-		Status:      types.TaskStatusOpen,
-		CreatedAt:   ctx.BlockTime().Unix(),
+		Id:             id,
+		Creator:        msg.Creator,
+		Description:    msg.Description,
+		Reward:         msg.Reward,
+		Status:         types.TaskStatusOpen,
+		CreatedAt:      ctx.BlockTime().Unix(),
+		CreatedAtBlock: ctx.BlockHeight(),
 	}
 	if err := k.Keeper.SetTask(ctx, t); err != nil {
 		return nil, err

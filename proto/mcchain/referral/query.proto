@@ -1,0 +1,46 @@
+syntax = "proto3";
+package mcchain.referral;
+option go_package = "mcchain/x/referral/types";
+
+import "gogoproto/gogo.proto";
+
+// Query defines the gRPC querier service.
+service Query {
+  rpc Referral           (QueryReferralRequest)            returns (QueryReferralResponse)            {}
+  rpc ReferralsByInviter (QueryReferralsByInviterRequest)  returns (QueryReferralsByInviterResponse)  {}
+  rpc PendingRewards     (QueryPendingRewardsRequest)      returns (QueryPendingRewardsResponse)      {}
+}
+
+message QueryReferralRequest {
+  uint64 referral_id = 1;
+}
+
+message QueryReferralResponse {
+  Referral referral = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryReferralsByInviterRequest {
+  string inviter = 1;
+}
+
+message QueryReferralsByInviterResponse {
+  repeated Referral referrals = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryPendingRewardsRequest {
+  string claimer = 1;
+}
+
+message QueryPendingRewardsResponse {
+  string amount = 1; // pending reward amount in umc
+}
+
+// Referral represents a single referral record stored on-chain.
+message Referral {
+  uint64 referral_id = 1;
+  string inviter     = 2;
+  string invitee     = 3;
+  string invite_code = 4;
+  int64  created_at  = 5; // block height when the referral was created
+  string status      = 6; // "active" or "claimed"
+}

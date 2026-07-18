@@ -1,0 +1,13 @@
+syntax = "proto3";
+package mcchain.referral;
+option go_package = "mcchain/x/referral/types";
+
+import "gogoproto/gogo.proto";
+
+// Params defines the parameters for the referral module.
+message Params {
+  uint32 reward_rate_bps        = 1; // referral reward rate in basis points, default 500 (=5%)
+  string min_payout             = 2; // minimum claimable amount, default "100000000" (=100 MC)
+  uint64 max_referrals_per_user = 3; // max referrals per inviter, default 100
+  uint64 cooldown_blocks        = 4; // cooldown blocks between referrals, default 100
+}

@@ -39,6 +39,8 @@ type Task struct {
 	Assignee string `protobuf:"bytes,6,opt,name=assignee,proto3" json:"assignee,omitempty"`
 	// created_at 创建时区块时间（unix 秒）。
 	CreatedAt int64 `protobuf:"varint,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// created_at_block 创建时区块高度（字段8，proto 已定义，待 protoc 重新生成后 marshal/unmarshal 自动生效）。
+	CreatedAtBlock int64 `protobuf:"varint,8,opt,name=created_at_block,json=createdAtBlock,proto3" json:"created_at_block,omitempty"`
 }
 
 func (m *Task) Reset()         { *m = Task{} }
@@ -119,6 +121,13 @@ func (m *Task) GetAssignee() string {
 func (m *Task) GetCreatedAt() int64 {
 	if m != nil {
 		return m.CreatedAt
+	}
+	return 0
+}
+
+func (m *Task) GetCreatedAtBlock() int64 {
+	if m != nil {
+		return m.CreatedAtBlock
 	}
 	return 0
 }

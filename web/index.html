@@ -179,6 +179,46 @@
     <div class="hint">结果提交需节点已 attest（B2 闸口）；争议窗口过后经 depin 拨付（贡献即挖矿）。</div>
   </div>
 
+  <!-- DePIN 任务市场面板 -->
+  <div class="card blue">
+    <h3>DePIN 任务市场<span class="tag">edgeai</span></h3>
+    <div class="explore" id="taskMarketOut" style="max-height:240px;overflow:auto">连接节点后自动加载…</div>
+    <div class="hint">链上活跃 EdgeAI 任务列表，每行显示 task_id / reward / status / 创建者。</div>
+  </div>
+
+  <!-- EdgeAI 任务浏览器 -->
+  <div class="card purple">
+    <h3>EdgeAI 任务浏览器</h3>
+    <div class="row" style="margin-bottom:8px">
+      <input id="taskIdInput" class="mn" placeholder="输入 Task ID" />
+      <button class="alt" id="btnTaskBrowse">查询</button>
+    </div>
+    <div class="explore" id="taskBrowseOut" style="max-height:220px;overflow:auto">输入 Task ID 查看详情（奖励 / 创建者 / 状态 / 提交结果 / 争议）。</div>
+    <div class="hint">状态: open / assigned / done / disputed / expired。如有提交则显示 submitter 与 resultHash。</div>
+  </div>
+
+  <!-- 推荐统计面板 -->
+  <div class="card warn">
+    <h3>推荐统计<span class="tag">referral</span></h3>
+    <div class="kv"><span class="k">链上总推荐数</span><span class="v" id="oRefTotal">—</span></div>
+    <div class="kv"><span class="k">活跃推荐关系</span><span class="v" id="oRefActive">—</span></div>
+    <div class="row" style="margin-top:8px">
+      <input id="refAddr" class="mn" placeholder="查询地址推荐网络 mc1..." />
+      <button class="alt" id="btnRefQuery">查询</button>
+    </div>
+    <div class="explore" id="refOut" style="max-height:150px;overflow:auto;margin-top:6px">输入地址查询其推荐网络。</div>
+  </div>
+
+  <!-- 销毁追踪面板 -->
+  <div class="card blue">
+    <h3>MC 销毁追踪<span class="tag">tokenomics</span></h3>
+    <div class="kv"><span class="k">创世供应量</span><span class="v">1,000,000,000 MC</span></div>
+    <div class="kv"><span class="k">当前供应量</span><span class="v monospace" id="oCurSupply">—</span></div>
+    <div class="big blue" id="oBurned">—</div>
+    <div style="color:var(--sub);font-size:12px">累计销毁 MC（创世 10 亿 − 当前供应量）</div>
+    <div class="explore" id="burnRecordsOut" style="max-height:120px;overflow:auto;margin-top:8px">连接节点后加载销毁记录…</div>
+  </div>
+
   <!-- 模块实时查询 (gRPC-gateway REST) -->
   <div class="card blue full">
     <h3>模块实时查询 · gRPC-gateway REST<span class="tag">只读</span></h3>
@@ -296,6 +336,7 @@ async function connect(){
     $("oChain").textContent=chainId; $("oHeight").textContent=height.toLocaleString();
     setPill(true,"已连接");
     await loadSupply(); await loadValidators(); await loadLatestBlock(height);
+    await loadExtras();
     startPoll();
   }catch(e){ setPill(false,"连接失败"); $("oChain").textContent="—"; toast("连接失败: "+(e&&e.message?e.message:e)); }
 }
@@ -348,6 +389,7 @@ function startPoll(){ stopPoll(); timer=setInterval(async()=>{
   try{ const h=await C.getHeight(); $("oHeight").textContent=h.toLocaleString(); await loadLatestBlock(h); }catch(e){}
   try{ await loadValidators(); }catch(e){}
   try{ if(myAddress) await refreshBal(); }catch(e){}
+  try{ await loadExtras(); }catch(e){}
 },6000); }
 function stopPoll(){ if(timer) clearInterval(timer); }
 
@@ -539,6 +581,149 @@ async function qMod(path, label){
   }catch(e){ setQuery(label+" 查询失败: "+((e&&e.message)?e.message:e)); }
 }
 function setQuery(o){ $("queryOut").textContent=typeof o==="string"?o:JSON.stringify(o,null,2); }
+
+// ---------- DePIN 任务市场面板 ----------
+async function loadTaskMarket(){
+  if(!LCD) return;
+  try{
+    const j = await lc("/edgeai/tasks");
+    let tasks = j;
+    if(j.tasks_json != null) {
+      try { tasks = JSON.parse(j.tasks_json); } catch(e) { tasks = j.tasks_json; }
+    }
+    if(Array.isArray(tasks) && tasks.length > 0) {
+      let html = '';
+      tasks.forEach(t => {
+        const task = typeof t === 'string' ? JSON.parse(t) : t;
+        const tid = String(task.task_id||task.id||'?');
+        const reward = String(task.reward||'0');
+        const status = String(task.status||'?');
+        const creator = short(task.creator||'');
+        html += '<div class="kv"><span class="k">#' + esc(tid) + '</span>'
+          + '<span class="v" style="font-size:11px">奖励: ' + esc(reward) + ' umc | 状态: ' + esc(status) + ' | 创建者: ' + esc(creator) + '</span></div>';
+      });
+      $("taskMarketOut").innerHTML = html;
+    } else {
+      $("taskMarketOut").textContent = '暂无活跃任务。';
+    }
+  }catch(e){
+    $("taskMarketOut").textContent = '加载失败（需 REST 1317 端口）: ' + (e&&e.message?e.message:e);
+  }
+}
+
+// ---------- EdgeAI 任务浏览器 ----------
+async function browseTask(){
+  if(!LCD){ alert("请先连接节点"); return; }
+  const tid = $("taskIdInput").value.trim();
+  if(!tid){ alert("请输入 Task ID"); return; }
+  try{
+    const j = await lc("/edgeai/task/" + encodeURIComponent(tid));
+    let task = j;
+    if(j.task_json != null) {
+      try { task = JSON.parse(j.task_json); } catch(e) { task = j.task_json; }
+    }
+    let lines = [];
+    lines.push('任务ID: ' + esc(String(task.task_id||task.id||tid)));
+    lines.push('奖励: ' + esc(String(task.reward||'0')) + ' umc');
+    lines.push('创建者: ' + esc(String(task.creator||'—')));
+    lines.push('状态: ' + esc(String(task.status||'—')));
+    if(task.description) lines.push('描述: ' + esc(String(task.description)));
+    if(task.assignee)   lines.push('分配至: ' + esc(String(task.assignee)));
+    if(task.submitter)  lines.push('提交者: ' + esc(String(task.submitter)));
+    if(task.result_hash || task.resultHash) lines.push('结果哈希: ' + esc(String(task.result_hash||task.resultHash||'')));
+    if(task.dispute_status) lines.push('争议状态: ' + esc(String(task.dispute_status)));
+    if(task.dispute_reason) lines.push('争议原因: ' + esc(String(task.dispute_reason)));
+    $("taskBrowseOut").textContent = lines.join('\n');
+  }catch(e){
+    $("taskBrowseOut").textContent = '查询失败（需 REST 1317 端口）: ' + (e&&e.message?e.message:e);
+  }
+}
+$("btnTaskBrowse").onclick = browseTask;
+
+// ---------- 推荐统计面板 ----------
+async function loadReferralStats(){
+  if(!LCD) return;
+  const paths = ["/mcchain/referral/stats", "/referral/stats"];
+  for(const p of paths){
+    try{
+      const j = await lc(p);
+      $("oRefTotal").textContent = esc(String(j.total_referrals||j.total||'0'));
+      $("oRefActive").textContent = esc(String(j.active_referrals||j.active||'0'));
+      return;
+    }catch(e){ /* try next path */ }
+  }
+  $("oRefTotal").textContent = "需 REST(1317)";
+  $("oRefActive").textContent = "需 REST(1317)";
+}
+
+async function queryReferralNetwork(){
+  if(!LCD){ alert("请先连接节点"); return; }
+  const addr = $("refAddr").value.trim();
+  if(!addr){ alert("请输入地址"); return; }
+  const paths = [
+    "/mcchain/referral/network/" + encodeURIComponent(addr),
+    "/referral/network/" + encodeURIComponent(addr)
+  ];
+  for(const p of paths){
+    try{
+      const j = await lc(p);
+      $("refOut").textContent = JSON.stringify(j, null, 2);
+      return;
+    }catch(e){ /* try next path */ }
+  }
+  $("refOut").textContent = "查询失败 — 节点可能未开启 REST(1317) 或 referral 模块未注册 gRPC-gateway。";
+}
+$("btnRefQuery").onclick = queryReferralNetwork;
+
+// ---------- 销毁追踪面板 ----------
+async function loadBurnStats(){
+  if(!LCD) return;
+  try{
+    const j = await lc("/cosmos/bank/v1beta1/supply/umc");
+    const rawAmt = j.amount ? j.amount.amount : (j.supply ? j.supply.amount : "0");
+    const curSupply = Number(rawAmt) / 1e6;
+    const genesisSupply = 1e9;
+    const burned = genesisSupply - curSupply;
+    $("oCurSupply").textContent = formatMC(rawAmt) + " MC";
+    if(burned > 0.000001) {
+      $("oBurned").textContent = burned.toLocaleString(undefined, {maximumFractionDigits:2}) + " MC 已销毁";
+      $("oBurned").className = "big blue";
+    } else {
+      $("oBurned").textContent = "0 MC 已销毁";
+      $("oBurned").className = "big";
+    }
+    // 销毁记录
+    const burnPaths = ["/mcchain/tokenomics/burns", "/tokenomics/burns"];
+    for(const bp of burnPaths){
+      try{
+        const br = await lc(bp);
+        const burns = br.burns || br;
+        if(Array.isArray(burns) && burns.length > 0) {
+          $("burnRecordsOut").textContent = burns.slice(0,10).map(b =>
+            typeof b === 'string' ? b : JSON.stringify(b)
+          ).join('\n');
+        } else {
+          $("burnRecordsOut").textContent = JSON.stringify(br, null, 2);
+        }
+        return; // success, exit
+      }catch(e){ /* try next */ }
+    }
+    $("burnRecordsOut").textContent = '累计销毁: ' + burned.toLocaleString(undefined, {maximumFractionDigits:2}) + ' MC（销毁记录 API 不可用）';
+  }catch(e){
+    $("oCurSupply").textContent = "需 REST(1317)";
+    $("oBurned").textContent = "需 REST(1317)";
+    $("burnRecordsOut").textContent = "供应量查询失败: " + (e&&e.message?e.message:e);
+  }
+}
+
+// ---------- 批量加载扩展面板 ----------
+async function loadExtras(){
+  await Promise.allSettled([
+    loadTaskMarket(),
+    loadReferralStats(),
+    loadBurnStats()
+  ]);
+}
 </script>
 </body>
 </html>
