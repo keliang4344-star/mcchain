@@ -91,7 +91,7 @@ mcchaind start
 | [Audit Checklist](./docs/audit_checklist.md) | Security audit scope and standards |
 | [Mainnet Runbook](./docs/MAINNET_RUNBOOK.md) | Complete launch operation manual |
 | [DAO Roadmap](./docs/dao_roadmap.md) | Phased decentralized governance plan |
-| [Beginner Guide](./BEGINNER_GUIDE.md) | Cloud Service Provider one-click setup tutorial |
+| [Beginner Guide](./BEGINNER_GUIDE.md) | Cloud server one-click setup tutorial |
 
 ## Testing
 
