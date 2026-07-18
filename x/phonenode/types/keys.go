@@ -56,3 +56,8 @@ func NonceKey(addr, nonce string) []byte {
 func SlashCooldownKey(addr string) []byte {
 	return append(SlashCooldownKeyPrefix, []byte(addr)...)
 }
+
+// VerifierStatusKey 返回节点验证者状态 key。
+func VerifierStatusKey(nodeID string) []byte {
+	return append(VerifierStatusKeyPrefix, []byte(nodeID)...)
+}

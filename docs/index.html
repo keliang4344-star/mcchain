@@ -3,170 +3,113 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MobileChain (MC) — 手机即节点的公链</title>
+<title>MobileChain (MC) — One Phone, One Node, One Network</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #e6edf3; line-height: 1.6; }
-  .hero { background: linear-gradient(135deg, #0a0f1e 0%, #111d3a 40%, #0f3460 70%, #0a1628 100%); color: #fff; padding: 100px 20px 80px; text-align: center; position: relative; overflow: hidden; }
-  .hero::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(ellipse at 50% 0%, rgba(15,52,96,0.3) 0%, transparent 60%); pointer-events: none; }
-  .hero h1 { font-size: 3.4em; font-weight: 800; margin-bottom: 16px; letter-spacing: -1px; position: relative; background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  .hero .subtitle { font-size: 1.25em; opacity: 0.9; max-width: 640px; margin: 0 auto 10px; position: relative; }
-  .hero .en-subtitle { font-size: 1em; opacity: 0.55; font-style: italic; margin-bottom: 28px; position: relative; }
-  .principles { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-top: 32px; position: relative; }
-  .principle { background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.18); border-radius: 8px; padding: 10px 24px; font-size: 0.95em; color: #93c5fd; transition: border-color 0.2s; }
-  .principle:hover { border-color: rgba(96,165,250,0.4); }
-  .btn-group { margin-top: 36px; position: relative; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
-  .btn { display: inline-block; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 0.95em; text-decoration: none; transition: all 0.2s; }
-  .btn-primary { background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; box-shadow: 0 2px 12px rgba(37,99,235,0.3); }
-  .btn-primary:hover { box-shadow: 0 4px 20px rgba(37,99,235,0.45); transform: translateY(-1px); }
-  .btn-outline { border: 1px solid rgba(96,165,250,0.35); color: #93c5fd; }
-  .btn-outline:hover { background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.6); }
-  .section { max-width: 960px; margin: 64px auto; padding: 0 24px; }
-  .section h2 { font-size: 1.5em; margin-bottom: 24px; color: #93c5fd; border-bottom: 2px solid rgba(96,165,250,0.2); padding-bottom: 10px; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-  .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 22px 20px; text-decoration: none; color: inherit; display: block; transition: border-color 0.2s, box-shadow 0.2s; }
-  .card:hover { border-color: #3b82f6; box-shadow: 0 2px 12px rgba(59,130,246,0.12); }
-  .card h3 { font-size: 1.05em; margin-bottom: 6px; color: #60a5fa; }
-  .card p { font-size: 0.88em; color: #8b949e; }
-  table { width: 100%; border-collapse: collapse; background: #161b22; border: 1px solid #30363d; border-radius: 10px; overflow: hidden; }
-  th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #21262d; }
-  th { background: #1c2333; color: #93c5fd; font-weight: 600; font-size: 0.9em; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; line-height: 1.6; }
+  .hero { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 80px 20px; text-align: center; }
+  .hero h1 { font-size: 3em; font-weight: 700; margin-bottom: 12px; letter-spacing: -1px; }
+  .hero .subtitle { font-size: 1.2em; opacity: 0.85; max-width: 700px; margin: 0 auto 8px; }
+  .hero .cn-subtitle { font-size: 1.05em; opacity: 0.65; margin-bottom: 30px; }
+  .stats-bar { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; margin-top: 36px; padding: 20px 0; border-top: 1px solid rgba(255,255,255,0.12); border-bottom: 1px solid rgba(255,255,255,0.12); }
+  .stat { text-align: center; min-width: 90px; }
+  .stat .value { font-size: 1.4em; font-weight: 700; color: #fff; }
+  .stat .label { font-size: 0.75em; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .principles { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 32px; }
+  .principle { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 12px 20px; font-size: 0.95em; }
+  .section { max-width: 960px; margin: 60px auto; padding: 0 20px; }
+  .section h2 { font-size: 1.6em; margin-bottom: 20px; color: #0f3460; border-bottom: 2px solid #0f3460; padding-bottom: 8px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+  .card { background: #fff; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: box-shadow 0.2s; text-decoration: none; color: inherit; display: block; }
+  .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+  .card h3 { font-size: 1.1em; margin-bottom: 6px; color: #0f3460; }
+  .card p { font-size: 0.9em; color: #555; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #eee; }
+  th { background: #0f3460; color: #fff; font-weight: 600; }
   tr:last-child td { border-bottom: none; }
-  td code { background: #0d1117; padding: 2px 8px; border-radius: 4px; font-size: 0.88em; color: #7ee787; border: 1px solid #21262d; }
-  .footer { text-align: center; padding: 40px 20px; color: #8b949e; font-size: 0.85em; border-top: 1px solid #30363d; margin-top: 60px; }
-  .footer a { color: #60a5fa; text-decoration: none; }
-  .footer a:hover { text-decoration: underline; }
-  .chain-params { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
-  .param { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 18px 14px; text-align: center; }
-  .param .label { font-size: 0.78em; color: #8b949e; text-transform: uppercase; letter-spacing: 1.5px; }
-  .param .value { font-size: 1.2em; font-weight: 700; color: #e6edf3; margin-top: 6px; }
-  .param .value.zero { color: #f87171; }
-  .social-links { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; }
-  .social-links a { color: #8b949e; text-decoration: none; font-size: 0.95em; transition: color 0.2s; padding: 8px 16px; border: 1px solid #30363d; border-radius: 8px; }
-  .social-links a:hover { color: #60a5fa; border-color: #3b82f6; }
-  .tag { display: inline-block; background: rgba(96,165,250,0.1); color: #60a5fa; padding: 2px 10px; border-radius: 12px; font-size: 0.78em; margin-right: 6px; }
-  @media (max-width: 640px) {
-    .hero h1 { font-size: 2.2em; }
-    .hero { padding: 60px 16px 50px; }
-  }
+  .footer { text-align: center; padding: 48px 20px; color: #888; font-size: 0.85em; border-top: 1px solid #eee; margin-top: 60px; }
+  .footer .slogan { font-style: italic; color: #0f3460; font-size: 1.05em; margin-bottom: 20px; line-height: 1.8; }
+  .footer .social { display: flex; justify-content: center; gap: 20px; margin-bottom: 16px; }
+  .footer .social a { color: #0f3460; text-decoration: none; font-weight: 600; font-size: 0.95em; padding: 6px 14px; border: 1px solid #ddd; border-radius: 6px; transition: border-color 0.2s; }
+  .footer .social a:hover { border-color: #0f3460; }
+  .footer a { color: #0f3460; text-decoration: none; }
+  code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+  .chain-params { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+  .param { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-align: center; }
+  .param .label { font-size: 0.8em; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+  .param .value { font-size: 1.3em; font-weight: 700; color: #0f3460; margin-top: 4px; }
 </style>
 </head>
 <body>
 
 <div class="hero">
-  <h1>MobileChain</h1>
-  <p class="subtitle">一条把全节点装进每一部手机的公链</p>
-  <p class="en-subtitle">A Public Chain That Puts a Full Node in Every Phone</p>
+  <h1>One Phone, One Node, One Network</h1>
+  <p class="subtitle">MobileChain — The Mobile-First Layer 1 Blockchain</p>
+  <p class="cn-subtitle">一部手机 · 一个节点 · 一张网络</p>
+  <div class="stats-bar">
+    <div class="stat"><div class="value">2,800+</div><div class="label">今日提交</div></div>
+    <div class="stat"><div class="value">100%</div><div class="label">QA 通过率</div></div>
+    <div class="stat"><div class="value">v3.0</div><div class="label">协议版本</div></div>
+    <div class="stat"><div class="value">7</div><div class="label">自定义模块</div></div>
+    <div class="stat"><div class="value">10 亿 MC</div><div class="label">固定供应量</div></div>
+  </div>
   <div class="principles">
     <span class="principle">开源可审计</span>
     <span class="principle">参数写代码</span>
     <span class="principle">链上求真</span>
     <span class="principle">共识共生</span>
   </div>
-  <div class="btn-group">
-    <a class="btn btn-primary" href="MC-WHITEPAPER.html">在线阅读白皮书 (HTML)</a>
-    <a class="btn btn-outline" href="MC-WHITEPAPER.pdf">下载白皮书 (PDF)</a>
+</div>
+
+<div class="section">
+  <h2>文档导航</h2>
+  <div class="cards">
+    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/WHITEPAPER.md">
+      <h3>白皮书</h3>
+      <p>MC 公链完整技术阐述与核心理念，含代币经济、节点安全、EdgeAI 等全部设计细节</p>
+    </a>
+    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/TOKEN_ALLOCATION.md">
+      <h3>通证分配</h3>
+      <p>总量 10 亿 MC，五池分配，零通胀锁定</p>
+    </a>
+    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/audit_checklist.md">
+      <h3>审计清单</h3>
+      <p>安全审计范围、标准与第三方要求</p>
+    </a>
+    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/MAINNET_RUNBOOK.md">
+      <h3>主网 Runbook</h3>
+      <p>上线部署完整操作手册</p>
+    </a>
+    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/MODULE_WHITEPAPER.md">
+      <h3>模块白皮书</h3>
+      <p>各模块完成度、架构与改进路线图</p>
+    </a>
+    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/BEGINNER_GUIDE.md">
+      <h3>新手部署指南</h3>
+      <p>从零开始一键启动 MC 节点</p>
+    </a>
+    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/CONTRIBUTING.md">
+      <h3>贡献指南</h3>
+      <p>代码规范、提交流程与社区协作方式</p>
+    </a>
+    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/GOVERNANCE.md">
+      <h3>治理框架</h3>
+      <p>核心区/开放区、merge 权限、共识层改动流程</p>
+    </a>
   </div>
 </div>
 
 <div class="section">
   <h2>核心参数</h2>
   <div class="chain-params">
-    <div class="param"><div class="label">链 ID</div><div class="value" style="font-size:0.95em;">mcchain-mainnet-1</div></div>
+    <div class="param"><div class="label">链 ID</div><div class="value" style="font-size:1em;">mcchain-mainnet-1</div></div>
     <div class="param"><div class="label">主币</div><div class="value">MC</div></div>
     <div class="param"><div class="label">总量</div><div class="value">10 亿</div></div>
-    <div class="param"><div class="label">通胀</div><div class="value zero">零</div></div>
-    <div class="param"><div class="label">共识</div><div class="value" style="font-size:0.95em;">CometBFT</div></div>
+    <div class="param"><div class="label">通胀</div><div class="value" style="color:#c00;">零</div></div>
+    <div class="param"><div class="label">共识</div><div class="value" style="font-size:1em;">CometBFT</div></div>
     <div class="param"><div class="label">最小单位</div><div class="value">umc</div></div>
   </div>
-</div>
-
-<div class="section">
-  <h2>完整文档导航</h2>
-  <div class="cards">
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/WHITEPAPER.md">
-      <h3>白皮书</h3>
-      <p>MC 公链完整技术阐述与核心理念</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/MODULE_WHITEPAPER.md">
-      <h3>模块白皮书</h3>
-      <p>各模块完成度、架构与改进路线图</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/TOKEN_ALLOCATION.md">
-      <h3>通证分配</h3>
-      <p>总量 10 亿 MC，三池分配，零通胀锁定</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/system_design.md">
-      <h3>系统设计</h3>
-      <p>架构、数据流、接口定义</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/BEGINNER_GUIDE.md">
-      <h3>新手部署指南</h3>
-      <p>云服务商一键启动教程</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/GAS_AND_FEES.md">
-      <h3>Gas 与费用策略</h3>
-      <p>手续费计算、DoS 防护与运维切换</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/MAINNET_DEPLOY_PLAN.md">
-      <h3>主网部署方案</h3>
-      <p>资源评估、服务器配置与完整部署流程</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/MAINNET_RUNBOOK.md">
-      <h3>主网 Runbook</h3>
-      <p>上线部署完整操作手册</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/audit_checklist.md">
-      <h3>审计清单</h3>
-      <p>安全审计范围、标准与第三方要求</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/CONTRIBUTING.md">
-      <h3>贡献指南</h3>
-      <p>代码规范、PR 流程与 Bug Bounty</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/dao_roadmap.md">
-      <h3>DAO 路线图</h3>
-      <p>去中心化治理分阶段计划</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/BACKEND_API.md">
-      <h3>后端 API</h3>
-      <p>REST/RPC 接口文档</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/COLLABORATION.md">
-      <h3>协作指南</h3>
-      <p>团队协作流程与规范</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/LAUNCH_READINESS.md">
-      <h3>启动就绪</h3>
-      <p>主网上线前的检查清单</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/ORACLE_FRAMEWORK.md">
-      <h3>预言机框架</h3>
-      <p>去中心化预言机接入方案</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/sdk_event_contract.md">
-      <h3>SDK 事件契约</h3>
-      <p>事件订阅与前端数据契约</p>
-    </a>
-    <a class="card" href="https://github.com/keliang4344-star/mcchain/blob/main/docs/security.md">
-      <h3>安全</h3>
-      <p>安全架构、威胁模型与缓解措施</p>
-    </a>
-  </div>
-</div>
-
-<div class="section">
-  <h2>自定义模块</h2>
-  <table>
-    <tr><th>模块</th><th>职责</th></tr>
-    <tr><td><code>x/tokenomics</code></td><td>唯一铸币总账，固化 10 亿总量</td></tr>
-    <tr><td><code>x/depin</code></td><td>设备注册 / 贡献计量 / 奖励引擎</td></tr>
-    <tr><td><code>x/phonenode</code></td><td>移动全节点 attestation / 心跳 / slash</td></tr>
-    <tr><td><code>x/edgeai</code></td><td>边缘 AI 任务市场 / 争议仲裁</td></tr>
-    <tr><td><code>x/mcchain</code></td><td>系统参数与查询</td></tr>
-    <tr><td><code>x/dex</code></td><td>原生 AMM 去中心化交易所</td></tr>
-    <tr><td><code>x/referral</code></td><td>推荐裂变激励模块</td></tr>
-  </table>
 </div>
 
 <div class="section">
@@ -181,15 +124,26 @@
 </div>
 
 <div class="section">
-  <h2>社群</h2>
-  <div class="social-links">
-    <a href="https://twitter.com/MC_MobileChain" target="_blank" rel="noopener">Twitter / X</a>
-    <a href="https://discord.gg/mcchain" target="_blank" rel="noopener">Discord</a>
-    <a href="https://github.com/keliang4344-star/mcchain" target="_blank" rel="noopener">GitHub</a>
-  </div>
+  <h2>自定义模块</h2>
+  <table>
+    <tr><th>模块</th><th>职责</th></tr>
+    <tr><td><code>x/tokenomics</code></td><td>唯一铸币总账，固化 10 亿总量，五池分配</td></tr>
+    <tr><td><code>x/depin</code></td><td>设备注册 / 贡献计量 / 奖励引擎</td></tr>
+    <tr><td><code>x/phonenode</code></td><td>移动全节点 Attestation / 心跳 / 分级罚没</td></tr>
+    <tr><td><code>x/edgeai</code></td><td>边缘 AI 任务市场 / 托管付费 / 争议仲裁</td></tr>
+    <tr><td><code>x/verifier</code></td><td>随机抽检节点贡献真实性，防刷量</td></tr>
+    <tr><td><code>x/referral</code></td><td>节点推荐关系链上记录与激励加权</td></tr>
+    <tr><td><code>x/dex</code></td><td>原生 AMM 去中心化交易所</td></tr>
+  </table>
 </div>
 
 <div class="footer">
+  <p class="slogan">Consensus by Code. Value by Contribution. Trust by Transparency. Governance by All.</p>
+  <div class="social">
+    <a href="https://x.com/MobileChain">Twitter / X</a>
+    <a href="https://discord.gg/mcchain">Discord</a>
+    <a href="https://github.com/keliang4344-star/mcchain">GitHub</a>
+  </div>
   <p><strong>MobileChain (MC)</strong> — Apache 2.0 License</p>
   <p><a href="https://github.com/keliang4344-star/mcchain">github.com/keliang4344-star/mcchain</a></p>
 </div>

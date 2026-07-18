@@ -6,9 +6,10 @@ option go_package = "mcchain/x/phonenode/types";
 
 // Msg defines the Msg service.
 service Msg {
-  rpc SubmitStateProof (MsgSubmitStateProof) returns (MsgSubmitStateProofResponse);
-  rpc RegisterNode     (MsgRegisterNode    ) returns (MsgRegisterNodeResponse    );
-  rpc SubmitAttestation (MsgSubmitAttestation) returns (MsgSubmitAttestationResponse);
+  rpc SubmitStateProof      (MsgSubmitStateProof     ) returns (MsgSubmitStateProofResponse     );
+  rpc RegisterNode          (MsgRegisterNode         ) returns (MsgRegisterNodeResponse         );
+  rpc SubmitAttestation     (MsgSubmitAttestation    ) returns (MsgSubmitAttestationResponse    );
+  rpc UpdateVerifierStatus  (MsgUpdateVerifierStatus ) returns (MsgUpdateVerifierStatusResponse );
 }
 message MsgSubmitStateProof {
   string creator = 1;
@@ -39,4 +40,13 @@ message MsgSubmitAttestation {
 }
 
 message MsgSubmitAttestationResponse {}
+
+// MsgUpdateVerifierStatus 由治理/Oracle 更新节点验证者状态。
+message MsgUpdateVerifierStatus {
+  string creator = 1;
+  string node_id = 2;
+  string status  = 3; // "active" / "suspended"
+}
+
+message MsgUpdateVerifierStatusResponse {}
 

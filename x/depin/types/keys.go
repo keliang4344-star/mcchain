@@ -17,3 +17,8 @@ const (
 func KeyPrefix(p string) []byte {
 	return []byte(p)
 }
+
+// AttestationResultKey 返回设备 attestation 结果存储 key。
+func AttestationResultKey(deviceID string) []byte {
+	return append(KeyPrefix("AttestResult:"), []byte(deviceID)...)
+}

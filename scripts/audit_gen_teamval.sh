@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # MC 公链 - 团队多签作创世验证人的生产 genesis 生成器（审计/部署共用）
 set +e
-BIN=/d/mc-build/mcchain/build/mcchaind.exe
+BIN=$HOME/mcchain/build/mcchaind.exe
 PY=$HOME/.workbuddy/binaries/python/versions/3.13.12/python.exe
-HD=/d/mc-build/mcchain/audit_home
+HD=$HOME/mcchain/audit_home
 KEYS=$HOME/mcchain/team_keys_gen.json
-CFG=/d/mc-build/mcchain/scripts/genesis-config.example.json
+CFG=$HOME/mcchain/scripts/genesis-config.example.json
 CID=mcchain-mainnet-1
 
 echo "STEP1 clear home"
-cmd //c "if exist $HOME/mcchain\\audit_home rmdir /s /q $HOME/mcchain\\audit_home"
+cmd //c "if exist $HOME\\mcchain\\audit_home rmdir /s /q $HOME\\mcchain\\audit_home"
 echo "STEP2 init"
 "$BIN" init auditor --chain-id "$CID" --home "$HD" 2>&1 | head -3
 echo "init_exit=$?"
@@ -50,6 +50,6 @@ mkdir -p "$HD/config/gentx"
 cp /tmp/gx_signed.json "$HD/config/gentx/"
 echo "STEP8 collect + normalize + validate"
 "$BIN" collect-gentxs --home "$HD" 2>&1 | tail -2
-"$PY" /d/mc-build/mcchain/scripts/make_genesis.py --genesis "$HD/config/genesis.json" --out "$HD/config/genesis.json" --config "$CFG" 2>&1 | tail -12
+"$PY" $HOME/mcchain/scripts/make_genesis.py --genesis "$HD/config/genesis.json" --out "$HD/config/genesis.json" --config "$CFG" 2>&1 | tail -12
 "$BIN" validate-genesis "$HD/config/genesis.json" --home "$HD" 2>&1 | tail -2
 echo "GEN_DONE"

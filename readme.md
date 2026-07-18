@@ -111,10 +111,15 @@ go test ./...
 
 ## 贡献
 
-欢迎提 Issue 和 Pull Request。参与前请阅读：
+欢迎顶级工程师与社区共同参与 MC 公链建设。参与前请阅读：
 
+- [治理框架 GOVERNANCE.md](./GOVERNANCE.md) — 核心区/开放区、merge 权限、共识层改动流程
+- [贡献指南 CONTRIBUTING.md](./CONTRIBUTING.md) — 代码规范与提交流程
+- [路线图 ROADMAP.md](./ROADMAP.md) — 阶段里程碑与「Help Wanted」求援模块
+- [安全政策 SECURITY.md](./SECURITY.md) — 漏洞私下披露流程
+- [行为准则 CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
+- [贡献者协议 CONTRIBUTOR_LICENSE_AGREEMENT.md](./CONTRIBUTOR_LICENSE_AGREEMENT.md)（CLA）
 - [审计清单](./docs/audit_checklist.md) — 安全标准
-- [CONTRIBUTING.md](./CONTRIBUTING.md) — 代码规范与提交流程（即将上线）
 
 ## 许可证
 

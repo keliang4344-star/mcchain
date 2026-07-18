@@ -455,6 +455,8 @@ type MsgServer interface {
 	SubmitStateProof(context.Context, *MsgSubmitStateProof) (*MsgSubmitStateProofResponse, error)
 	RegisterNode(context.Context, *MsgRegisterNode) (*MsgRegisterNodeResponse, error)
 	SubmitAttestation(context.Context, *MsgSubmitAttestation) (*MsgSubmitAttestationResponse, error)
+	// UpdateVerifierStatus ↓ 手动扩展 (protoc 不可用，本地补齐)。
+	UpdateVerifierStatus(context.Context, *MsgUpdateVerifierStatus) (*MsgUpdateVerifierStatusResponse, error)
 }
 
 // UnimplementedMsgServer can be embedded to have forward compatible implementations.

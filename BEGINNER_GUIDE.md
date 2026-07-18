@@ -1,33 +1,35 @@
-# MC 公链 · 节点部署指南
+# MC 公链 · 新手上链指南（云服务商新加坡轻量服务器）
 
-> 目标：在云服务器上部署 MC 公链创世节点，组成出块网络。
-> 前置：已拥有一台云服务器（Linux/Ubuntu 22.04，≥2 vCPU / ≥4 GB / ≥60 GB SSD，具备公网固定 IPv4）。
+> 目标：把你买的云服务商新加坡轻量服务器，变成 MC 公链的**第一个创世节点**（出块）。
+> 前置：你已经有一台云服务商**轻量应用服务器**（新加坡地域，Linux/Ubuntu 22.04，建议 ≥2 vCPU / ≥4GB / ≥60GB SSD）。
 
 ---
 
-## 一、环境准备
+## 一、准备（在你自己这台 Windows 上做）
 
-将以下两个必需文件传输至目标服务器：
+我（AI）已经帮你编译好了 Linux 二进制，并写好了"一键脚本"。你需要把这 **2 个文件** 传到服务器：
 
-1. `build/mcchaind` —— 链程序（Linux 二进制）
-2. `server_setup.sh` —— 自动化部署脚本
+1. `build/mcchaind` —— 链程序（Linux 版）
+2. `server_setup.sh` —— 一键启动脚本
 
-### 文件传输方式
+传文件的两种方式（任选其一）：
 
-**推荐：SCP 上传**
+### 方式 A：云服务商控制台网页上传（最简单，不用配 SSH）
+1. 打开云服务商轻量服务器控制台 → 找到你的服务器 → 点 **「登录」**（浏览器内会打开一个终端窗口）。
+2. 在左侧文件管理器里，把本机 `$HOME/mcchain\build\mcchaind` 和 `$HOME/mcchain\server_setup.sh` 拖进去（或点上传按钮）。
+   - 建议传到服务器的 `/root/` 目录。
 
+### 方式 B：本机用 scp 命令上传（需要你先设置服务器密码/SSH）
+在你这台 Windows 的终端（或 AI 这边的 Bash）里：
 ```bash
-scp build/mcchaind root@<服务器IP>:/root/
-scp server_setup.sh root@<服务器IP>:/root/
+# 把下面 <服务器IP> 换成你的公网 IP，<用户名> 通常是 root
+scp $HOME/mcchain\build\mcchaind root@<服务器IP>:/root/
+scp $HOME/mcchain\server_setup.sh root@<服务器IP>:/root/
 ```
 
-或通过云服务商控制台的文件管理功能上传至 `/root/` 目录。
-
 ---
 
-## 二、执行部署
-
-在服务器终端执行：
+## 二、在服务器上运行（在服务器终端里输入）
 
 ```bash
 cd /root
@@ -35,167 +37,56 @@ chmod +x server_setup.sh
 sudo ./server_setup.sh
 ```
 
-脚本自动完成以下步骤：
-
+脚本会自动完成：
 1. 初始化节点
-2. 规范创世配置（币种 umc、通胀清零、治理参数设定）
-3. 创建验证人密钥（**助记词保存于 `validator_key.json`，务必妥善备份**）
-4. 为验证人拨款 200k MC
+2. 把创世规范成 MC 标准（币种 umc、通胀清零、治理参数）
+3. 创建验证人密钥（**助记词会保存到 `validator_key.json`，务必备份！**）
+4. 给验证人拨款 200k MC
 5. 生成 gentx（自抵押 30k MC）
-6. 收集并校验创世文件
+6. 收集并校验创世
 7. **后台启动节点**
 
 ---
 
-## 三、验证出块状态
+## 三、确认"出块"了（链活着的标志）
 
-脚本执行完毕后，检查日志：
-
+等脚本跑完，执行：
 ```bash
 tail -f chain.log
 ```
-
-若观察到类似以下输出，且区块高度持续递增，即表示节点正常运行：
-
+如果看到类似下面的行、数字一直在涨，就成功了：
 ```
 committed state ... height=1
 committed state ... height=2
 committed state ... height=3
 ...
 ```
+按 `Ctrl+C` 退出查看（节点仍在后台跑）。
 
-按 `Ctrl+C` 退出日志查看（节点仍在后台运行）。
-
-> 检查进程状态：`ps aux | grep mcchaind`
-> 停止节点：`pkill -9 -f mcchaind`
-
----
-
-## 四、常见问题排查
-
-1. **币种必须为 umc**：默认初始化的币种为 `stake`，MC 实际使用 `umc`。部署脚本已自动完成替换，否则链无法启动。
-2. **自抵押最低 30k MC**：gentx 须包含 `--min-self-delegation 30000000` 参数，否则创世阶段将触发 panic。脚本已固化为默认。
-3. **重启前需终止旧进程**：若节点未正常退出，旧进程将锁住数据目录，再次启动会报 `failed to initialize database: ... used by another process`。解决方式：先执行 `pkill -9 -f mcchaind` 再启动。
+> 想随时看节点是否在跑：`ps aux | grep mcchaind`
+> 想停掉节点：`pkill -9 -f mcchaind`
 
 ---
 
-## 五、部署注意事项
+## 四、新手必踩的 3 个坑（我已经写进脚本规避了，知道即可）
 
-- 本指南覆盖的是**单验证人网络**：单个验证人出块、持有 100% 质押。服务器宕机将导致链停摆（单点故障风险），不构成去中心化主网。
-- 密钥默认使用 **test 后端（免密）** 存储于服务器上，仅适用于测试/演示环境。**生产环境**须切换为 `file` 后端 + 独立签名机架构，并妥善备份 `validator_key.json` 中的助记词（持有助记词即控制对应质押资产）。
-- 若需通过浏览器仪表盘（`web/index.html`）连接节点，需在服务器安全组中放行 `26657`（RPC）端口，并配置 RPC 监听 `0.0.0.0`（默认仅监听本地回环）。建议先确认出块正常后，再单独配置网络安全策略。
-- 去中心化主网还需：≥4 个独立验证人、代币透明分配、TMKMS / 签名机安全架构、第三方安全审计。详见 `docs/MAINNET_DEPLOY_RUNBOOK.md`。
-
----
-
-## 六、从单节点扩展到多验证人联盟
-
-单节点网络仅适用于开发测试。**去中心化主网的最低配置为 4 个独立验证人**，分布在至少 3 台物理/云服务器上。
-
-### 前置条件
-
-- 4 台独立 Linux 服务器（或虚拟机），均已安装 `mcchaind`
-- 服务器间网络互通（防火墙放行 26656 p2p 端口）
-- 每台服务器具备独立公网 IP 或内网互通
-
-### 步骤 1：各验证人初始化
-
-在 **每一台** 服务器上执行：
-
-```bash
-# 服务器 A（协调节点，汇总 genesis）
-mcchaind init validator-a --chain-id mcchain-mainnet-1 --home $HOME/.mcchain
-
-# 服务器 B
-mcchaind init validator-b --chain-id mcchain-mainnet-1 --home $HOME/.mcchain
-
-# 服务器 C
-mcchaind init validator-c --chain-id mcchain-mainnet-1 --home $HOME/.mcchain
-
-# 服务器 D
-mcchaind init validator-d --chain-id mcchain-mainnet-1 --home $HOME/.mcchain
-```
-
-### 步骤 2：写入创世账户并生成 gentx
-
-各服务器执行（以 A 为例，B/C/D 同理替换 moniker 与金额）：
-
-```bash
-# 创建验证人密钥（生产环境必须使用 file 后端，严禁 test 后端）
-mcchaind keys add validator --keyring-backend file --home $HOME/.mcchain
-
-# 获取地址
-VALIDATOR_ADDR=$(mcchaind keys show validator -a --keyring-backend file --home $HOME/.mcchain)
-
-# 写入创世账户（每验证人拨款 200k MC = 200000000000umc）
-mcchaind add-genesis-account $VALIDATOR_ADDR 200000000000umc --home $HOME/.mcchain
-
-# 生成 gentx（自抵押 30k MC，不低于 min-self-delegation）
-mcchaind gentx validator 30000000000umc \
-  --chain-id mcchain-mainnet-1 \
-  --home $HOME/.mcchain \
-  --keyring-backend file \
-  --min-self-delegation 30000000000
-```
-
-### 步骤 3：在协调节点汇总 gentx
-
-将 B、C、D 三台服务器的 `$HOME/.mcchain/config/gentx/` 目录下的 JSON 文件拷贝至服务器 A 对应目录：
-
-```bash
-# 在 A 上执行汇总
-mcchaind collect-gentxs --home $HOME/.mcchain
-
-# 验证 genesis 完整性
-mcchaind validate-genesis $HOME/.mcchain/config/genesis.json
-```
-
-> 建议同时使用 `scripts/make_genesis.py` 规范化 genesis（denom=umc、通胀清零、DePIN 池初始化等），详见 `docs/MAINNET_DEPLOY_PLAN.md`。
-
-### 步骤 4：分发 genesis.json
-
-```bash
-scp $HOME/.mcchain/config/genesis.json root@<B_IP>:$HOME/.mcchain/config/genesis.json
-scp $HOME/.mcchain/config/genesis.json root@<C_IP>:$HOME/.mcchain/config/genesis.json
-scp $HOME/.mcchain/config/genesis.json root@<D_IP>:$HOME/.mcchain/config/genesis.json
-```
-
-### 步骤 5：全员启动
-
-4 台服务器全部执行：
-
-```bash
-mcchaind start --home $HOME/.mcchain
-```
-
-或使用 `systemd` 守护：
-
-```bash
-sudo systemctl enable --now mcchaind
-```
-
-### 步骤 6：验证出块
-
-任意节点执行：
-
-```bash
-# 查看区块高度是否持续增长
-mcchaind status | jq '.SyncInfo.latest_block_height'
-
-# 查看验证人集合（期望 4 个）
-mcchaind q staking validators --output json | jq '.validators | length'
-# 期望输出：4
-```
-
-### 关键要点
-
-- **单节点仅用于开发测试**，不具备去中心化保障
-- **4 验证人为主网最低配置**——任意 1 个故障仍可正常出块（BFT 容错：f < n/3，4 节点最多容忍 1 个故障）
-- **生产环境必须使用 `file` 密钥后端**，配合 TMKMS / Horcrux 签名机隔离私钥
-- 验证人节点应**跨可用区 / 跨云服务商部署**，避免单点故障导致链停摆
+1. **币种必须是 umc**：默认初始化出来币种叫 `stake`，MC 实际叫 `umc`。脚本第 2 步已自动改好，不改的话链起不来。
+2. **自抵押最低 30k MC**：gentx 必须带 `--min-self-delegation 30000000`，否则链在创世时就 panic。脚本已写死。
+3. **重启前先杀干净旧进程**：如果节点没正常退出，旧进程会锁住数据目录，再启动会报
+   `failed to initialize database: ... used by another process`。
+   解决：`pkill -9 -f mcchaind` 后再启动。
 
 ---
 
-## 七、故障排查
+## 五、重要提醒（认真读）
 
-收集服务器终端完整的错误日志输出，参照第四节"常见问题排查"定位根因。以上三种常见问题均有已验证的解决方案。
+- 这是**单验证人 solo 网络**：你一个人出块、占 100% 质押。服务器宕机链就停，不算去中心化主网。
+- 密钥是 **test 后端（免密）** 存在服务器上，仅适合测试/演示。**真主网前**请改用 `file` 后端 + 独立签名机，并备份 `validator_key.json` 里的助记词（谁有助记词谁就控制这笔质押）。
+- 想从你笔记本的浏览器仪表盘（`web/index.html`）连这个节点，需要把服务器**安全组**放行 `26657`(RPC) 端口，并让 RPC 监听 `0.0.0.0`（默认只监听本机）。这一步涉及安全，建议先跑通出块、再单独处理。
+- 真去中心化主网还需要：≥4 个独立验证人、代币透明分配、TMKMS/签名机安全架构、第三方安全审计。详见 `docs/MAINNET_DEPLOY_RUNBOOK.md`。
+
+---
+
+## 六、如果出错了
+
+把服务器终端**完整的报错文字**发给我（或另一名协作者），我来定位。最常见就上面那 3 个坑，都有现成解法。

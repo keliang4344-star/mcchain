@@ -10,6 +10,8 @@ import (
 func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgSubmitStateProof{}, "phonenode/SubmitStateProof", nil)
 	cdc.RegisterConcrete(&MsgRegisterNode{}, "phonenode/RegisterNode", nil)
+	cdc.RegisterConcrete(&MsgSubmitAttestation{}, "phonenode/SubmitAttestation", nil)
+	cdc.RegisterConcrete(&MsgUpdateVerifierStatus{}, "phonenode/UpdateVerifierStatus", nil)
 	// this line is used by starport scaffolding # 2
 }
 
@@ -19,6 +21,12 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 	)
 	registry.RegisterImplementations((*sdk.Msg)(nil),
 		&MsgRegisterNode{},
+	)
+	registry.RegisterImplementations((*sdk.Msg)(nil),
+		&MsgSubmitAttestation{},
+	)
+	registry.RegisterImplementations((*sdk.Msg)(nil),
+		&MsgUpdateVerifierStatus{},
 	)
 	// this line is used by starport scaffolding # 3
 

@@ -1,0 +1,46 @@
+name: "功能建议 / Feature Request"
+description: 提议新功能或改进
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: desc
+    attributes:
+      label: 功能描述
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: 动机 / 使用场景
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: 影响模块
+      options:
+        - x/depin
+        - x/dex
+        - x/edgeai
+        - x/mcchain
+        - x/phonenode
+        - x/tokenomics
+        - web
+        - 其他 / Other
+    validations:
+      required: true
+  - type: dropdown
+    id: consensus-critical
+    attributes:
+      label: 是否共识关键
+      options:
+        - "否 / No"
+        - "是 / Yes"
+    validations:
+      required: true
+  - type: textarea
+    id: draft
+    attributes:
+      label: 设计草案 / 参考
+      description: 接口草图、参考实现、相关 RFC 链接

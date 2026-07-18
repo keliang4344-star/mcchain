@@ -9,6 +9,7 @@ service Msg {
   rpc RegisterDevice     (MsgRegisterDevice    ) returns (MsgRegisterDeviceResponse    );
   rpc AttestDevice       (MsgAttestDevice      ) returns (MsgAttestDeviceResponse      );
   rpc SubmitContribution (MsgSubmitContribution) returns (MsgSubmitContributionResponse);
+  rpc SubmitAttestation  (MsgSubmitAttestation ) returns (MsgSubmitAttestationResponse );
 }
 message MsgRegisterDevice {
   string creator = 1;
@@ -36,4 +37,17 @@ message MsgSubmitContribution {
 }
 
 message MsgSubmitContributionResponse {}
+
+// MsgSubmitAttestation 由预言机(Oracle)提交设备 attestation 验证结果到链上。
+message MsgSubmitAttestation {
+  string device_id         = 1;
+  string attestation_proof = 2;
+  string signature         = 3;
+  string oracle_address    = 4;
+}
+
+message MsgSubmitAttestationResponse {
+  bool   passed = 1;
+  string reason = 2;
+}
 

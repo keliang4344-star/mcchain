@@ -11,6 +11,7 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgRegisterDevice{}, "depin/RegisterDevice", nil)
 	cdc.RegisterConcrete(&MsgAttestDevice{}, "depin/AttestDevice", nil)
 	cdc.RegisterConcrete(&MsgSubmitContribution{}, "depin/SubmitContribution", nil)
+	cdc.RegisterConcrete(&MsgSubmitAttestation{}, "depin/SubmitAttestation", nil)
 	// this line is used by starport scaffolding # 2
 }
 
@@ -23,6 +24,9 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 	)
 	registry.RegisterImplementations((*sdk.Msg)(nil),
 		&MsgSubmitContribution{},
+	)
+	registry.RegisterImplementations((*sdk.Msg)(nil),
+		&MsgSubmitAttestation{},
 	)
 	// this line is used by starport scaffolding # 3
 

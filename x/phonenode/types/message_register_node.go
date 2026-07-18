@@ -45,5 +45,9 @@ func (msg *MsgRegisterNode) ValidateBasic() error {
 	if err != nil {
 		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid creator address (%s)", err)
 	}
+	// 校验 role 合法性，使用 NormalizeRole 做兼容映射
+	if _, err := NormalizeRole(msg.Role); err != nil {
+		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())
+	}
 	return nil
 }

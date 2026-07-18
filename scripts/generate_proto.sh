@@ -1,17 +1,17 @@
 #!/bin/bash
 # MC protoc 生成脚本（已验证可用于 phonenode + edgeai）
-# 用法：cd /d/mc-build/mcchain && bash scripts/generate_proto.sh
-# 依赖：D:/protoc/bin/protoc.exe, D:/gopath/bin/protoc-gen-gocosmos.exe, D:/gopath/bin/protoc-gen-grpc-gateway.exe
+# 用法：cd $HOME/mcchain && bash scripts/generate_proto.sh
+# 依赖：$HOME/protoc/bin/protoc.exe, $HOME/gopath/bin/protoc-gen-gocosmos.exe, $HOME/gopath/bin/protoc-gen-grpc-gateway.exe
 
 set -e
-export PATH="/d/gopath/bin:/d/protoc/bin:$PATH"
+export PATH="$HOME/gopath/bin:$HOME/protoc/bin:$PATH"
 
 PROTO_ROOT=proto
 GEN_DIR=_gen
-GOGO_ROOT=D:/gopath/pkg/mod/github.com/cosmos/gogoproto@v1.4.10
-SDK_PROTO=D:/gopath/pkg/mod/github.com/cosmos/cosmos-sdk@v0.47.3/proto
-GRPC_GATEWAY_APIS=D:/gopath/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis
-PROTOC_INCLUDE=D:/protoc/include
+GOGO_ROOT=$HOME/gopath/pkg/mod/github.com/cosmos/gogoproto@v1.4.10
+SDK_PROTO=$HOME/gopath/pkg/mod/github.com/cosmos/cosmos-sdk@v0.47.3/proto
+GRPC_GATEWAY_APIS=$HOME/gopath/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis
+PROTOC_INCLUDE=$HOME/protoc/include
 M_ANY=Mgoogle/protobuf/any.proto=github.com/cosmos/cosmos-sdk/codec/types
 
 MODULE=$1

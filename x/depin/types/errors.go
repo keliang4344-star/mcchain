@@ -19,4 +19,5 @@ var (
 	// device that has not first registered as a phonenode. The association key is
 	// the node Address == depin device address (SubmitContribution.Creator).
 	ErrPhonenodeNotRegistered = sdkerrors.Register(ModuleName, 1107, "creator not registered in phonenode")
+	ErrAttestationFailed      = sdkerrors.Register(ModuleName, 1108, "device attestation verification failed")
 )

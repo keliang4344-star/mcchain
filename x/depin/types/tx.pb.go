@@ -435,6 +435,8 @@ type MsgServer interface {
 	RegisterDevice(context.Context, *MsgRegisterDevice) (*MsgRegisterDeviceResponse, error)
 	AttestDevice(context.Context, *MsgAttestDevice) (*MsgAttestDeviceResponse, error)
 	SubmitContribution(context.Context, *MsgSubmitContribution) (*MsgSubmitContributionResponse, error)
+	// SubmitAttestation 手动扩展；protoc 重新生成后删除本行。
+	SubmitAttestation(context.Context, *MsgSubmitAttestation) (*MsgSubmitAttestationResponse, error)
 }
 
 // UnimplementedMsgServer can be embedded to have forward compatible implementations.
@@ -449,6 +451,9 @@ func (*UnimplementedMsgServer) AttestDevice(ctx context.Context, req *MsgAttestD
 }
 func (*UnimplementedMsgServer) SubmitContribution(ctx context.Context, req *MsgSubmitContribution) (*MsgSubmitContributionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SubmitContribution not implemented")
+}
+func (*UnimplementedMsgServer) SubmitAttestation(ctx context.Context, req *MsgSubmitAttestation) (*MsgSubmitAttestationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SubmitAttestation not implemented")
 }
 
 func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
@@ -509,6 +514,25 @@ func _Msg_SubmitContribution_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+// ↓ 手动扩展 handler (protoc 不可用)
+func _Msg_SubmitAttestation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgSubmitAttestation)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).SubmitAttestation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/mcchain.depin.Msg/SubmitAttestation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).SubmitAttestation(ctx, req.(*MsgSubmitAttestation))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Msg_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "mcchain.depin.Msg",
 	HandlerType: (*MsgServer)(nil),
@@ -524,6 +548,10 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SubmitContribution",
 			Handler:    _Msg_SubmitContribution_Handler,
+		},
+		{
+			MethodName: "SubmitAttestation",
+			Handler:    _Msg_SubmitAttestation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

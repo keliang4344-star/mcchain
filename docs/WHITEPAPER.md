@@ -27,6 +27,16 @@
 
 ---
 
+# Abstract
+
+MobileChain (MC) is a mobile-first Layer 1 blockchain built on Cosmos SDK v0.47.14 and CometBFT v0.37.6, designed to enable smartphones to operate as lightweight full nodes within a decentralized physical infrastructure network (DePIN). By lowering the barrier to consensus participation from dedicated servers to everyday mobile devices, MC democratizes blockchain validation and rewards real-world device contributions.
+
+At its core, MC integrates seven custom modules — **tokenomics** (fixed-supply minting and five-pool allocation), **depin** (device incentive engine distributing rewards based on verifiable tasks), **phonenode** (mobile-node attestation, heartbeat monitoring, and tiered slashing), **edgeai** (decentralized edge-AI task marketplace with escrow-based payments and optimistic settlement), **verifier** (randomized spot-checking of node contribution authenticity), **referral** (on-chain referral tracking with incentive weighting), and **dex** (native AMM with constant-product market-making). The total supply is permanently capped at 1 billion MC with zero inflation, enforced by immutable on-chain constants.
+
+MC's dual-engine design — DePIN for device-driven infrastructure incentives and EdgeAI for monetizing idle mobile compute — targets the structural problems of centralized validator sets, speculative token distribution, and wasted device capacity. Interoperability is enabled through IBC (ibc-go v7.1.0), and all critical parameters are auditable in open-source Go modules, ensuring that scarcity, allocation ratios, and security rules are verifiable on-chain rather than dependent on any single party's promises.
+
+---
+
 # 卷首语
 
 没有什么是永恒的，唯有想法可以长存。

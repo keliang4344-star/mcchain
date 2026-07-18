@@ -17,4 +17,6 @@ var (
 	ErrInvalidAttestation   = sdkerrors.Register(ModuleName, 1106, "invalid attestation: root_hash/nonce/device_id_hash required")
 	ErrNotBondedValidator   = sdkerrors.Register(ModuleName, 1107, "node is not a bonded validator; only attestation revocation applies")
 	ErrSlashCooldown        = sdkerrors.Register(ModuleName, 1108, "node is in slash cooldown; re-attestation blocked until cooldown passes")
+	ErrInvalidVerifierStatus = sdkerrors.Register(ModuleName, 1109, "invalid verifier status; must be 'active' or 'suspended'")
+	ErrInsufficientStake     = sdkerrors.Register(ModuleName, 1110, "insufficient stake for verifier role")
 )

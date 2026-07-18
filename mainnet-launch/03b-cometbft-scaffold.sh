@@ -24,7 +24,7 @@ CHAIN_NAME="mcchain"
 PREFIX="mc"
 OUT_DIR="${OUT_DIR:-$SCRIPT_DIR/../${CHAIN_NAME}}"   # -> $HOME/mcchain
 KEEPER_SRC="$SCRIPT_DIR/../cosmos"                   # -> $HOME/cosmos
-IGNITE_BIN="/mnt/d/go/bin/ignite"
+IGNITE_BIN="$HOME/go/bin/ignite"
 
 # ========== 主网参数（来自 01-主网参数定稿.md） ==========
 CHAIN_ID="mcchain-1"
