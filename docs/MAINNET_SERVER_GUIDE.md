@@ -3,7 +3,7 @@
 > 说明：服务器需**付费购买/租赁**且涉及你的云账号与 SSH，我无法代购。本指南给出精确到机型的清单与一键部署脚本，你付费后点几下即可拉起真实主网。
 
 ## 一、为什么不能在本机直接跑公网主网
-本机实测：Windows 10 + mid-range consumer CPU + 32GB + 住宅 WLAN（动态 IP/NAT/无 SLA）。
+本机实测：Windows 10 + mid-range consumer CPU + 32GB + standard home network。
 - 硬件负载够单节点，但 **OS（Windows）+ 网络（动态IP/无 SLA）+ 单机单点** 均不满足公网主网要求。
 - 结论：租 Linux 服务器，本机仅作开发/签名/监控终端。
 

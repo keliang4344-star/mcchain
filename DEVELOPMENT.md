@@ -15,7 +15,7 @@
 | protoc | `D:\protoc\bin\protoc.exe` | 手动协议生成 |
 | 插件 | `D:\gopath\bin\protoc-gen-gocosmos`、`protoc-gen-grpc-gateway` | protoc 调用 |
 
-> ⚠️ 不要回头用 C 盘的 go / `crypto_analysis` 下的 go_root。C 盘那份 `$HOME\go`（~2.3GB）是误迁移副本，可手动删除（沙箱 SAFE_DELETE 拦截，需文件资源管理器手动删）。
+> ⚠️ 不要回头用 C 盘的 go / 旧项目目录下的 go_root。C 盘那份 `$HOME\go`（~2.3GB）是误迁移副本，可手动删除（沙箱 SAFE_DELETE 拦截，需文件资源管理器手动删）。
 
 每次打开新终端，先把以下加入 PATH：
 

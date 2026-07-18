@@ -1,6 +1,6 @@
 # MobileChain 生产链（B 线 / CometBFT）模块层
 
-本目录是 MobileChain **生产级公链**的逻辑层（B 线）。A 线（`crypto_analysis/mobilechain/core/`）
+本目录是 MobileChain **生产级公链**的逻辑层（B 线）。A 线（教学链原型）
 是从零手写的 Go 教学链（Phase 1–7 已验证），本目录在其之上抽取出**可直接上 CometBFT / Cosmos SDK
 的生产模块**，并设计为：
 
@@ -56,8 +56,7 @@ cosmos/
 ## 运行测试
 
 ```bash
-# 需要本机 Go（已内置在 crypto_analysis/mobilechain_mvp/go_root/go/bin/go.exe）
-export PATH="$HOME/crypto_analysis/mobilechain_mvp/go_root/go/bin:$PATH"
+# 需要本机 Go（go_root 已内置在项目中）
 
 cd cosmos
 go build ./...
