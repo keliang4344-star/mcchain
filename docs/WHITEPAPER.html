@@ -959,7 +959,7 @@ depin（按任务逐笔把 MC 从金库发到设备所有者地址）
 <h3 id="1041-verifier">10.4.1 验证节点（Verifier）</h3>
 <p>DePIN 任务的结果验证，由独立的<strong>验证节点（Verifier）</strong>角色承担。验证节点不同于出块验证人（Validator），它是一种轻量级的专业角色：</p>
 <ul>
-<li><strong>质押要求</strong>：≥ 50,000 MC（低于验证人的 10 万 MC 门槛，高于普通手机节点）</li>
+<li><strong>质押要求</strong>：≥ 30,000 MC（与普通手机验证人门槛一致，无额外溢价）</li>
 <li><strong>职责</strong>：接收随机分配的任务提交结果，运行 AI 项目方提供的验证脚本，对结果评分（score ∈ [0, 100]）</li>
 <li><strong>收益</strong>：每次验证获得该任务赏金的 15%（从 depin 金库拨付）</li>
 </ul>
@@ -1048,7 +1048,7 @@ depin（按任务逐笔把 MC 从金库发到设备所有者地址）
 </tr>
 <tr>
 <td><code>VerifierStakeMin</code></td>
-<td>50,000,000,000 umc（5 万 MC）</td>
+<td>30,000,000,000 umc（3 万 MC）</td>
 <td>验证节点最低质押</td>
 </tr>
 </tbody>
@@ -2168,7 +2168,7 @@ MaxReferralDepth          = uint32(3)       // 最多 3 代
 <tbody>
 <tr>
 <td>最低质押</td>
-<td>50,000 MC（5e10 umc）</td>
+<td>30,000 MC（3e10 umc）</td>
 <td>—</td>
 </tr>
 <tr>

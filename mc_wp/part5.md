@@ -27,7 +27,7 @@
 | `DisputePeriodBlocks` | 100 区块 | 争议窗口：结果提交后 100 区块内可发起争议 |
 | `AntiCheatThresholdBps` | 5000（50%） | 反作弊阈值 |
 | `Arbitrator` | 团队多签地址（部署时设定） | 争议裁决者 |
-| `VerifierStakeMin` | 50,000,000,000 umc（5 万 MC） | 验证节点最低质押 |
+| `VerifierStakeMin` | 30,000,000,000 umc（3 万 MC） | 验证节点最低质押 |
 
 `MaxTaskReward` 设为 1000 MC 的上限，是为了在开放市场里防止单笔任务承载异常巨额资金（可能是错误或攻击），把单点风险控制在可接受范围。`AntiCheatThresholdBps = 50%` 是判定算力方结果是否可信的阈值旋钮，防止算力方用低质量或伪造的结果骗取赏金。所有 bps 参数同样受 ≤ 10000 的硬约束保护。
 
