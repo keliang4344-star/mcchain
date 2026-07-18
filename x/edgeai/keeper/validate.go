@@ -210,37 +210,79 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 		}
 
 		amount := DeterminePayout(task, params)
+
+		// ---- 80/15/5 reward split ----
+		// 80% → submitter (executor node)
+		// 15% → verifier reserve (claimed on verification sampling)
+		//  5% → burn (deflationary pressure, permanent removal from supply)
+		submitterAmount := amount * uint64(types.EdgeAISubmitterRatioBps) / 10000
+		burnAmount := amount * uint64(types.EdgeAIBurnRatioBps) / 10000
+		verifierReserveAmount := amount - submitterAmount - burnAmount // catch rounding
+
 		addr, err := sdk.AccAddressFromBech32(r.Submitter)
 		if err != nil {
 			continue
 		}
-		// 从 edgeai 模块账户（需求方托管金）拨付 submitter。
+		// 拨付 submitter 80%
 		if err := k.bankKeeper.SendCoinsFromModuleToAccount(
 			ctx, types.ModuleName, addr,
-			sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(amount))),
+			sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(submitterAmount))),
 		); err != nil {
 			k.Logger(ctx).Error("edgeai: payout failed", "task_id", r.TaskId, "submitter", r.Submitter, "err", err.Error())
 			ctx.EventManager().EmitEvent(
 				sdk.NewEvent("edgeai.PayoutFailed",
 					sdk.NewAttribute("task_id", r.TaskId),
 					sdk.NewAttribute("submitter", r.Submitter),
-					sdk.NewAttribute("amount", strconv.FormatUint(amount, 10)),
+					sdk.NewAttribute("amount", strconv.FormatUint(submitterAmount, 10)),
 					sdk.NewAttribute("error", err.Error()),
 				),
 			)
 			continue
 		}
+
+		// 销毁 5% — 通缩飞轮，永久退出流通
+		if burnAmount > 0 {
+			burnCoin := sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(burnAmount)))
+			if burnErr := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoin); burnErr != nil {
+				k.Logger(ctx).Error("edgeai: burn 5% failed", "task_id", r.TaskId,
+					"burn_amount", burnAmount, "err", burnErr.Error())
+			} else {
+				ctx.EventManager().EmitEvent(
+					sdk.NewEvent("edgeai.Burned",
+						sdk.NewAttribute("task_id", r.TaskId),
+						sdk.NewAttribute("amount", strconv.FormatUint(burnAmount, 10)),
+						sdk.NewAttribute("ratio", "5%"),
+					),
+				)
+				telemetry.IncrCounter(float32(burnAmount), "edgeai", "burn_amount")
+			}
+		}
+
+		// 15% 存入验证者奖励预留池（验证者抽检后领取）
+		if verifierReserveAmount > 0 {
+			k.SetVerifierReserve(ctx, r.TaskId, verifierReserveAmount)
+			ctx.EventManager().EmitEvent(
+				sdk.NewEvent("edgeai.VerifierReserved",
+					sdk.NewAttribute("task_id", r.TaskId),
+					sdk.NewAttribute("amount", strconv.FormatUint(verifierReserveAmount, 10)),
+					sdk.NewAttribute("ratio", "15%"),
+				),
+			)
+		}
+
 		r.Status = types.ResultStatusValid
 		_ = k.SetResult(ctx, r)
 		task.Status = types.TaskStatusDone
 		_ = k.SetTask(ctx, task)
 
-		// 发射结算事件（对应伪代码中的 edgeai.Settled）
+		// 发射结算事件
 		ctx.EventManager().EmitEvent(
 			sdk.NewEvent("edgeai.Settled",
 				sdk.NewAttribute("task_id", r.TaskId),
 				sdk.NewAttribute("submitter", r.Submitter),
-				sdk.NewAttribute("amount", strconv.FormatUint(amount, 10)),
+				sdk.NewAttribute("submitter_amount", strconv.FormatUint(submitterAmount, 10)),
+				sdk.NewAttribute("burn_amount", strconv.FormatUint(burnAmount, 10)),
+				sdk.NewAttribute("verifier_reserve", strconv.FormatUint(verifierReserveAmount, 10)),
 				sdk.NewAttribute("result_status", types.ResultStatusValid),
 			),
 		)
@@ -248,7 +290,7 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 			sdk.NewEvent("edgeai.RewardPaid",
 				sdk.NewAttribute("task_id", r.TaskId),
 				sdk.NewAttribute("submitter", r.Submitter),
-				sdk.NewAttribute("amount", strconv.FormatUint(amount, 10)),
+				sdk.NewAttribute("amount", strconv.FormatUint(submitterAmount, 10)),
 			),
 		)
 		// O1 业务指标：edgeai 贡献即挖矿拨付计数（经 app telemetry 在 /metrics 暴露）。

@@ -16,11 +16,14 @@ type AccountKeeper interface {
 //
 // Q7：depin 不再自铸，故 BankKeeper 接口移除 MintCoins；奖励仅从生态池拨付的
 // InitialPool（已转至 depin 模块账户）经 SendCoinsFromModuleToAccount 对外拨付。
+// BurnCoins 用于 5% 销毁通道（通缩飞轮）。
 type BankKeeper interface {
 	SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
 	// SendCoinsFromModuleToAccount 从 DePIN 模块账户向贡献设备拨付奖励（方案 A：DePIN 池拨付，不铸造）。
 	// 签名必须与 cosmos-sdk v0.47.3 的 bank.BaseKeeper 一致，否则 app 装配阶段编译失败。
 	SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
+	// BurnCoins 从模块账户销毁代币（5% DePIN 通缩飞轮）。
+	BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
 	// Methods imported from bank should be defined here
 }
 

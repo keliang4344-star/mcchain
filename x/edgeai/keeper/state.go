@@ -21,9 +21,10 @@ var taskCountKey = []byte("task_count")
 
 // Store prefixes
 var (
-	taskKeyPrefix    = []byte("task:")
-	resultKeyPrefix  = []byte("result:")
-	disputeKeyPrefix = []byte("dispute:")
+	taskKeyPrefix          = []byte("task:")
+	resultKeyPrefix        = []byte("result:")
+	disputeKeyPrefix       = []byte("dispute:")
+	verifierReservePrefix  = []byte("verifier_reserve:")
 )
 
 func taskKey(id string) []byte   { return append(taskKeyPrefix, []byte(id)...) }
@@ -158,4 +159,37 @@ func (k Keeper) GetResultByTask(ctx sdk.Context, taskID string) (*Result, error)
 		}
 	}
 	return nil, nil
+}
+
+// ---- Verifier Reserve (80/15/5 split) ----
+
+func verifierReserveKey(taskID string) []byte {
+	return append(verifierReservePrefix, []byte(taskID)...)
+}
+
+// SetVerifierReserve stores the 15% verifier reward reserve for a specific task
+// during settlement. The reserve is claimed by the verifier node upon successful
+// verification sampling.
+func (k Keeper) SetVerifierReserve(ctx sdk.Context, taskID string, amount uint64) {
+	ctx.KVStore(k.storeKey).Set(verifierReserveKey(taskID),
+		[]byte(strconv.FormatUint(amount, 10)))
+}
+
+// GetVerifierReserve returns the reserved verifier reward for a task.
+// Returns 0 if no reserve exists.
+func (k Keeper) GetVerifierReserve(ctx sdk.Context, taskID string) uint64 {
+	bz := ctx.KVStore(k.storeKey).Get(verifierReserveKey(taskID))
+	if bz == nil {
+		return 0
+	}
+	v, err := strconv.ParseUint(string(bz), 10, 64)
+	if err != nil {
+		return 0
+	}
+	return v
+}
+
+// DeleteVerifierReserve clears the verifier reserve for a task after it has been claimed.
+func (k Keeper) DeleteVerifierReserve(ctx sdk.Context, taskID string) {
+	ctx.KVStore(k.storeKey).Delete(verifierReserveKey(taskID))
 }

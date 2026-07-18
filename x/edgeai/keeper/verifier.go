@@ -181,12 +181,22 @@ func (k Keeper) SubmitVerification(ctx sdk.Context, taskID, verifierAddr string,
 		return nil
 	}
 
-	// Honest verification → pay reward
+	// Honest verification → claim reward from verifier reserve (15% of task payout)
 	if v.Rewarded {
 		return nil // already rewarded
 	}
 
-	reward := types.VerifierRewardPerSample
+	// 从该任务的验证者奖励预留池领取 15%
+	reserve := k.GetVerifierReserve(ctx, taskID)
+	var reward uint64
+	if reserve > 0 {
+		reward = reserve
+		k.DeleteVerifierReserve(ctx, taskID)
+	} else {
+		// 兜底：若预留池已空（如历史任务在 80/15/5 分账前结算），回退到固定奖励
+		reward = types.VerifierRewardPerSample
+	}
+
 	addr, addrErr := sdk.AccAddressFromBech32(verifierAddr)
 	if addrErr != nil {
 		return fmt.Errorf("edgeai: invalid verifier address %s: %w", verifierAddr, addrErr)

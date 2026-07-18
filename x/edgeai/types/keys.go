@@ -42,6 +42,16 @@ const (
 // CheatSlashBps B3.1：争议裁定作弊时对结果提交者的 slash 基点（10%）。
 const CheatSlashBps uint32 = 1000
 
+// EdgeAI reward split ratios (基点, 10000 = 100%):
+//   80% → submitter (executor node)
+//   15% → verifier reserve (verifier 抽检后领取)
+//    5% → burn (通缩飞轮, 永久销毁)
+const (
+	EdgeAISubmitterRatioBps       uint32 = 8000
+	EdgeAIVerifierReserveRatioBps uint32 = 1500
+	EdgeAIBurnRatioBps            uint32 = 500
+)
+
 // Verifier constants
 const (
 	// VerifierRewardPerSample is the reward paid to a verifier node for each

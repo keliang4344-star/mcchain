@@ -153,8 +153,25 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, _ codec.JSONCodec) json.RawMe
 // ConsensusVersion 返回共识版本（首版为 1）。
 func (AppModule) ConsensusVersion() uint64 { return 1 }
 
-// BeginBlock 模块 begin block 逻辑（本模块无）。
-func (am AppModule) BeginBlock(_ sdk.Context, _ abci.RequestBeginBlock) {}
+// BeginBlock 模块 begin block 逻辑：
+//  - 每 100 区块执行 gas 费回流：将 fee_collector 余额的 10% 转入安全池
+//  - 每 100 区块执行安全池滴灌：将安全池余额的 5% 转入分布模块按质押比例分配
+func (am AppModule) BeginBlock(ctx sdk.Context, _ abci.RequestBeginBlock) {
+	// 仅每 DripIntervalBlocks 执行一次，避免每块都转账
+	if ctx.BlockHeight()%keeper.DripIntervalBlocks != 0 {
+		return
+	}
+
+	// Gas 回流：fee_collector → staking_security (10%)
+	if err := am.keeper.RebateGasFeesToSecurity(ctx); err != nil {
+		am.keeper.Logger(ctx).Error("tokenomics: gas rebate failed in BeginBlock", "err", err.Error())
+	}
+
+	// 安全池滴灌：staking_security → distribution (5%)
+	if err := am.keeper.DripStakingSecurity(ctx); err != nil {
+		am.keeper.Logger(ctx).Error("tokenomics: drip failed in BeginBlock", "err", err.Error())
+	}
+}
 
 // EndBlock 模块 end block 逻辑（本模块无）。
 func (am AppModule) EndBlock(_ sdk.Context, _ abci.RequestEndBlock) []abci.ValidatorUpdate {

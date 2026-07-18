@@ -62,9 +62,33 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 		if err != nil {
 			return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid device address (%s)", err)
 		}
+
 		// P1/Q4: reward denom is a module param (default "umc"), no longer a const.
 		denom := k.Keeper.GetParams(ctx).RewardDenom
-		amt := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewInt(int64(reward))))
+
+		// ---- DePIN 5% burn ----
+		// 每次贡献奖励结算时，5% 永久销毁（通缩飞轮），95% 正常拨付。
+		burnAmount := reward * uint64(types.DePINBurnRatioBps) / 10000
+		payoutAmount := reward - burnAmount
+
+		if burnAmount > 0 {
+			burnCoin := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewInt(int64(burnAmount))))
+			if burnErr := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoin); burnErr != nil {
+				k.Logger(ctx).Error("depin: burn 5% failed",
+					"task_id", msg.TaskId, "burn_amount", burnAmount, "err", burnErr.Error())
+			} else {
+				ctx.EventManager().EmitEvent(
+					sdk.NewEvent("depin.Burned",
+						sdk.NewAttribute("task_id", msg.TaskId),
+						sdk.NewAttribute("amount", strconv.FormatUint(burnAmount, 10)),
+						sdk.NewAttribute("ratio", "5%"),
+					),
+				)
+				telemetry.IncrCounter(float32(burnAmount), "depin", "burn_amount")
+			}
+		}
+
+		amt := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewInt(int64(payoutAmount))))
 		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, toAddr, amt); err != nil {
 			return nil, sdkerrors.Wrapf(err, "failed to pay reward from depin pool")
 		}
@@ -77,13 +101,15 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 				sdk.NewAttribute("task_type", msg.TaskType),
 				sdk.NewAttribute("score", msg.Score),
 				sdk.NewAttribute("reward", strconv.FormatUint(uint64(reward), 10)),
+				sdk.NewAttribute("payout", strconv.FormatUint(payoutAmount, 10)),
+				sdk.NewAttribute("burn", strconv.FormatUint(burnAmount, 10)),
 				sdk.NewAttribute("denom", denom),
 			),
 		)
 
 		// O1 业务指标：depin 奖励拨付计数与累计金额（经 app telemetry 在 /metrics 暴露）。
 		telemetry.IncrCounter(1, "depin", "reward_paid_count")
-		telemetry.IncrCounter(float32(reward), "depin", "reward_paid_amount")
+		telemetry.IncrCounter(float32(payoutAmount), "depin", "reward_paid_amount")
 	}
 
 	return &types.MsgSubmitContributionResponse{}, nil
