@@ -103,6 +103,12 @@ go test ./...
 
 关键模块目标覆盖率 ≥ 70%（CI 门禁见 `.github/workflows/ci.yml`）。
 
+## 社区
+
+- **Twitter / X**: [@MC_MobileChain](https://twitter.com/MC_MobileChain) (placeholder)
+- **Discord**: [discord.gg/mcchain](https://discord.gg/mcchain) (placeholder)
+- **GitHub Issues**: [github.com/keliang4344-star/mcchain/issues](https://github.com/keliang4344-star/mcchain/issues)
+
 ## 贡献
 
 欢迎提 Issue 和 Pull Request。参与前请阅读：

@@ -76,6 +76,43 @@
 
 MC 公链遵循「开源可审计·参数写代码」原则。如果你发现安全漏洞，请**不要直接提公开 Issue**，通过 GitHub 的 [Private Vulnerability Reporting](https://github.com/keliang4344-star/mcchain/security/advisories/new) 或邮件联系核心团队。
 
+## Bug Bounty / 漏洞赏金
+
+MobileChain 鼓励安全研究员和白帽黑客参与审计，帮助我们发现并修复潜在安全漏洞。
+
+### 报告渠道
+
+- **GitHub Issues**: 低风险问题可在 [Issues](https://github.com/keliang4344-star/mcchain/issues) 页面公开提交
+- **邮箱**: 高风险或敏感漏洞请发送至 **security@mcchain.org** (placeholder)，采用 PGP 加密通信
+- **GitHub Security Advisory**: 也可通过 [Private Vulnerability Reporting](https://github.com/keliang4344-star/mcchain/security/advisories/new) 私密提交
+
+### 严重性分级
+
+| 等级 | 定义 | 示例 |
+|---|---|---|
+| **Critical** | 直接导致资金损失、链停摆或共识破坏 | 代币超额铸造、genesis 篡改、远程 RCE |
+| **High** | 严重破坏安全性但利用条件较苛刻 | 签名绕过、状态机死锁、IBC 跨链攻击 |
+| **Medium** | 局部安全缺陷，影响范围有限 | 模块间权限越界、未授权查询、DoS 向量 |
+| **Low** | 非关键 Bug，不影响核心安全 | 日志泄露调试信息、minor 配置缺陷 |
+
+### 奖励范围
+
+奖励金额根据漏洞严重性和报告质量综合评定（具体金额视基金会预算确定，以下为参考范围）：
+
+- **Critical**: 赏金从优，并以致谢公告形式公开表彰
+- **High**: 中等赏金 + 致谢
+- **Medium**: 小额赏金或社区认可
+- **Low**: 社区致谢（Hall of Fame）
+
+### 规则
+
+1. **先报告后公开**：在修复补丁发布前不得公开漏洞细节
+2. **禁止破坏性测试**：不要在主网或公共测试网上进行可能造成实际损失的测试
+3. **提供可复现 PoC**：报告应包含环境信息、复现步骤、影响评估
+4. **赏金由基金会决定**：最终奖励金额由 MC 基金会根据漏洞实际影响评估
+
+---
+
 ## 许可证
 
 所有贡献在 Apache License 2.0 下授权。提交代码即表示你同意此条款。
