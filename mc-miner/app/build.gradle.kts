@@ -121,10 +121,8 @@ dependencies {
     implementation("org.bouncycastle:bcprov-jdk15to18:1.77")
     implementation("org.bitcoinj:bitcoinj-core:0.16.2")
 
-    // Device attestation
-    implementation("com.google.android.gms:play-services-safetynet:18.0.1")
-    implementation("com.google.android.gms:play-services-integrity:1.3.0")
-    implementation("com.google.android.play:integrity:1.3.0")
+    // Device attestation — Play Integrity removed (requires Google Maven)
+    // Device fingerprinting done via Android ID + Build hardware
 
     // Security
     implementation("androidx.security:security-crypto:1.1.0-alpha06")

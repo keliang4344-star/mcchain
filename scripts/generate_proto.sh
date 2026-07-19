@@ -1,7 +1,7 @@
 #!/bin/bash
 # MC protoc 生成脚本（已验证可用于 phonenode + edgeai）
 # 用法：cd $HOME/mcchain && bash scripts/generate_proto.sh
-# 依赖：$HOME/protoc/bin/protoc.exe, $HOME/gopath/bin/protoc-gen-gocosmos.exe, $HOME/gopath/bin/protoc-gen-grpc-gateway.exe
+# 依赖：$HOME/protoc/bin/protoc, $HOME/gopath/bin/protoc-gen-gocosmos, $HOME/gopath/bin/protoc-gen-grpc-gateway
 
 set -e
 export PATH="$HOME/gopath/bin:$HOME/protoc/bin:$PATH"

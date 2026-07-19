@@ -3,7 +3,7 @@
 # 前提：audit_home 已有正确 genesis（gen_genesis_teamval.sh 生成）
 set +e
 export MSYS_NO_PATHCONV=1
-BIN="$HOME/mcchain/mcchaind.exe"
+BIN="$HOME/mcchain/mcchaind"
 HD="$HOME/mcchain/audit_home"
 LOG="$HOME/mcchain/audit_boot.log"
 

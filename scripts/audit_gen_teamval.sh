@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # MC 公链 - 团队多签作创世验证人的生产 genesis 生成器（审计/部署共用）
 set +e
-BIN=$HOME/mcchain/build/mcchaind.exe
+BIN=$HOME/mcchain/build/mcchaind
 PY=python3
 HD=$HOME/mcchain/audit_home
 KEYS=$HOME/mcchain/team_keys_gen.json

@@ -3,7 +3,7 @@
 # 仅用于本地深度审计 / 主网前演练；真实主网请在安全机器上执行。
 set +e
 export MSYS_NO_PATHCONV=1
-BIN="$HOME/mcchain/mcchaind.exe"
+BIN="$HOME/mcchain/mcchaind"
 HD="$HOME/mcchain/audit_home"
 TMP="$HOME/mcchain/audit_tmp"
 CHAIN_ID="mcchain-mainnet-1"

@@ -61,3 +61,18 @@ mc-miner/build/
 mc-miner/local.properties
 cosmjs-bundle/node_modules/
 cosmjs-bundle/dist/
+
+# === 内部工程/部署文档与本地脚本（不进入公开仓库） ===
+*.ps1
+/docs/_deploy/
+/mc_wp/
+/cosmos/
+docs/incremental_prd_p0p1p2.md
+docs/prd_b*.md
+docs/system_design_b*.md
+docs/runbook.md
+docs/MAINNET_RUNBOOK.md
+docs/MAINNET_DEPLOY_PLAN.md
+docs/MAINNET_DEPLOY_RUNBOOK.md
+docs/MAINNET_SERVER_GUIDE.md
+docs/COLLABORATION.md

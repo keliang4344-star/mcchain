@@ -29,7 +29,7 @@
 | 难点 | 方案 |
 |---|---|
 | `RewardDenom` 现为 `const "stake"`（dev 占位） | 改为 **param**（决策 Q4）：`Params` 增 `RewardDenom string`（默认 `"umc"`），`msg_server_submit_contribution.go` 改用 `k.Keeper.GetParams(ctx).RewardDenom`，删除 const。 |
-| 需新增 `InitialPool`（uint64，umc）参数 | `params.proto` message 增 `uint64 initial_pool = 1;` 与 `string reward_denom = 2;`（字段编号 1/2 空闲，无冲突）。**沙箱无 go/protoc** → 手改 `x/depin/types/params.pb.go`（见 §5 待明确 2 + 任务 T02 提示），不依赖 protoc 重新生成。 |
+| 需新增 `InitialPool`（uint64，umc）参数 | `params.proto` message 增 `uint64 initial_pool = 1;` 与 `string reward_denom = 2;`（字段编号 1/2 空闲，无冲突）。**本地构建环境未预装 go/protoc** → 手改 `x/depin/types/params.pb.go`（见 §5 待明确 2 + 任务 T02 提示），不依赖 protoc 重新生成。 |
 | 模块账户要有钱才能发奖励 | `InitGenesis` 中 `bankKeeper.MintCoins(ctx, types.ModuleName, poolCoins)` 一次性铸入 depin 模块账户（该账户已含 `Minter` 权限，见 `maccPerms` line 198）。`InitialPool` 默认 `1e14 umc`（=1e8 MC，约 10 亿总量 10%），**运行期奖励只从池划拨，不再 mint**（决策 Q3 方案 A）。 |
 | `DefaultParams` 当前返回空 | 返回 `Params{InitialPool: 1e14, RewardDenom: "umc"}`；`ParamSetPairs` 注册 `InitialPool`(uint64) 与 `RewardDenom`(string)。 |
 
@@ -186,7 +186,7 @@ sequenceDiagram
 ### 5. 待明确事项（Anything UNCLEAR）
 
 1. **genesis 验证人 `MinSelfDelegation` 兜底（重要）**：`MsgCreateValidator` 的 ante 校验只覆盖**交易路径**；genesis 验证人（alice）由 `InitGenesis` 直接创建，不走 tx，因此 ante 装饰器**管不到**它。若 `ignite chain init` 生成的 `staking.validators[].min_self_delegation` 默认非 3e10（常见默认=1），则 genesis 验证人下限会被绕过，与 P0-1 验收 #2 冲突。本设计采用 **`InitChainer` 中 `mm.InitGenesis` 之后遍历 `GetAllValidators` 兜底抬到 3e10** 作为补充（已在 T01）。若团队更倾向"改 genesis.json 文件"，可改为运行期 `jq` 打补丁（与 timeout_commit 同列 runbook），但代码兜底最稳，推荐保留。
-2. **`params.pb.go` 手改无 protoc**：沙箱无 go/protoc，只能手改 `.pb.go`。gogoproto 的 `fileDescriptor_...`（gzipped 字节）反映的是旧空 schema，**可保持不变**——Go 运行期序列化用的是生成的 `Marshal/Size/Unmarshal` 方法而非 descriptor，不影响链运行。若后续需要严格 proto 反射/第三方工具，需在用户本机用 protoc 重新生成（非必需）。字段编号 1(initial_pool,uint64,wire0) 与 2(reward_denom,string,wire2) 须与 `params.proto` 一致；`MarshalToSizedBuffer`/`Size`/`Unmarshal` 须同步新增（详见 T02 提示）。
+2. **`params.pb.go` 手改无 protoc**：本地构建环境未预装 go/protoc，直接手改 `.pb.go`。gogoproto 的 `fileDescriptor_...`（gzipped 字节）反映的是旧空 schema，**可保持不变**——Go 运行期序列化用的是生成的 `Marshal/Size/Unmarshal` 方法而非 descriptor，不影响链运行。若后续需要严格 proto 反射/第三方工具，可在标准构建环境用 protoc 重新生成（非必需）。字段编号 1(initial_pool,uint64,wire0) 与 2(reward_denom,string,wire2) 须与 `params.proto` 一致；`MarshalToSizedBuffer`/`Size`/`Unmarshal` 须同步新增（详见 T02 提示）。
 3. **`config.yml` alice coins 是否留余量**：决策 Q2 给 alice `coins: 100000000000umc` 且 validator `bonded: 100000000000umc`（全部自质押，流动为 0）。若后续启用 tx fee，建议 alice coins 留少量余量（如 `110000000000umc`）。非阻塞，默认按 Q2。
 4. **faucet 余额**：`config.yml` faucet(bob) 当前 `5umc`/`100000umc`，不在 P0 抬高范围内，保持即可（仅用于领水测试），无需改动。
 

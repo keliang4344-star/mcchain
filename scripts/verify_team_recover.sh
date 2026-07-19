@@ -4,7 +4,7 @@
 # 比较其地址是否与链编译的 TeamAddress 一致。这是资金可控性的最终判据。
 set +e
 export MSYS_NO_PATHCONV=1
-BIN="$HOME/mcchain/mcchaind.exe"
+BIN="$HOME/mcchain/mcchaind"
 HD="$HOME/mcchain/verify_home"
 JSON="$HOME/mcchain/team_keys_gen.json"
 EXPECTED="mc1uq85t4erj44lf3x23xnrr97lt4wlyfz5kkf96f"
