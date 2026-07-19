@@ -178,8 +178,8 @@ class TxBuilder @Inject constructor(
         val x = Q.affineXCoord.toBigInteger().toByteArray()
         val y = Q.affineYCoord.toBigInteger()
         val prefix = if (y.testBit(0)) 0x03.toByte() else 0x02.toByte()
-        return byteArrayOf(prefix) + x.takeLast(32).let {
-            if (it.size < 32) ByteArray(32 - it.size) + it else it
-        }
+        val xBytes = x.takeLast(32).toByteArray()
+        val paddedX = if (xBytes.size < 32) ByteArray(32 - xBytes.size) + xBytes else xBytes
+        return byteArrayOf(prefix) + paddedX
     }
 }

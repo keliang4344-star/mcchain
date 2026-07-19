@@ -236,17 +236,17 @@ class RpcClient @Inject constructor(
         }
     }
 
-    private suspend fun OkHttpCall.await(): Response =
-        suspendCancellableCoroutine { cont ->
-            enqueue(object : Callback {
-                override fun onResponse(call: Call, response: Response) {
-                    cont.resume(response) {}
-                }
-                override fun onFailure(call: Call, e: IOException) {
-                    cont.resumeWithException(e)
-                }
-            })
-        }
+    private suspend fun Call.await(): Response = suspendCancellableCoroutine { cont ->
+        enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                cont.resume(response, {})
+            }
+            override fun onFailure(call: Call, e: IOException) {
+                cont.resumeWith(Result.failure(e))
+            }
+        })
+        cont.invokeOnCancellation { cancel() }
+    }
 
     private fun parseIsoTime(isoTime: String): Long {
         return try {

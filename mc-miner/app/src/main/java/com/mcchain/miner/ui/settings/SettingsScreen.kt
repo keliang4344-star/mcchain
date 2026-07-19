@@ -171,7 +171,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.c
             InfoSettingItem("IBC", "v7.1.0")
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
+        }
     }
 
     // RPC 端点对话框

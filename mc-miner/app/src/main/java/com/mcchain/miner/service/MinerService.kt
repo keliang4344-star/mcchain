@@ -167,7 +167,7 @@ class MinerService : LifecycleService() {
             edgeAiTaskDao.updateStatus(task.taskId, AiTaskStatus.IN_PROGRESS)
 
             // 模拟 AI 推理（实际应集成 ONNX Runtime / TFLite）
-            val resultHash = simulateAiInference(task.taskId, task.modelHash)
+            val resultHash = simulateAiInference(task.taskId, task.modelId)
 
             // 提交贡献
             val contribution = Contribution(

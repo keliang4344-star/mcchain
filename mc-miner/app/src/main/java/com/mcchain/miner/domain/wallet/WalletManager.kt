@@ -33,7 +33,7 @@ class WalletManager @Inject constructor(
      */
     fun generateMnemonic(): List<String> {
         val seed = DeterministicSeed(SecureRandom(), 256, "")
-        return seed.mnemonicCode
+        return seed.mnemonicCode ?: emptyList()
     }
 
     /**
@@ -41,7 +41,7 @@ class WalletManager @Inject constructor(
      */
     fun recoverFromMnemonic(mnemonic: List<String>): KeyPair {
         val seed = DeterministicSeed(mnemonic, null, "", System.currentTimeMillis())
-        val masterKey = HDUtils.createMasterKey(seed.seedBytes!!)
+        val masterKey = HDKeyDerivation.createMasterPrivateKey(seed.seedBytes!!)
         return deriveKeyPair(masterKey, 0)
     }
 
@@ -49,11 +49,11 @@ class WalletManager @Inject constructor(
      * 按 Cosmos 标准 BIP-44 路径派生: m/44'/118'/0'/0/index
      */
     private fun deriveKeyPair(masterKey: DeterministicKey, index: Int): KeyPair {
-        val purpose = HDUtils.deriveChildKey(masterKey, 44 or ChildNumber.HARDENED_BIT)
-        val coinType = HDUtils.deriveChildKey(purpose, MCParams.BIP44_COIN_TYPE or ChildNumber.HARDENED_BIT)
-        val account = HDUtils.deriveChildKey(coinType, 0 or ChildNumber.HARDENED_BIT)
-        val change = HDUtils.deriveChildKey(account, 0)
-        val child = HDUtils.deriveChildKey(change, index)
+        val purpose = HDKeyDerivation.deriveChildKey(masterKey, 44 or ChildNumber.HARDENED_BIT)
+        val coinType = HDKeyDerivation.deriveChildKey(purpose, MCParams.BIP44_COIN_TYPE or ChildNumber.HARDENED_BIT)
+        val account = HDKeyDerivation.deriveChildKey(coinType, 0 or ChildNumber.HARDENED_BIT)
+        val change = HDKeyDerivation.deriveChildKey(account, 0)
+        val child = HDKeyDerivation.deriveChildKey(change, index)
 
         val privKeyBytes = child.privKeyBytes
         val privKey = BigInteger(1, privKeyBytes)
@@ -61,16 +61,13 @@ class WalletManager @Inject constructor(
         // 从私钥恢复公钥 (secp256k1)
         val spec = ECNamedCurveTable.getParameterSpec("secp256k1")
         val keyFactory = KeyFactory.getInstance("ECDSA", "BC")
-        val privKeySpec = java.security.spec.ECPrivateKeySpec(privKey, spec)
+        val privKeySpec = org.bouncycastle.jce.spec.ECPrivateKeySpec(privKey, spec)
         val privateKey = keyFactory.generatePrivate(privKeySpec) as java.security.interfaces.ECPrivateKey
 
         // 计算公钥
         val q = spec.g.multiply(privKey).normalize()
         val publicKey = keyFactory.generatePublic(
-            java.security.spec.ECPublicKeySpec(
-                java.security.spec.ECPoint(q.affineXCoord.toBigInteger(), q.affineYCoord.toBigInteger()),
-                spec
-            )
+            org.bouncycastle.jce.spec.ECPublicKeySpec(q, spec)
         ) as java.security.interfaces.ECPublicKey
 
         return KeyPair(publicKey, privateKey)
@@ -81,7 +78,7 @@ class WalletManager @Inject constructor(
      */
     fun publicKeyToAddress(pubKeyBytes: ByteArray): String {
         // SHA256 -> RIPEMD160
-        val sha256 = Sha256Hash.hash(pubKeyBytes)
+        val sha256 = java.security.MessageDigest.getInstance("SHA-256").digest(pubKeyBytes)
         val ripeMd160 = ByteArray(20)
         val digest = RIPEMD160Digest()
         digest.update(sha256, 0, sha256.size)

@@ -76,6 +76,7 @@ docs/MAINNET_DEPLOY_PLAN.md
 docs/MAINNET_DEPLOY_RUNBOOK.md
 docs/MAINNET_SERVER_GUIDE.md
 docs/COLLABORATION.md
+docs/system_design.md
 
 # 生成产物：PDF/HTML 由源码构建，不入库
 docs/*.pdf

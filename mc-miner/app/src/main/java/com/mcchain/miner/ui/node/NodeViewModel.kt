@@ -11,7 +11,7 @@ import com.mcchain.miner.data.model.NodeStatus
 import com.mcchain.miner.data.model.NodeStatusSnapshot
 import com.mcchain.miner.data.model.PeerNode
 import com.mcchain.miner.data.model.PhoneNodeRecord
-import com.mcchain.miner.data.model.HardwareCheck
+import com.mcchain.miner.domain.node.HardwareCheck
 import com.mcchain.miner.data.pref.SecurePrefs
 import com.mcchain.miner.domain.node.DeviceAttestation
 import dagger.hilt.android.lifecycle.HiltViewModel

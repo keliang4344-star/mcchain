@@ -161,7 +161,7 @@ fun AiTaskCard(task: EdgeAiTask) {
                 Text("${task.taskType.uppercase()} 任务",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold)
-                Text("模型: ${task.modelHash.take(12)}...",
+                Text("模型: ${task.modelId.take(12)}...",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
             }
