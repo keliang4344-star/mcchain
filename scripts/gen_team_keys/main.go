@@ -26,9 +26,9 @@ type KeyOut struct {
 }
 
 const (
-	jsonPath  = "$HOME/mcchain/team_keys_gen.json"
-	goPath    = "$HOME/mcchain/x/tokenomics/types/team_pubkeys_gen.go"
-	vaultPath = "$HOME/mcchain/team_multisig_vault.txt"
+	jsonPath  = "./team_keys_gen.json"
+	goPath    = "./x/tokenomics/types/team_pubkeys_gen.go"
+	vaultPath = "./team_multisig_vault.txt"
 )
 
 func main() {

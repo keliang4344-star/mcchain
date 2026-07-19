@@ -8,10 +8,10 @@ export PATH="$HOME/gopath/bin:$HOME/protoc/bin:$PATH"
 
 PROTO_ROOT=proto
 GEN_DIR=_gen
-GOGO_ROOT=$HOME/gopath/pkg/mod/github.com/cosmos/gogoproto@v1.4.10
-SDK_PROTO=$HOME/gopath/pkg/mod/github.com/cosmos/cosmos-sdk@v0.47.3/proto
-GRPC_GATEWAY_APIS=$HOME/gopath/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis
-PROTOC_INCLUDE=$HOME/protoc/include
+GOGO_ROOT=$GOPATH/pkg/mod/github.com/cosmos/gogoproto@v1.4.10
+SDK_PROTO=$GOPATH/pkg/mod/github.com/cosmos/cosmos-sdk@v0.47.3/proto
+GRPC_GATEWAY_APIS=$GOPATH/pkg/mod/github.com/grpc-ecosystem/grpc-gateway@v1.16.0/third_party/googleapis
+PROTOC_INCLUDE=$PROTOC_ROOT/include
 M_ANY=Mgoogle/protobuf/any.proto=github.com/cosmos/cosmos-sdk/codec/types
 
 MODULE=$1

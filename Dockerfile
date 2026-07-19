@@ -6,7 +6,7 @@ WORKDIR /src
 # 先拉依赖，利用层缓存
 COPY go.mod go.sum ./
 RUN go mod download
-# 拷贝源码并编译静态二进制（Windows 专有的 D:\go 路径不影响源码，Linux 可正常编译）
+# 拷贝源码并编译静态二进制
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /out/mcchaind ./cmd/mcchaind
 

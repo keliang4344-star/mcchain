@@ -4,7 +4,7 @@
 
 ## 一、为什么不能在本机直接跑公网主网
 本机实测：Windows 10 + mid-range consumer CPU + 32GB + standard home network。
-- 硬件负载够单节点，但 **OS（Windows）+ 网络（动态IP/无 SLA）+ 单机单点** 均不满足公网主网要求。
+- 硬件负载够单节点，但 **OS（非 Linux 生产环境）+ 网络（动态IP/无 SLA）+ 单机单点** 均不满足公网主网要求。
 - 结论：租 Linux 服务器，本机仅作开发/签名/监控终端。
 
 ## 二、推荐配置（Cosmos 主网基准，跨可用区容灾）

@@ -69,7 +69,7 @@ MC 是基于 **Cosmos SDK + CometBFT** 构建的移动优先 Layer 1 区块链�
 
 ```bash
 # 依赖：Go 1.22+
-git clone https://github.com/keliang4344-star/mcchain.git
+git clone https://github.com/mcchain/mcchain.git
 cd mcchain
 make build           # go build ./...
 make install         # 安装 mcchaind
@@ -113,7 +113,7 @@ go test ./...
 |------|------|
 | Twitter / X | [@MobileChain](https://x.com/MobileChain) |
 | Discord | [discord.gg/mcchain](https://discord.gg/mcchain) |
-| GitHub | [github.com/keliang4344-star/mcchain](https://github.com/keliang4344-star/mcchain) |
+| GitHub | [github.com/mcchain/mcchain](https://github.com/mcchain/mcchain) |
 
 ## 贡献
 

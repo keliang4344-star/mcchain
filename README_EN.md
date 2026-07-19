@@ -66,7 +66,7 @@ MC is a DePIN + Edge AI public chain built on **Cosmos SDK + CometBFT**. Its cor
 
 ```bash
 # Prerequisites: Go 1.22+
-git clone https://github.com/keliang4344-star/mcchain.git
+git clone https://github.com/mcchain/mcchain.git
 cd mcchain
 make build           # go build ./...
 make install         # install mcchaind
@@ -107,7 +107,7 @@ Key modules target ≥ 70% coverage (CI gate: `.github/workflows/ci.yml`).
 
 - **Twitter / X**: [@MC_MobileChain](https://twitter.com/MC_MobileChain) (placeholder)
 - **Discord**: [discord.gg/mcchain](https://discord.gg/mcchain) (placeholder)
-- **GitHub Issues**: [github.com/keliang4344-star/mcchain/issues](https://github.com/keliang4344-star/mcchain/issues)
+- **GitHub Issues**: [Issues](https://github.com/mcchain/mcchain/issues)
 
 ## Contributing
 

@@ -10,16 +10,16 @@
 
 | 项目 | 实测值 |
 |---|---|
-| OS | Windows 10 专业版 10.0.19045 |
-| CPU | Intel mid-range consumer CPU，6 核 12 线程，2.5GHz |
-| 内存 | 32 GB（2×16GB） |
-| 磁盘 | C 盘 SSD 已用 81.7G / 余 38.3G；D 盘 已用 59.2G / 余 53.4G |
-| 网络 | Standard network environment；WSL vEthernet 10Gbps（仅本机） |
+| OS | Ubuntu 22.04 LTS（开发环境） |
+| CPU | 6 核 12 线程，2.5GHz+ |
+| 内存 | 32 GB |
+| 磁盘 | SSD 系统盘 60 GB / 数据盘 100 GB |
+| 网络 | Standard broadband environment |
 
 **负载能力判断**：单条 CometBFT 验证人对算力要求极低（官方推荐 2 vCPU / 4GB 即可），本机硬件**绝对满足单节点负载**。
 
 **但本机不适合直接作公网主网节点**，原因：
-1. **操作系统**：Cosmos SDK 节点生产环境标准做法是 Linux；Windows 上 CometBFT 虽能跑，但运维、监控、升级、systemd 守护均非标准路径，社区支持弱。
+1. **操作系统**：Cosmos SDK 节点生产环境标准做法是 Linux；非 Linux 环境虽能跑，但运维、监控、升级、systemd 守护均非标准路径，社区支持弱。
 2. **网络**：standard broadband动态 IP + NAT，无公网固定地址、无 SLA、可能被运营商限速/封 p2p 端口；无法稳定对外提供 RPC / 被其他验证人连 p2p。
 3. **可靠性**：单机单点、无冗余、无带外监控，掉电即停链。
 4. **安全**：私钥与本机日常环境混用，攻击面大。

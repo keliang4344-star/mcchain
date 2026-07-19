@@ -36,12 +36,11 @@ sudo mv mcchaind /usr/local/bin/
 mcchaind version
 ```
 
-**方式 B：Cross-compile from build environment**
+**方式 B：从开发环境交叉编译**
 ```powershell
-# 在 $HOME/mcchain 下（D 盘 Go 工具链）
-$env:PATH = "D:\go\bin;D:\gopath\bin;" + $env:PATH; $env:GOROOT="D:\go"
+# 在项目根目录下，设置 Go 交叉编译环境
 $env:GOOS="linux"; $env:GOARCH="amd64"
-& 'D:\go\bin\go.exe' build -o mcchaind ./...
+go build -o mcchaind ./...
 # 然后 scp mcchaind 到服务器 /usr/local/bin/
 ```
 

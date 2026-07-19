@@ -66,7 +66,7 @@ MC 是基于 **Cosmos SDK + CometBFT** 构建的 DePIN + 边缘 AI 公链。核�
 
 ```bash
 # 依赖：Go 1.22+
-git clone https://github.com/keliang4344-star/mcchain.git
+git clone https://github.com/mcchain/mcchain.git
 cd mcchain
 make build           # go build ./...
 make install         # 安装 mcchaind
@@ -107,7 +107,7 @@ go test ./...
 
 - **Twitter / X**: [@MC_MobileChain](https://twitter.com/MC_MobileChain) (placeholder)
 - **Discord**: [discord.gg/mcchain](https://discord.gg/mcchain) (placeholder)
-- **GitHub Issues**: [github.com/keliang4344-star/mcchain/issues](https://github.com/keliang4344-star/mcchain/issues)
+- **GitHub Issues**: [github.com/mcchain/mcchain/issues](https://github.com/mcchain/mcchain/issues)
 
 ## 贡献
 
