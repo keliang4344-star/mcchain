@@ -25,7 +25,7 @@ sequenceDiagram
     end
 
     rect rgb(235,255,238)
-    note over P,CAP: ③ 主网启链（文本可落盘，沙箱不执行）
+    note over P,CAP: ③ 主网启链（文本可落盘，构建环境不执行）
     P->>P: scripts/build_genesis.sh（固化 B1–B5 分配/参数/gentx）
     P->>P: mcchaind init + collect-gentxs + start
     P->>P: docker-compose up（validator/fullnode/snapshot）

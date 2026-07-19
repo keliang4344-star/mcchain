@@ -6,9 +6,8 @@ import (
 
 // 本文件内联 MobileChain DePIN + 边缘 AI 的核心经济逻辑（纯函数层）。
 //
-// 来源：Desktop/MC公链/mcchain_staging/depin/reward.go（A 线提炼的生产级奖励引擎）。
-// 按 03b-cometbft-scaffold 的「直接内联」方案并入 B 线模块，使 x/depin 自包含、
-// 可在无外部 replace 的情况下编译。逻辑与 staging 完全一致，改 staging 时同步此处。
+// 经济逻辑为生产级奖励引擎的内联实现，使 x/depin 自包含、
+// 可在无外部依赖的情况下独立编译；关键计算路径与链上存储语义一致。
 //
 // 金额语义与 Cosmos math.Int 对齐（E2）：奖励乘法关键路径统一经 math.Int 计算，
 // 杜绝任意中间溢出；返回维持 int（当前量级 ≤ MaxRewardPerTask，与链上存储一致）。
