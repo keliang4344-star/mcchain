@@ -114,7 +114,7 @@ preserve_blueprint() {
    改为基于 collections.Store 的持久化实现。
 2. x/phonenode/keeper/keeper.go — 同上，并保留 VerifyMerkleProof / BuildMerkleRoot
    等纯函数（与链上状态无关，可直接复用）。
-3. 奖励引擎依赖 mcchain-staging/depin（ComputeReward / IsValidTaskType），
+3. 奖励引擎依赖 x/depin 模块（ComputeReward / IsValidTaskType），
    迁 store 时一并纳入 go.mod 或直接内联。
 4. denom 接 umc：在 app params 把 staking bond denom 改为 umc（小数位 6）。
 MDEOF

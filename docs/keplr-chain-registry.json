@@ -74,9 +74,9 @@
   "_notes": {
     "purpose": "Keplr / Leap 钱包接入前置资产（chain-registry 格式）。解决 LAUNCH_READINESS.md 标注的「Keplr/Leap 未做」缺口。",
     "action_required": [
-      "将 apis.rpc / apis.rest / apis.grpc 的 localhost 替换为你的新加坡服务器公网地址（如 tcp://<公网IP>:26657）。",
+      "将 apis.rpc / apis.rest / apis.grpc 的 localhost 替换为你的服务器公网地址（如 tcp://<公网IP>:26657）。",
       "在 explorers 填入你的区块浏览器 URL（若有）。",
-      "正式接入：把本文件托管到可访问 URL，或在前端用 Keplr suggestChain API 注入同样的字段（前端接入属于 web/ 范畴，由另一协作者负责）。",
+      "正式接入：把本文件托管到可访问 URL，或在前端用 Keplr suggestChain API 注入同样的字段（前端接入属于 web/ 范畴）。",
       "codebase.git_repo 替换为真实仓库地址。"
     ],
     "address_examples": {

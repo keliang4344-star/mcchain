@@ -51,7 +51,7 @@
 
 ## 4. 交易（Msg）示例
 
-> 字段名来自 `proto/mcchain/{depin,phonenode}/tx.proto`。gRPC 调用可用 `grpcurl`；或本机用 `mcchaind tx ... --from <key> --chain-id mcchain-mainnet-1 --fees <x>umc -y`。
+> 字段名来自 `proto/mcchain/{depin,phonenode}/tx.proto`。gRPC 调用可用 `grpcurl`；或用 `mcchaind tx ... --from <key> --chain-id mcchain-mainnet-1 --fees <x>umc -y`。
 
 ### 4.1 MsgRegisterNode（phonenode）
 
