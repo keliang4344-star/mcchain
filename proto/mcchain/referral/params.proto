@@ -10,4 +10,6 @@ message Params {
   string min_payout             = 2; // minimum claimable amount, default "100000000" (=100 MC)
   uint64 max_referrals_per_user = 3; // max referrals per inviter, default 100
   uint64 cooldown_blocks        = 4; // cooldown blocks between referrals, default 100
+  uint64 daily_per_user_cap     = 5; // daily per-user reward cap in umc, default 500000000 (=500 MC)
+  uint64 daily_network_cap      = 6; // daily network-wide reward cap in umc, default 20600000000 (=20,600 MC)
 }

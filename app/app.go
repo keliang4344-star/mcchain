@@ -604,6 +604,7 @@ func New(
 
 		app.BankKeeper,
 		app.PhonenodeKeeper,
+		nil, // referralKeeper：referral 在其后创建，稍后经 SetReferralKeeper 接线
 	)
 	depinModule := depinmodule.NewAppModule(appCodec, app.DepinKeeper, app.AccountKeeper, app.BankKeeper)
 
@@ -616,6 +617,7 @@ func New(
 		app.PhonenodeKeeper,
 		app.BankKeeper,
 		app.DepinKeeper,
+		nil, // referralKeeper：referral 在其后创建，稍后经 SetReferralKeeper 接线
 	)
 	edgeaiModule := edgeaimodule.NewAppModule(appCodec, app.EdgeaiKeeper, app.AccountKeeper, app.BankKeeper)
 
@@ -650,6 +652,10 @@ func New(
 		app.PhonenodeKeeper,
 	)
 	referralModule := referralmodule.NewAppModule(appCodec, app.ReferralKeeper, app.BankKeeper)
+
+	// 后接线：referral 创建在 depin / edgeai 之后，通过 Setter 完成跨模块 hook。
+	app.DepinKeeper.SetReferralKeeper(app.ReferralKeeper)
+	app.EdgeaiKeeper.SetReferralKeeper(app.ReferralKeeper)
 
 	// this line is used by starport scaffolding # stargate/app/keeperDefinition
 

@@ -122,9 +122,11 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 
 func (AppModule) ConsensusVersion() uint64 { return 1 }
 
-// BeginBlock is a no-op for the referral module.
-// Rewards are tracked via hook (TrackReward) rather than per-block settlement.
-func (am AppModule) BeginBlock(_ sdk.Context, _ abci.RequestBeginBlock) {}
+// BeginBlock resets the daily reward caps at the start of each block.
+// The actual cap check is performed by TrackReward (white paper lines 528-540).
+func (am AppModule) BeginBlock(ctx sdk.Context, _ abci.RequestBeginBlock) {
+	am.keeper.ResetDailyCaps(ctx)
+}
 
 func (am AppModule) EndBlock(_ sdk.Context, _ abci.RequestEndBlock) []abci.ValidatorUpdate {
 	return []abci.ValidatorUpdate{}

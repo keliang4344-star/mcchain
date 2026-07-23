@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -280,6 +281,18 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 		_ = k.SetResult(ctx, r)
 		task.Status = types.TaskStatusDone
 		_ = k.SetTask(ctx, task)
+
+		// ====================================================================
+		// V3 新增：推荐奖励 hook（白皮书行 528-540）
+		// ====================================================================
+		// 任务结算拨付成功后，若 submitter 存在有效推荐关系，则按 rewardRateBps
+		// 从生态池向 inviter 记入推荐奖励（受日熔断上限约束，超限拒绝但不影响本次结算）。
+		if k.referralKeeper != nil {
+			if refErr := k.referralKeeper.TrackEdgeAIReward(ctx, r.Submitter, sdkmath.NewIntFromUint64(submitterAmount)); refErr != nil {
+				k.Logger(ctx).Info("edgeai: referral reward not tracked",
+					"task_id", r.TaskId, "submitter", r.Submitter, "reason", refErr.Error())
+			}
+		}
 
 		// 发射结算事件
 		ctx.EventManager().EmitEvent(

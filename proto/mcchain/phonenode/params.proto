@@ -23,4 +23,6 @@ message Params {
   uint32 contrib_slash_bps = 6;
   // attest_slash_bps 伪造 attestation slash 惩罚基点。
   uint32 attest_slash_bps = 7;
+  // slash_cooldown_blocks slash 后再认证冷却区块数，默认 43200（~12h @ 4s 出块）。
+  int64 slash_cooldown_blocks = 8;
 }

@@ -21,6 +21,7 @@ type (
 
 		bankKeeper      types.BankKeeper
 		phonenodeKeeper types.PhonenodeKeeper
+		referralKeeper  types.ReferralKeeper
 	}
 )
 
@@ -38,6 +39,7 @@ func NewKeeper(
 
 	bankKeeper types.BankKeeper,
 	phonenodeKeeper types.PhonenodeKeeper,
+	referralKeeper types.ReferralKeeper,
 ) *Keeper {
 	// set KeyTable if it has not already been set
 	if !ps.HasKeyTable() {
@@ -52,7 +54,14 @@ func NewKeeper(
 
 		bankKeeper:      bankKeeper,
 		phonenodeKeeper: phonenodeKeeper,
+		referralKeeper:  referralKeeper,
 	}
+}
+
+// SetReferralKeeper wires the referral module keeper after both are constructed
+// (referral is initialized after depin in app.go).
+func (k *Keeper) SetReferralKeeper(rk types.ReferralKeeper) {
+	k.referralKeeper = rk
 }
 
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {

@@ -142,9 +142,17 @@ func (k Keeper) TrackReward(ctx sdk.Context, invitee string, rewardAmount sdkmat
 		return nil
 	}
 
+	// Daily cap check (white paper lines 528-540)
+	if err := k.CheckDailyCaps(ctx, ref.Inviter, bonus); err != nil {
+		return err
+	}
+
 	current := k.getPendingRewards(ctx, ref.Inviter)
 	newTotal := current.Add(bonus)
 	k.setPendingRewards(ctx, ref.Inviter, newTotal)
+
+	// Record daily cap usage
+	k.RecordDailyCapUsage(ctx, ref.Inviter, bonus)
 
 	ctx.EventManager().EmitTypedEvent(&ReferralRewardTrackedEvent{
 		Inviter: ref.Inviter,

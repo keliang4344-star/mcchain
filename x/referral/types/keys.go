@@ -19,10 +19,17 @@ const (
 	ReferralStatusClaimed = "claimed"
 
 	// ---- 默认参数 ----
-	DefaultRewardRateBps       uint32 = 500          // 5%
-	DefaultMinPayout                  = "100000000"   // 100 MC = 100,000,000 umc
+	DefaultRewardRateBps       uint32 = 500            // 5%
+	DefaultMinPayout                  = "100000000"     // 100 MC = 100,000,000 umc
 	DefaultMaxReferralsPerUser uint64 = 100
 	DefaultCooldownBlocks      uint64 = 100
+	DefaultDailyPerUserCap     uint64 = 500000000       // 500 MC
+	DefaultDailyNetworkCap     uint64 = 20600000000     // 20,600 MC
+
+	// ---- 日熔断存储键 ----
+	DailyCapKeyPrefix         = "DailyCap/value/"
+	DailyPerUserCapKeyPrefix  = "DailyCap/peruser/"
+	DailyNetworkCapKey        = "DailyCap/network/"
 
 	// ---- 生态基金模块账户 ----
 	EcosystemModuleAccount = "ecosystem"

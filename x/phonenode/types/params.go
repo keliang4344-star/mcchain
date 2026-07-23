@@ -11,13 +11,14 @@ var _ paramtypes.ParamSet = (*Params)(nil)
 
 // Parameter store keys (B2 安全参数)。
 var (
-	KeyAttestationRequired = []byte("AttestationRequired")
-	KeyAttestationValidity = []byte("AttestationValidity")
-	KeySybilDeviceBinding  = []byte("SybilDeviceBinding")
-	KeyOfflineGraceBlocks  = []byte("OfflineGraceBlocks")
-	KeyOfflineSlashBps     = []byte("OfflineSlashBps")
-	KeyContribSlashBps     = []byte("ContribSlashBps")
-	KeyAttestSlashBps      = []byte("AttestSlashBps")
+	KeyAttestationRequired  = []byte("AttestationRequired")
+	KeyAttestationValidity  = []byte("AttestationValidity")
+	KeySybilDeviceBinding   = []byte("SybilDeviceBinding")
+	KeyOfflineGraceBlocks   = []byte("OfflineGraceBlocks")
+	KeyOfflineSlashBps      = []byte("OfflineSlashBps")
+	KeyContribSlashBps      = []byte("ContribSlashBps")
+	KeyAttestSlashBps       = []byte("AttestSlashBps")
+	KeySlashCooldownBlocks  = []byte("SlashCooldownBlocks")
 )
 
 // ParamKeyTable the param key table for launch module
@@ -33,19 +34,30 @@ func NewParams() Params {
 // DefaultParams returns a default set of parameters (B2 安全默认值)。
 func DefaultParams() Params {
 	return Params{
-		AttestationRequired: true,
-		AttestationValidity: int64(86400 * 30), // 30 天
-		SybilDeviceBinding:  true,
-		OfflineGraceBlocks:  100, // ~100 区块宽限
-		OfflineSlashBps:     500, // 离线 slash 5%
-		ContribSlashBps:     1000, // 作弊贡献 slash 10%
-		AttestSlashBps:      2000, // 伪造 attestation slash 20%
+		AttestationRequired:  true,
+		AttestationValidity:  int64(86400 * 30), // 30 天
+		SybilDeviceBinding:   true,
+		OfflineGraceBlocks:   100,   // ~100 区块宽限
+		OfflineSlashBps:      500,   // 离线 slash 5%
+		ContribSlashBps:      1000,  // 作弊贡献 slash 10%
+		AttestSlashBps:       2000,  // 伪造 attestation slash 20%
+		SlashCooldownBlocks:  43200, // ~12h @ 4s 出块
 	}
 }
 
-// DefaultSlashCooldownBlocks 是 B2 非验证人细则：节点被 slash 后再认证冷却的区块数。
-// 硬编码安全常量（~12h @ 4s 出块），避免改动 proto 参数表；后续如需治理可调可提升为 param。
-const DefaultSlashCooldownBlocks int64 = 43200
+// SlashCooldownBlocks 默认值已提升为链上 param，默认 43200（~12h @ 4s 出块），可由治理调整。
+// 具体值从 keeper.GetParams(ctx).SlashCooldownBlocks 读取。
+
+func validateSlashCooldownBlocks(i interface{}) error {
+	v, ok := i.(int64)
+	if !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+	if v <= 0 {
+		return fmt.Errorf("slash_cooldown_blocks must be positive: %d", v)
+	}
+	return nil
+}
 
 // ParamSetPairs get the params.ParamSet
 func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
@@ -57,6 +69,7 @@ func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 		paramtypes.NewParamSetPair(KeyOfflineSlashBps, &p.OfflineSlashBps, validateBps),
 		paramtypes.NewParamSetPair(KeyContribSlashBps, &p.ContribSlashBps, validateBps),
 		paramtypes.NewParamSetPair(KeyAttestSlashBps, &p.AttestSlashBps, validateBps),
+		paramtypes.NewParamSetPair(KeySlashCooldownBlocks, &p.SlashCooldownBlocks, validateSlashCooldownBlocks),
 	}
 }
 
@@ -108,6 +121,9 @@ func (p Params) Validate() error {
 	}
 	if p.OfflineGraceBlocks <= 0 {
 		return fmt.Errorf("offline_grace_blocks must be positive")
+	}
+	if p.SlashCooldownBlocks <= 0 {
+		return fmt.Errorf("slash_cooldown_blocks must be positive")
 	}
 	if p.OfflineSlashBps > 10000 || p.ContribSlashBps > 10000 || p.AttestSlashBps > 10000 {
 		return fmt.Errorf("slash bps must be <= 10000")

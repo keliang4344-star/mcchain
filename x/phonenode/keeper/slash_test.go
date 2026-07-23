@@ -35,7 +35,7 @@ func TestSlashCooldownBlocksReAttest(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrSlashCooldown)
 
 	// 推进区块越过冷却，冷却解除，再认证放行
-	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + types.DefaultSlashCooldownBlocks + 1)
+	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + k.GetParams(ctx).SlashCooldownBlocks + 1)
 	require.False(t, k.InSlashCooldown(ctx, addr), "冷却期过后应解除")
 	err = k.SubmitAttestation(ctx, addr, "root3", "nonce3", "devhash3")
 	require.NoError(t, err)

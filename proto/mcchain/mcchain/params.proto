@@ -8,5 +8,8 @@ option go_package = "mcchain/x/mcchain/types";
 // Params defines the parameters for the module.
 message Params {
   option (gogoproto.goproto_stringer) = false;
-  
+
+  string chain_name    = 1; // human-readable chain name, default "MChain"
+  string chain_version = 2; // chain software version, default "1.0.0"
+  int64  genesis_time  = 3; // genesis unix timestamp, set at InitGenesis
 }

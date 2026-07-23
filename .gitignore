@@ -80,3 +80,5 @@ docs/system_design.md
 
 # 生成产物：PDF/HTML 由源码构建，不入库
 docs/*.pdf
+# 例外：V3 白皮书典藏版 PDF 作为正式发布物入库
+!docs/MobileChain白皮书_完整典藏版.pdf

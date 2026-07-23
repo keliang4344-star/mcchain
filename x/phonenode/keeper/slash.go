@@ -57,7 +57,7 @@ func (k Keeper) SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint
 
 	// 1.5 写入 slash 冷却（B2 非验证人细则）：被 slash 后限时禁止再认证，
 	// 防止作弊节点被吊销后立刻用新证明重新上线（仍可被抵押惩罚）。
-	cooldown := types.DefaultSlashCooldownBlocks
+	cooldown := k.GetParams(ctx).SlashCooldownBlocks
 	k.SetSlashCooldown(ctx, addr, ctx.BlockHeight()+cooldown)
 
 	// 2. 记录 slash

@@ -2,6 +2,7 @@ package types
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmath "cosmossdk.io/math"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
@@ -46,4 +47,10 @@ type BankKeeper interface {
 // 不再调用 PayoutReward；此接口保留以维持既有接线兼容，不再被拨付路径使用。
 type PayoutKeeper interface {
 	PayoutReward(ctx sdk.Context, addr sdk.AccAddress, amount uint64) error
+}
+
+// ReferralKeeper defines the minimal surface of the referral module needed by
+// the edgeai module to track referral rewards after EdgeAI task settlement.
+type ReferralKeeper interface {
+	TrackEdgeAIReward(ctx sdk.Context, submitter string, rewardAmount sdkmath.Int) error
 }

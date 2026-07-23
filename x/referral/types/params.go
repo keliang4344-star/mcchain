@@ -16,6 +16,8 @@ type Params struct {
 	MinPayout           string `json:"min_payout" yaml:"min_payout"`
 	MaxReferralsPerUser uint64 `json:"max_referrals_per_user" yaml:"max_referrals_per_user"`
 	CooldownBlocks      uint64 `json:"cooldown_blocks" yaml:"cooldown_blocks"`
+	DailyPerUserCap     uint64 `json:"daily_per_user_cap" yaml:"daily_per_user_cap"`
+	DailyNetworkCap     uint64 `json:"daily_network_cap" yaml:"daily_network_cap"`
 }
 
 func (p *Params) Reset()         { *p = Params{} }
@@ -32,6 +34,8 @@ func NewParams() Params {
 		MinPayout:           DefaultMinPayout,
 		MaxReferralsPerUser: DefaultMaxReferralsPerUser,
 		CooldownBlocks:      DefaultCooldownBlocks,
+		DailyPerUserCap:     DefaultDailyPerUserCap,
+		DailyNetworkCap:     DefaultDailyNetworkCap,
 	}
 }
 
@@ -61,6 +65,16 @@ func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 			&p.CooldownBlocks,
 			validateCooldownBlocks,
 		),
+		paramtypes.NewParamSetPair(
+			[]byte("DailyPerUserCap"),
+			&p.DailyPerUserCap,
+			validateUint64Positive,
+		),
+		paramtypes.NewParamSetPair(
+			[]byte("DailyNetworkCap"),
+			&p.DailyNetworkCap,
+			validateUint64Positive,
+		),
 	}
 }
 
@@ -74,7 +88,13 @@ func (p Params) Validate() error {
 	if err := validateMaxReferralsPerUser(p.MaxReferralsPerUser); err != nil {
 		return err
 	}
-	return validateCooldownBlocks(p.CooldownBlocks)
+	if err := validateCooldownBlocks(p.CooldownBlocks); err != nil {
+		return err
+	}
+	if err := validateUint64Positive(p.DailyPerUserCap); err != nil {
+		return err
+	}
+	return validateUint64Positive(p.DailyNetworkCap)
 }
 
 func validateRewardRateBps(i interface{}) error {
@@ -116,5 +136,16 @@ func validateCooldownBlocks(i interface{}) error {
 		return fmt.Errorf("invalid parameter type for CooldownBlocks: %T", i)
 	}
 	// cooldown of 0 is allowed (no cooldown)
+	return nil
+}
+
+func validateUint64Positive(i interface{}) error {
+	v, ok := i.(uint64)
+	if !ok {
+		return fmt.Errorf("invalid parameter type for daily cap: %T", i)
+	}
+	if v == 0 {
+		return fmt.Errorf("daily cap must be > 0")
+	}
 	return nil
 }

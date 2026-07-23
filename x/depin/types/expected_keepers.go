@@ -2,6 +2,7 @@ package types
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
@@ -37,4 +38,10 @@ type PhonenodeKeeper interface {
 	HasNode(ctx sdk.Context, addr string) bool
 	// IsAttested reports whether the node holds a currently valid attestation (B2 反女巫)。
 	IsAttested(ctx sdk.Context, addr string) bool
+}
+
+// ReferralKeeper defines the minimal surface of the referral module needed by
+// the depin module to track referral rewards after a DePIN payout.
+type ReferralKeeper interface {
+	TrackDepinReward(ctx sdk.Context, submitter string, rewardAmount sdkmath.Int) error
 }

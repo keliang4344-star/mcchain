@@ -20,6 +20,7 @@ type Keeper struct {
 	phonenodeKeeper types.PhonenodeKeeper
 	bankKeeper      types.BankKeeper
 	payoutKeeper    types.PayoutKeeper
+	referralKeeper  types.ReferralKeeper
 }
 
 func NewKeeper(
@@ -29,6 +30,7 @@ func NewKeeper(
 	phonenodeKeeper types.PhonenodeKeeper,
 	bankKeeper types.BankKeeper,
 	payoutKeeper types.PayoutKeeper,
+	referralKeeper types.ReferralKeeper,
 ) *Keeper {
 	if !ps.HasKeyTable() {
 		ps = ps.WithKeyTable(types.ParamKeyTable())
@@ -41,7 +43,14 @@ func NewKeeper(
 		phonenodeKeeper: phonenodeKeeper,
 		bankKeeper:      bankKeeper,
 		payoutKeeper:    payoutKeeper,
+		referralKeeper:  referralKeeper,
 	}
+}
+
+// SetReferralKeeper wires the referral module keeper after both are constructed
+// (referral is initialized after edgeai in app.go).
+func (k *Keeper) SetReferralKeeper(rk types.ReferralKeeper) {
+	k.referralKeeper = rk
 }
 
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {

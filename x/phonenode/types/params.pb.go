@@ -172,6 +172,11 @@ func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if m.SlashCooldownBlocks != 0 {
+		i = encodeVarintParams(dAtA, i, uint64(m.SlashCooldownBlocks))
+		i--
+		dAtA[i] = 0x40
+	}
 	if m.AttestSlashBps != 0 {
 		i = encodeVarintParams(dAtA, i, uint64(m.AttestSlashBps))
 		i--
@@ -257,6 +262,9 @@ func (m *Params) Size() (n int) {
 	}
 	if m.AttestSlashBps != 0 {
 		n += 1 + sovParams(uint64(m.AttestSlashBps))
+	}
+	if m.SlashCooldownBlocks != 0 {
+		n += 1 + sovParams(uint64(m.SlashCooldownBlocks))
 	}
 	return n
 }

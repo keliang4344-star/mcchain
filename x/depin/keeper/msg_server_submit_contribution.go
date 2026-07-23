@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -172,6 +173,18 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 		k.Keeper.RecordDailyReward(ctx, deviceAddr, payoutAmount)
 		// 记录当日全局释放额度（release.go 线性摊薄）
 		k.Keeper.RecordDailyRelease(ctx, payoutAmount)
+
+		// ====================================================================
+		// V3 新增：推荐奖励 hook（白皮书行 528-540）
+		// ====================================================================
+		// 任务结算拨付成功后，若贡献者存在有效推荐关系，则按 rewardRateBps
+		// 从生态池向 inviter 记入推荐奖励（受日熔断上限约束，超限拒绝但不影响本次拨付）。
+		if k.Keeper.referralKeeper != nil {
+			if refErr := k.Keeper.referralKeeper.TrackDepinReward(ctx, deviceAddr, sdkmath.NewIntFromUint64(payoutAmount)); refErr != nil {
+				k.Keeper.Logger(ctx).Info("depin: referral reward not tracked",
+					"device", deviceAddr, "task_id", msg.TaskId, "reason", refErr.Error())
+			}
+		}
 
 		// B5/R4：发币事件 —— 移动端 SDK 据此监听「贡献即挖矿」到账通知。
 		ctx.EventManager().EmitEvent(
