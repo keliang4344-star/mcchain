@@ -115,50 +115,65 @@ func (k Keeper) GetReferralsByInviter(ctx sdk.Context, inviter string) []types.R
 // 待领奖励
 // ---------------------------------------------------------------------------
 
-// TrackReward is called when an invitee earns a reward (e.g., from completing a DePIN task).
-// It credits the inviter with a proportion (rewardRateBps) of the invitee's reward,
-// sourced from the ecosystem module account.
+// TrackReward is called when an invitee earns a reward (e.g., from completing a DePIN / EdgeAI task).
+// It walks the referral chain up to 3 levels (whitepaper §25: 一代 10%, 二代 5%, 三代 2%)
+// and credits each ancestor with their proportional share, sourced from the ecosystem module account.
 //
-// This should be called as a hook from the depin/edgeai reward distribution path,
-// NOT from the invitee's own reward—the referral reward is additional and paid by
-// the ecosystem fund.
+// Each level independently checks daily caps (per user and network-wide).
 func (k Keeper) TrackReward(ctx sdk.Context, invitee string, rewardAmount sdkmath.Int) error {
 	params := k.GetParams(ctx)
 
-	refID, found := k.getReferralIDByInvitee(ctx, invitee)
-	if !found {
-		// Invitee has no inviter; nothing to track.
-		return nil
+	currentInvitee := invitee
+	rates := [3]uint32{params.Level1RewardRateBps, params.Level2RewardRateBps, params.Level3RewardRateBps}
+
+	for level := 0; level < int(types.MaxReferralDepth); level++ {
+		rate := rates[level]
+		if rate == 0 {
+			continue
+		}
+
+		refID, found := k.getReferralIDByInvitee(ctx, currentInvitee)
+		if !found {
+			// No more ancestors in the chain.
+			return nil
+		}
+
+		ref, found := k.GetReferral(ctx, refID)
+		if !found || ref.Status != types.ReferralStatusActive {
+			return nil
+		}
+
+		// Calculate bonus: rewardAmount * rate / 10000
+		bonus := rewardAmount.Mul(sdkmath.NewInt(int64(rate))).Quo(sdkmath.NewInt(10000))
+		if bonus.IsZero() {
+			// Move up the chain: inviter becomes the next invitee.
+			currentInvitee = ref.Inviter
+			continue
+		}
+
+		// Daily cap check (whitepaper lines 528-540)
+		if err := k.CheckDailyCaps(ctx, ref.Inviter, bonus); err != nil {
+			// Don't fail the entire chain if one level exceeds cap.
+			currentInvitee = ref.Inviter
+			continue
+		}
+
+		current := k.getPendingRewards(ctx, ref.Inviter)
+		newTotal := current.Add(bonus)
+		k.setPendingRewards(ctx, ref.Inviter, newTotal)
+
+		// Record daily cap usage
+		k.RecordDailyCapUsage(ctx, ref.Inviter, bonus)
+
+		ctx.EventManager().EmitTypedEvent(&ReferralRewardTrackedEvent{
+			Inviter: ref.Inviter,
+			Invitee: invitee,
+			Amount:  bonus,
+		})
+
+		// Move up the chain: inviter becomes the next invitee.
+		currentInvitee = ref.Inviter
 	}
-
-	ref, found := k.GetReferral(ctx, refID)
-	if !found || ref.Status != types.ReferralStatusActive {
-		return nil
-	}
-
-	// Calculate referral bonus: rewardAmount * rewardRateBps / 10000
-	bonus := rewardAmount.Mul(sdkmath.NewInt(int64(params.RewardRateBps))).Quo(sdkmath.NewInt(10000))
-	if bonus.IsZero() {
-		return nil
-	}
-
-	// Daily cap check (white paper lines 528-540)
-	if err := k.CheckDailyCaps(ctx, ref.Inviter, bonus); err != nil {
-		return err
-	}
-
-	current := k.getPendingRewards(ctx, ref.Inviter)
-	newTotal := current.Add(bonus)
-	k.setPendingRewards(ctx, ref.Inviter, newTotal)
-
-	// Record daily cap usage
-	k.RecordDailyCapUsage(ctx, ref.Inviter, bonus)
-
-	ctx.EventManager().EmitTypedEvent(&ReferralRewardTrackedEvent{
-		Inviter: ref.Inviter,
-		Invitee: invitee,
-		Amount:  bonus,
-	})
 
 	return nil
 }

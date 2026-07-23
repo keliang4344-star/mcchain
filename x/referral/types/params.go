@@ -12,7 +12,9 @@ var _ paramtypes.ParamSet = (*Params)(nil)
 // Params defines the parameters for the referral module.
 // Mirrors proto/mcchain/referral/params.proto.
 type Params struct {
-	RewardRateBps       uint32 `json:"reward_rate_bps" yaml:"reward_rate_bps"`
+	Level1RewardRateBps uint32 `json:"level1_reward_rate_bps" yaml:"level1_reward_rate_bps"`
+	Level2RewardRateBps uint32 `json:"level2_reward_rate_bps" yaml:"level2_reward_rate_bps"`
+	Level3RewardRateBps uint32 `json:"level3_reward_rate_bps" yaml:"level3_reward_rate_bps"`
 	MinPayout           string `json:"min_payout" yaml:"min_payout"`
 	MaxReferralsPerUser uint64 `json:"max_referrals_per_user" yaml:"max_referrals_per_user"`
 	CooldownBlocks      uint64 `json:"cooldown_blocks" yaml:"cooldown_blocks"`
@@ -30,7 +32,9 @@ func ParamKeyTable() paramtypes.KeyTable {
 
 func NewParams() Params {
 	return Params{
-		RewardRateBps:       DefaultRewardRateBps,
+		Level1RewardRateBps: DefaultLevel1RewardRateBps,
+		Level2RewardRateBps: DefaultLevel2RewardRateBps,
+		Level3RewardRateBps: DefaultLevel3RewardRateBps,
 		MinPayout:           DefaultMinPayout,
 		MaxReferralsPerUser: DefaultMaxReferralsPerUser,
 		CooldownBlocks:      DefaultCooldownBlocks,
@@ -46,8 +50,18 @@ func DefaultParams() Params {
 func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 	return paramtypes.ParamSetPairs{
 		paramtypes.NewParamSetPair(
-			[]byte("RewardRateBps"),
-			&p.RewardRateBps,
+			[]byte("Level1RewardRateBps"),
+			&p.Level1RewardRateBps,
+			validateRewardRateBps,
+		),
+		paramtypes.NewParamSetPair(
+			[]byte("Level2RewardRateBps"),
+			&p.Level2RewardRateBps,
+			validateRewardRateBps,
+		),
+		paramtypes.NewParamSetPair(
+			[]byte("Level3RewardRateBps"),
+			&p.Level3RewardRateBps,
 			validateRewardRateBps,
 		),
 		paramtypes.NewParamSetPair(
@@ -79,7 +93,13 @@ func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 }
 
 func (p Params) Validate() error {
-	if err := validateRewardRateBps(p.RewardRateBps); err != nil {
+	if err := validateRewardRateBps(p.Level1RewardRateBps); err != nil {
+		return err
+	}
+	if err := validateRewardRateBps(p.Level2RewardRateBps); err != nil {
+		return err
+	}
+	if err := validateRewardRateBps(p.Level3RewardRateBps); err != nil {
 		return err
 	}
 	if err := validateMinPayout(p.MinPayout); err != nil {

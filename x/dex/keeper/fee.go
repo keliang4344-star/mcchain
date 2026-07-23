@@ -10,14 +10,13 @@ import (
 
 // Fee distribution ratios (in bps of the total fee, 10000 = 100%).
 //
-// Whitepaper (lines 506, 513): total swap fee is 0.30% of the trade,
-// of which 0.05% of the trade is burned. Expressed as a share of the
-// total fee: 0.05% / 0.30% = 16.67% ≈ 1667 bps.
-// The remainder is split between the protocol treasury (0.10% of trade)
-// and LP providers (0.15% of trade).
+// Whitepaper §24: total swap fee is 0.30% of the trade volume.
+// 50% of the fee is burned (= 0.15% of trade volume, permanent deflation).
+// 50% of the fee stays with LP providers (= 0.15% of trade volume, in pool reserve).
+// No protocol treasury share (the treasury is funded separately).
 const (
-	FeeBurnBps     = 1667 // 16.67% of fee burned (= 0.05% of trade, whitepaper 506/513)
-	FeeTreasuryBps = 3333 // 33.33% of fee to protocol treasury (= 0.10% of trade)
+	FeeBurnBps     = 5000 // 50.00% of fee burned (= 0.15% of trade, whitepaper §24 通缩飞轮)
+	FeeTreasuryBps = 0    //  0.00% — treasury funded separately (not from swap fees)
 	FeeLPBps       = 5000 // 50.00% of fee to LP providers (= 0.15% of trade, stays in pool reserve)
 )
 

@@ -3,47 +3,405 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MobileChain (MC) — 手机即节点的公链</title>
+<title>MobileChain 白皮书 — 一部关于「所有权归流」的史诗</title>
 <style>
+  :root {
+    --bg: #0a0a12;
+    --bg-secondary: #111122;
+    --bg-card: #16162a;
+    --bg-sidebar: #0d0d1a;
+    --text: #d0d0e0;
+    --text-secondary: #8888aa;
+    --accent: #e94560;
+    --accent2: #0f3460;
+    --accent3: #533483;
+    --gold: #d4af37;
+    --border: #1e1e38;
+    --sidebar-width: 280px;
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; line-height: 1.6; }
-  .hero { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 80px 20px; text-align: center; }
-  .hero h1 { font-size: 3em; font-weight: 700; margin-bottom: 12px; letter-spacing: -1px; }
-  .hero .subtitle { font-size: 1.2em; opacity: 0.85; max-width: 600px; margin: 0 auto 30px; }
-  .hero .en-subtitle { font-size: 0.95em; opacity: 0.6; font-style: italic; margin-bottom: 24px; }
-  .principles { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 32px; }
-  .principle { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 12px 20px; font-size: 0.95em; }
-  .section { max-width: 900px; margin: 60px auto; padding: 0 20px; }
-  .section h2 { font-size: 1.6em; margin-bottom: 20px; color: #0f3460; border-bottom: 2px solid #0f3460; padding-bottom: 8px; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
-  .card { background: #fff; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: box-shadow 0.2s; text-decoration: none; color: inherit; display: block; }
-  .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
-  .card h3 { font-size: 1.1em; margin-bottom: 6px; color: #0f3460; }
-  .card p { font-size: 0.9em; color: #555; }
-  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-  th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #eee; }
-  th { background: #0f3460; color: #fff; font-weight: 600; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: var(--sidebar-width);
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    overflow-y: auto;
+    z-index: 100;
+    padding: 24px 0;
+  }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
+  .sidebar-logo {
+    padding: 0 24px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .sidebar-logo h2 {
+    font-size: 1.3em;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--gold));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .sidebar-logo .ver {
+    font-size: 0.75em;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  .sidebar-nav { padding: 8px 0; }
+  .sidebar-nav a {
+    display: block;
+    padding: 7px 24px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9em;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .sidebar-nav a:hover, .sidebar-nav a.active {
+    color: #fff;
+    background: rgba(233,69,96,0.06);
+    border-left-color: var(--accent);
+  }
+  .sidebar-nav .vol-title {
+    padding: 16px 24px 6px;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .sidebar-nav .sub {
+    padding-left: 36px;
+    font-size: 0.82em;
+  }
+
+  /* Main */
+  .main {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    max-width: 900px;
+    padding: 60px 48px 80px;
+  }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 80px 0 60px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 60px;
+  }
+  .hero h1 {
+    font-size: 3.2em;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--gold) 50%, var(--accent3) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 2px;
+  }
+  .hero .tagline {
+    font-size: 1.15em;
+    color: var(--text-secondary);
+    margin: 16px 0 8px;
+    font-style: italic;
+  }
+  .hero .meta {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+  }
+  .hero .cta {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--accent), #c0392b);
+    color: #fff;
+    padding: 14px 36px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.05em;
+    box-shadow: 0 4px 20px rgba(233,69,96,0.4);
+    transition: all 0.25s;
+  }
+  .hero .cta:hover { transform: translateY(-2px); box-shadow: 0 6px 30px rgba(233,69,96,0.6); }
+
+  .principles {
+    display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;
+    margin-top: 32px;
+  }
+  .principle {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 8px 18px;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+  }
+
+  /* Sections */
+  section { margin-bottom: 48px; }
+  section h2 {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  section h2 .num {
+    color: var(--accent);
+    font-size: 0.8em;
+    margin-right: 8px;
+    font-weight: 400;
+  }
+  section h3 {
+    font-size: 1.2em;
+    color: var(--gold);
+    margin: 28px 0 12px;
+  }
+  section p { margin-bottom: 12px; color: var(--text); font-size: 0.95em; }
+  section blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 12px 20px;
+    margin: 20px 0;
+    background: rgba(233,69,96,0.04);
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 0.93em;
+    border-radius: 0 6px 6px 0;
+  }
+
+  /* Cards */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 24px rgba(233,69,96,0.1);
+    transform: translateY(-2px);
+  }
+  .card h4 { font-size: 1.05em; color: #fff; margin-bottom: 6px; }
+  .card p { font-size: 0.85em; color: var(--text-secondary); }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    margin: 20px 0;
+  }
+  th, td {
+    padding: 10px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9em;
+  }
+  th {
+    background: var(--bg-secondary);
+    color: var(--gold);
+    font-weight: 600;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
   tr:last-child td { border-bottom: none; }
-  .footer { text-align: center; padding: 40px 20px; color: #999; font-size: 0.85em; border-top: 1px solid #eee; margin-top: 60px; }
-  .footer a { color: #0f3460; text-decoration: none; }
-  code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
-  .chain-params { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
-  .param { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-align: center; }
-  .param .label { font-size: 0.8em; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-  .param .value { font-size: 1.3em; font-weight: 700; color: #0f3460; margin-top: 4px; }
-  .bounty { background: #fff; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-  .bounty strong { color: #c00; }
+  td code {
+    background: rgba(255,255,255,0.06);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent);
+  }
+
+  /* Params grid */
+  .param-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .param-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .param-item .label {
+    font-size: 0.75em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .param-item .value {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: #fff;
+    margin-top: 6px;
+  }
+  .param-item .value.red { color: var(--accent); }
+  .param-item .value.gold { color: var(--gold); }
+
+  /* Five pools */
+  .pool-bar {
+    display: flex;
+    height: 28px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 16px 0;
+  }
+  .pool-seg {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72em; font-weight: 700; color: #fff;
+    white-space: nowrap;
+  }
+  .pool-seg.depin { background: #e94560; flex: 55; }
+  .pool-seg.staking { background: #0f3460; flex: 15; }
+  .pool-seg.team { background: #533483; flex: 12; }
+  .pool-seg.foundation { background: #1a8a5a; flex: 13; }
+  .pool-seg.early { background: #d4af37; flex: 5; color: #111; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 48px 0 32px;
+    border-top: 1px solid var(--border);
+    margin-top: 60px;
+    color: var(--text-secondary);
+    font-size: 0.85em;
+  }
+  .footer a { color: var(--accent); text-decoration: none; }
+  .footer .license { margin-top: 8px; font-size: 0.8em; opacity: 0.6; }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; padding: 40px 20px; }
+    .hero h1 { font-size: 2em; }
+  }
+
+  /* Volume divider */
+  .vol-divider {
+    text-align: center;
+    padding: 40px 0;
+    margin: 40px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .vol-divider h2 {
+    font-size: 1.5em;
+    color: var(--accent);
+    border: none;
+    letter-spacing: 4px;
+  }
+  .vol-divider .sub {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  /* Status badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+  }
+  .badge.done { background: rgba(26,138,90,0.15); color: #1a8a5a; border: 1px solid rgba(26,138,90,0.3); }
+  .badge.wip { background: rgba(212,175,55,0.15); color: var(--gold); border: 1px solid rgba(212,175,55,0.3); }
+  .badge.plan { background: rgba(136,136,170,0.15); color: var(--text-secondary); border: 1px solid rgba(136,136,170,0.3); }
+
+  .roadmap-table td:first-child { white-space: nowrap; }
 </style>
 </head>
 <body>
 
-<div class="hero">
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h2>MobileChain</h2>
+    <div class="ver">v6.0 · mcchain-mainnet-1</div>
+  </div>
+  <div class="sidebar-nav">
+    <a href="#hero">卷首语</a>
+    <div class="vol-title">第一卷 · 长河</div>
+    <a href="#ch1" class="sub">第一章 价值的容器</a>
+    <a href="#ch2" class="sub">第二章 平台时代的悖论</a>
+    <a href="#ch3" class="sub">第三章 技术迭代的必然性</a>
+    <a href="#ch4" class="sub">第四章 缺失的那一步</a>
+    <a href="#ch5" class="sub">第五章 手机的沉默多数</a>
+    <a href="#ch6" class="sub">第六章 天下人的天下</a>
+    <div class="vol-title">第二卷 · 归流</div>
+    <a href="#ch7" class="sub">第七章 一部手机即一个节点</a>
+    <a href="#ch8" class="sub">第八章 稀缺写进代码</a>
+    <a href="#ch9" class="sub">第九章 五池即契约</a>
+    <a href="#ch10" class="sub">第十章 信任的置换</a>
+    <a href="#ch11" class="sub">第十一章 共振分发</a>
+    <a href="#ch12" class="sub">第十二章 边缘算力</a>
+    <a href="#ch13" class="sub">第十三章 零通胀的安全</a>
+    <div class="vol-title">第三卷 · 共治</div>
+    <a href="#ch14" class="sub">第十四章 治理的归宿</a>
+    <a href="#ch15" class="sub">第十五章 共识共生</a>
+    <a href="#ch16" class="sub">第十六章 透明的信仰</a>
+    <a href="#ch17" class="sub">第十七章 全球化铺设</a>
+    <a href="#ch18" class="sub">第十八章 自治社区</a>
+    <div class="vol-title">第四卷 · 远方</div>
+    <a href="#ch19" class="sub">第十九章 商业价值</a>
+    <a href="#ch20" class="sub">第二十章 数据生态</a>
+    <a href="#ch21" class="sub">第二十一章 路线图</a>
+    <a href="#ch22" class="sub">第二十二章 愿景</a>
+    <div class="vol-title">第五卷 · 工程肌理</div>
+    <a href="#ch23" class="sub">第二十三章 验证节点</a>
+    <a href="#ch24" class="sub">第二十四章 原生交易所</a>
+    <a href="#ch25" class="sub">第二十五章 推荐激励</a>
+    <a href="#ch26" class="sub">第二十六章 预言机</a>
+    <a href="#ch27" class="sub">第二十七章 产品哲学</a>
+    <a href="#ch28" class="sub">第二十八章 全球化策略</a>
+    <a href="#ch29" class="sub">第二十九章 基金与赏金</a>
+    <a href="#ch30" class="sub">第三十章 路线图全貌</a>
+    <div class="vol-title">附录</div>
+    <a href="#appendix" class="sub">参数圣殿 A.1-A.7</a>
+    <a href="#epilogue">跋</a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<div class="main">
+
+<!-- Hero -->
+<div class="hero" id="hero">
   <h1>MobileChain</h1>
-  <p class="subtitle">一条把全节点装进每一部手机的公链</p>
-  <p class="en-subtitle">A Public Chain That Puts a Full Node in Every Phone</p>
-  <p style="margin-top:20px;">
-    <a href="MobileChain白皮书_完整典藏版.pdf" style="display:inline-block;background:linear-gradient(135deg,#e94560,#c0392b);color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:1.05em;box-shadow:0 2px 8px rgba(233,69,96,0.5);transition:transform 0.2s,box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(233,69,96,0.7)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(233,69,96,0.5)'">下载 V3 白皮书 PDF</a>
-  </p>
+  <p class="tagline">一部关于「所有权归流」的史诗</p>
+  <p class="meta">版本 v6.0 · 2026 · 链标识 mcchain-mainnet-1 · 主币 MC (umc, 精度 6) · 固定总量 10 亿 · 零通胀</p>
+  <a class="cta" href="MobileChain白皮书_完整典藏版.pdf">下载完整白皮书 PDF</a>
   <div class="principles">
     <span class="principle">开源可审计</span>
     <span class="principle">参数写代码</span>
@@ -52,92 +410,328 @@
   </div>
 </div>
 
-<div class="section">
+<!-- Core Params -->
+<section>
   <h2>核心参数</h2>
-  <div class="chain-params">
-    <div class="param"><div class="label">链 ID</div><div class="value" style="font-size:1em;">mcchain-mainnet-1</div></div>
-    <div class="param"><div class="label">主币</div><div class="value">MC</div></div>
-    <div class="param"><div class="label">总量</div><div class="value">10 亿</div></div>
-    <div class="param"><div class="label">通胀</div><div class="value" style="color:#c00;">零</div></div>
-    <div class="param"><div class="label">共识</div><div class="value" style="font-size:1em;">CometBFT</div></div>
-    <div class="param"><div class="label">最小单位</div><div class="value">umc</div></div>
+  <div class="param-grid">
+    <div class="param-item"><div class="label">链 ID</div><div class="value" style="font-size:0.95em;">mcchain-mainnet-1</div></div>
+    <div class="param-item"><div class="label">主币</div><div class="value gold">MC</div></div>
+    <div class="param-item"><div class="label">最小单位</div><div class="value">umc</div></div>
+    <div class="param-item"><div class="label">精度</div><div class="value">6</div></div>
+    <div class="param-item"><div class="label">总量</div><div class="value gold">10 亿</div></div>
+    <div class="param-item"><div class="label">通胀</div><div class="value red">零</div></div>
+    <div class="param-item"><div class="label">共识引擎</div><div class="value" style="font-size:0.95em;">CometBFT</div></div>
+    <div class="param-item"><div class="label">应用框架</div><div class="value" style="font-size:0.9em;">Cosmos SDK</div></div>
   </div>
-</div>
+</section>
 
-<div class="section">
-  <h2>文档</h2>
-  <div class="cards">
-    <a class="card" href="https://github.com/mcchain/mcchain/blob/main/docs/WHITEPAPER.md">
-      <h3>白皮书</h3>
-      <p>V3 哲学版：一部关于「所有权归流」的史诗</p>
-    </a>
-    <a class="card" href="https://github.com/mcchain/mcchain/blob/main/docs/TOKEN_ALLOCATION.md">
-      <h3>通证分配</h3>
-      <p>总量 10 亿 MC，五池分配，零通胀锁定</p>
-    </a>
-    <a class="card" href="https://github.com/mcchain/mcchain/blob/main/docs/audit_checklist.md">
-      <h3>审计清单</h3>
-      <p>安全审计范围、标准与第三方要求</p>
-    </a>
-    <a class="card" href="https://github.com/mcchain/mcchain/blob/main/docs/MAINNET_RUNBOOK.md">
-      <h3>主网 Runbook</h3>
-      <p>上线部署完整操作手册</p>
-    </a>
-    <a class="card" href="https://github.com/mcchain/mcchain/blob/main/docs/MODULE_WHITEPAPER.md">
-      <h3>模块白皮书</h3>
-      <p>各模块完成度、架构与改进路线图</p>
-    </a>
-    <a class="card" href="https://github.com/mcchain/mcchain/blob/main/BEGINNER_GUIDE.md">
-      <h3>新手部署指南</h3>
-      <p>云服务商一键启动教程</p>
-    </a>
+<!-- Five Pools -->
+<section>
+  <h2>五池分配（创世一次性铸满）</h2>
+  <div class="pool-bar">
+    <div class="pool-seg depin">设备激励 55%</div>
+    <div class="pool-seg foundation">基金会 13%</div>
+    <div class="pool-seg staking">质押安全 15%</div>
+    <div class="pool-seg team">团队 12%</div>
+    <div class="pool-seg early">早期开发 5%</div>
   </div>
-</div>
-
-<div class="section">
-  <h2>技术栈</h2>
   <table>
-    <tr><th>组件</th><th>版本</th><th>说明</th></tr>
-    <tr><td>Cosmos SDK</td><td>v0.47.14</td><td>模块化区块链框架</td></tr>
-    <tr><td>CometBFT</td><td>v0.37.6</td><td>BFT 共识引擎</td></tr>
-    <tr><td>IBC</td><td>ibc-go v7.1.0</td><td>跨链通信协议</td></tr>
-    <tr><td>Go</td><td>1.21+</td><td>开发语言</td></tr>
+    <tr><th>池子</th><th>占比</th><th>金额 (MC)</th><th>托管方式</th></tr>
+    <tr><td>设备激励 DePIN</td><td>55%</td><td>5.5 亿</td><td>depin 模块账户</td></tr>
+    <tr><td>质押 / 网络安全</td><td>15%</td><td>1.5 亿</td><td>staking_security 模块账户</td></tr>
+    <tr><td>基金会</td><td>13%</td><td>1.3 亿</td><td>foundation 账户 · 链上治理支配</td></tr>
+    <tr><td>团队</td><td>12%</td><td>1.2 亿</td><td>3-of-5 多签 · 1年cliff + 3年线性</td></tr>
+    <tr><td>早期开发</td><td>5%</td><td>0.5 亿</td><td>early_dev 模块账户</td></tr>
   </table>
-</div>
+</section>
 
-<div class="section">
-  <h2>自定义模块</h2>
+<!-- VOLUME 1 -->
+<div class="vol-divider"><h2>第一卷</h2><div class="sub">长河：经济权力的一次次转移</div></div>
+
+<section id="ch1"><h2><span class="num">第一章</span> 价值的容器</h2>
+<p>人类组织价值的方式经历过五次容器更替：实物 → 金属 → 纸张 → 银行信用 → 区块链。每一次，都把价值的容器变小、变轻、变便宜，旧权力结构随之被撬动。</p>
+<p>MobileChain 站在第五只容器的末端，要做的不仅是撬动中心数据库对记账权的垄断，更是用写死在代码里的分配规则，把这次释放出来的权力永久锁在参与者手里。</p>
+</section>
+
+<section id="ch2"><h2><span class="num">第二章</span> 平台时代的悖论</h2>
+<p>平台用"免费"买断了用户的议价权。你写的每条动态、拍的每段视频、留的每次点击，都成了平台训练算法、投放广告、抬高估值的原料。你得到的回报：免费服务——以及越来越精准、越来越贵地推送给你的广告。</p>
+<blockquote>这是一种新型的数字封建：领主换成了平台，农奴换成了用户，地租换成了数据与注意力。</blockquote>
+</section>
+
+<section id="ch3"><h2><span class="num">第三章</span> 技术迭代的必然性</h2>
+<p>每一项把关键资源成本压低一个数量级的技术，最终都会引发一次权力再分配：印刷术解放知识、蒸汽机解放动力、互联网解放信息。MobileChain 要做的，是把"参与一条公链、贡献真实算力与数据、并据此获得回报"的成本，从"需要矿机、服务器、百万质押"压低到"需要一部手机"。</p>
+</section>
+
+<section id="ch4"><h2><span class="num">第四章</span> 缺失的那一步</h2>
+<p>"网络的价值归参与者所有"之所以迟迟没发生，源于三个结构性原因：生产资料门槛、记账权中心化、规模与公平的悖论。区块链恰好能解决这三件事：用手机降低门槛、用公开账本提供不可篡改记账、用代码规则实现大规模自动分配。</p>
+</section>
+
+<section id="ch5"><h2><span class="num">第五章</span> 手机的沉默多数</h2>
+<p>全球 50 亿部智能手机，每部都内置神经网络芯片、持续供电与无线连接、传感器阵列。它们在 99% 的时间里算力空转、数据被无偿收集。MobileChain 要做的，是给这 50 亿台沉默的设备发一张属于它们自己的资产负债表——当一部手机第一次因为它真实完成的任务而收到一笔写进公开账本的回报，那部设备才第一次从"被征用的生产资料"变成"自主的生产者"。</p>
+</section>
+
+<section id="ch6"><h2><span class="num">第六章</span> "天下，是天下人的天下"</h2>
+<p>MobileChain 的政治立场：一条由数十亿手机共同构成的网络，其价值不应归于某家公司的股东，而应归于其真实的贡献者。每一个为生态贡献了在线、算力、数据的"点"，都是这张网络真正的主人之一。</p>
+<blockquote>只有当规则无人能凌驾，所有权才真正回归天下人。</blockquote>
+</section>
+
+<!-- VOLUME 2 -->
+<div class="vol-divider"><h2>第二卷</h2><div class="sub">归流：MobileChain 如何完成这次转移</div></div>
+
+<section id="ch7"><h2><span class="num">第七章</span> 一部手机即一个节点</h2>
+<p>把全节点跑在手机上，意味着"成为一条公链真实的一部分"不再需要矿机、服务器或百万质押。phonenode 模块围绕手机特性设计安全规则：认证 30 天有效、女巫设备绑定、离线宽限 100 区块、分级罚没（离线 5% / 作弊 10% / 伪造 20%）。</p>
+<table>
+  <tr><th>参数</th><th>值</th><th>含义</th></tr>
+  <tr><td>AttestationValidity</td><td>2,592,000 秒 (30天)</td><td>认证有效期</td></tr>
+  <tr><td>OfflineGraceBlocks</td><td>100 区块</td><td>离线宽限</td></tr>
+  <tr><td>OfflineSlashBps</td><td>500 (5%)</td><td>离线罚没</td></tr>
+  <tr><td>ContribSlashBps</td><td>1000 (10%)</td><td>作弊贡献罚没</td></tr>
+  <tr><td>AttestSlashBps</td><td>2000 (20%)</td><td>伪造认证罚没</td></tr>
+</table>
+</section>
+
+<section id="ch8"><h2><span class="num">第八章</span> 稀缺写进代码</h2>
+<p>总量 = 10 亿 MC，创世一次性铸满，此后区块奖励恒为 0，x/mint 通胀率强制为 0。<code>TotalSupplyCap = uint64(1e15)</code> 是链上常量，不可治理修改。</p>
+<p>销毁飞轮：DePIN 任务赏金、DEX 交易手续费、推荐加成、治理押金——每笔真实行为都按规则销毁一部分 MC。<span class="badge done">DEX 手续费销毁已实现</span> <span class="badge wip">其余销毁通道逐步上线</span></p>
+</section>
+
+<section id="ch9"><h2><span class="num">第九章</span> 五池即契约</h2>
+<p>10 亿 MC 按五池一次性分配，设备激励池 55% 是全场唯一超过半数的那块——最大份额留给真实建设者。团队仅 12%，锁进 3-of-5 多签、1 年 cliff + 3 年线性释放。</p>
+</section>
+
+<section id="ch10"><h2><span class="num">第十章</span> 信任的置换</h2>
+<p>把对"人"的信任，系统性地置换为对"代码"的信任：设备激励池无铸币权限、基金会动用走链上治理、EdgeAI 仲裁由多签承担、验证人最低自抵押 3 万 MC 由链级强制。</p>
+</section>
+
+<section id="ch11"><h2><span class="num">第十一章</span> 共振分发</h2>
+<p>激励的节奏与网络真实贡献同频，而非与时间流逝共振：按真实任务发放、通过认证才发放、线性摊薄避免抛压。七层防刷体系守护 5.5 亿 MC 金库：身份门槛、唯一绑定、认证时效、任务证明、分级罚没、罚没冷却、预言机核验。</p>
+</section>
+
+<section id="ch12"><h2><span class="num">第十二章</span> 边缘算力</h2>
+<p>把分散的手机算力组织成去中心化边缘 AI 算力市场：需求方付费托管模型 (escrow) + 乐观结算。需求方发任务即把赏金锁进链上托管，算力方看到钱锁定才计算，结果通过争议期度过自动发放。<span class="badge done">全流程已实现</span> <span class="badge wip">80/15/5 分账与销毁通道部分进行中</span></p>
+</section>
+
+<section id="ch13"><h2><span class="num">第十三章</span> 零通胀的安全</h2>
+<p>不增发养安全的三角：预铸质押安全池 (15%) 启动期主力 → 手续费回流成熟期主力 → 罚没回充全程微调。<span class="badge done">罚没回充已实现</span> <span class="badge done">Gas 回流 10% 已实现</span> <span class="badge done">安全池滴灌 5%/100 区块已实现</span></p>
+</section>
+
+<!-- VOLUME 3 -->
+<div class="vol-divider"><h2>第三卷</h2><div class="sub">共治：世界，终将归还给所有人</div></div>
+
+<section id="ch14"><h2><span class="num">第十四章</span> 治理的归宿</h2>
+<p>"可治理"与"不可治理"之间划着红线：总量上限永不可治理修改；安全参数、资金动用、协议演进可经治理提案调整。治理是"一份质押一份权重"的链上投票——让最关心长期健康的人拥有最大话语权。</p>
+</section>
+
+<section id="ch15"><h2><span class="num">第十五章</span> 共识共生</h2>
+<p>推荐激励根植于真实贡献而非拉人头：不抽水（奖励从设备激励池额外支出）、被推荐人收入不变、有上限（单人日 500 MC）、可治理、防女巫。<span class="badge wip">推荐模块设计已完成，逐步上线</span></p>
+</section>
+
+<section id="ch16"><h2><span class="num">第十六章</span> 透明的信仰</h2>
+<p>Web 区块浏览器 + gRPC-gateway REST 接口，任何人无需运行节点即可查询五大模块业务数据。真正的透明是任何人都能独立验证，而非依赖某个官方页面。</p>
+</section>
+
+<section id="ch17"><h2><span class="num">第十七章</span> 全球化铺设</h2>
+<p>由近及远：东南亚第一波（越南/印尼/菲律宾/泰国）、南亚跟进（印度/孟加拉）、拉美/非洲第二波、中东/欧美第三波。多语言节奏：主网上线中英文，逐月新增越南语/印尼语/印地语/西语/葡语/阿语等。</p>
+</section>
+
+<section id="ch18"><h2><span class="num">第十八章</span> 自治社区</h2>
+<p>当关键参数由社区投票、基金会由社区掌控、仲裁移交治理、验证人足够分散时，这条链便不再属于某一团队或基金会，而属于所有曾以真实设备、真实算力、真实贡献参与其中的人。</p>
+</section>
+
+<!-- VOLUME 4 -->
+<div class="vol-divider"><h2>第四卷</h2><div class="sub">远方：经济与政治的终局想象</div></div>
+
+<section id="ch19"><h2><span class="num">第十九章</span> 商业价值的远方</h2>
+<p>人类正走向 AI 算力高度饥渴的时代。MobileChain 要在中心化云的昂贵桥梁之外，铺一条由数十亿手机构成的、分散的、低成本的算力小路——承载碎片化推理任务，以远低于中心化云的价格供给。真实需求存在 → 边缘供给存在 → 链上托管与仲裁把双边信任成本压到极低 → 规模起来后真实收入接棒预铸金库。</p>
+</section>
+
+<section id="ch20"><h2><span class="num">第二十章</span> 数据生态的每一"点"</h2>
+<p>MobileChain 全部机制的设计原点：每一个为生态贡献了在线、算力、数据的"点"，都应获得与其贡献相称的权利与收益。体现在：55% 总量留给设备激励、共振分发杜绝不劳而获、总量不可治理增发、奖励写入公开账本属于设备所有者。</p>
+<blockquote>数亿个这样的"点"聚合起来，便是那句古老命题的现代回响——天下，终将回到天下人的手里。这一次，不是靠宣言，而是靠代码。</blockquote>
+</section>
+
+<section id="ch21"><h2><span class="num">第二十一章</span> 发展阶段</h2>
+<table>
+  <tr><th>阶段</th><th>时期</th><th>关键特征</th></tr>
+  <tr><td>启动期</td><td>约 1-2 年</td><td>铺开手机节点网络，质押安全池滴灌养安全</td></tr>
+  <tr><td>网络效应期</td><td>约第 3 年</td><td>EdgeAI 真实收入接棒，治理逐步移交</td></tr>
+  <tr><td>成熟期</td><td>约 4-5 年+</td><td>真实经济双轮驱动，社区完全自治</td></tr>
+</table>
+</section>
+
+<section id="ch22"><h2><span class="num">第二十二章</span> 愿景</h2>
+<p>让全世界每一部手机，都能以最低的门槛，成为一条可被审计的公链真实的一部分，并从自己的真实贡献中获得回报。</p>
+<p>当那部手机在深夜的床头柜上安静出块、完成一次 AI 推理、领到一笔微薄却来自真实贡献的 MC 时，归还，就已经发生了。</p>
+</section>
+
+<!-- VOLUME 5 -->
+<div class="vol-divider"><h2>第五卷</h2><div class="sub">工程肌理全貌（技术细节补全）</div></div>
+
+<section id="ch23"><h2><span class="num">第二十三章</span> 验证节点 (Verifier)</h2>
+<p>DePIN 任务的结果验证由独立验证节点承担。质押 ≥ 30,000 MC，接收随机分配的任务结果，运行 AI 项目方提供的验证脚本评分 (score ∈ [0,100])，每次验证获得任务赏金的 15%。</p>
+<p>分工链路：AI 项目方发任务 → 手机节点推理提交 → 随机分配 N 个验证节点评分 → 多数投票判定 (≥3 个取中位数) → 合格 (score≥30) 结算。</p>
+</section>
+
+<section id="ch24"><h2><span class="num">第二十四章</span> 原生交易所 (DEX)</h2>
+<p>内置原生 AMM 模块 x/dex，采用常量积 (x×y=k) 模型。初始流动性池 500 万 MC + 10 万 USDT，初始价格 0.02 USDT/MC。交易手续费 0.3%（50% 销毁 = 约交易额 0.15% 通缩）。LP 锁仓最低 7 天，前 6 个月流动性激励 5,000 MC/天。</p>
+</section>
+
+<section id="ch25"><h2><span class="num">第二十五章</span> 推荐激励</h2>
+<p>不抽水的共生模型：推荐奖励从设备激励池专设预算额外拨付，不从被推荐人收益中扣除。一代 10%、二代 5%、三代 2%，单人日上限 500 MC，全网日上限 20,600 MC。推荐预算占设备激励 55% 的 15%，约 8,250 万 MC 总预算。</p>
+</section>
+
+<section id="ch26"><h2><span class="num">第二十六章</span> 链下服务与预言机</h2>
+<p>预言机服务安全加固：Bearer 令牌鉴权、限流、可选 TLS。角色边界清楚：只把链下可验证事实以受控方式提交上链，最终发放、罚没、结算仍由链上模块按写死规则执行。预言机不是权力中心，而是受约束的信使。</p>
+</section>
+
+<section id="ch27"><h2><span class="num">第二十七章</span> 产品哲学</h2>
+<p>把复杂留给代码，把简单留给用户。已具备：命令行工具 mcchaind、Web 仪表盘（钱包+区块浏览器）、gRPC-gateway REST、Keplr 钱包互操作（前缀 mc, SLIP-44=118）。</p>
+<p>MC Miner APP 设计：3D 地球节点热力图、5 分钟零术语新手引导、智能通知推送、社交荣誉体系（成就徽章/排行榜）、美元等值显示。</p>
+</section>
+
+<section id="ch28"><h2><span class="num">第二十八章</span> 全球化区域策略</h2>
+<p>技术中立不等于推广无差别。一部闲置手机在雅加达创造的价值可能远高于硅谷——因为前者更稀缺、更被需要。多语言覆盖：主网上线中英文，逐月新增各语种。归还，从被遗忘的多数开始。</p>
+</section>
+
+<section id="ch29"><h2><span class="num">第二十九章</span> 初始生态建设基金与漏洞赏金</h2>
+<p>基金来自基金会池 (13% = 1.3 亿 MC)。漏洞赏金（通过 Immunefi 等平台）：严重最高 50,000 USDC、高危 25,000 USDC、中危 5,000 USDC、低危 1,000 USDC。赏金治理：单笔 &lt; 5,000 USDC 安全委员会审批，≥ 5,000 须治理提案+社区投票。基金会池每一笔动用都须经链上治理提案。</p>
+</section>
+
+<section id="ch30"><h2><span class="num">第三十章</span> 路线图全貌</h2>
+<table class="roadmap-table">
+  <tr><th>状态</th><th>项目</th></tr>
+  <tr><td><span class="badge done">已完成</span></td><td>五大原生模块、五池经济(55/15/12/13/5)、零通胀模型、手机节点安全体系、EdgeAI 全流程、验证人门槛(3万MC ante)、预言机加固、Web 仪表盘、完整文档、Gas 回流安全池(10%)、安全池滴灌(5%/100区块)、DePIN 5% 销毁通道</td></tr>
+  <tr><td><span class="badge wip">进行中</span></td><td>主网上线准备、Web 体验优化、移动端 SDK 打磨</td></tr>
+  <tr><td><span class="badge plan">规划中</span></td><td>治理渐进移交、CosmWasm 智能合约层、链下扩容与批量结算、IBC 跨链互操作、EdgeAI 算力市场规模化、企业 API、漏洞赏金与持续审计</td></tr>
+</table>
+</section>
+
+<!-- APPENDIX -->
+<div class="vol-divider"><h2>附录</h2><div class="sub">参数圣殿（可逐条对照源码审计）</div></div>
+
+<section id="appendix">
+  <h3>A.1 链级基础参数</h3>
   <table>
-    <tr><th>模块</th><th>职责</th></tr>
-    <tr><td><code>x/tokenomics</code></td><td>唯一铸币总账，五池分配，总量 10 亿不可治理增发</td></tr>
-    <tr><td><code>x/depin</code></td><td>设备激励金库，按真实任务逐笔发放</td></tr>
-    <tr><td><code>x/phonenode</code></td><td>手机全节点认证 / 女巫绑定 / 分级罚没</td></tr>
-    <tr><td><code>x/edgeai</code></td><td>边缘 AI 任务市场 / 托管付费 / 乐观结算 / 争议仲裁</td></tr>
-    <tr><td><code>x/mcchain</code></td><td>系统锚点、参数与查询</td></tr>
-    <tr><td><code>x/referral</code></td><td>社区推荐激励，不抽水共生模型</td></tr>
-    <tr><td><code>x/dex</code></td><td>原生 AMM 去中心化交易所 / 通缩引擎</td></tr>
+    <tr><th>参数</th><th>值</th><th>源码位置</th></tr>
+    <tr><td>共识引擎</td><td>CometBFT v0.37.6</td><td>go.mod</td></tr>
+    <tr><td>应用框架</td><td>Cosmos SDK v0.47.14</td><td>go.mod</td></tr>
+    <tr><td>语言</td><td>Go 1.21</td><td>go.mod</td></tr>
+    <tr><td>主网链标识</td><td>mcchain-mainnet-1</td><td>创世配置</td></tr>
+    <tr><td>账户地址前缀</td><td>mc</td><td>app/app.go</td></tr>
+    <tr><td>主币最小单位</td><td>umc</td><td>x/tokenomics/types/keys.go</td></tr>
+    <tr><td>精度</td><td>6 (1 MC = 1,000,000 umc)</td><td>链配置</td></tr>
+    <tr><td>增发通胀</td><td>0 (x/mint 强制为零)</td><td>创世/mint 配置</td></tr>
   </table>
-</div>
 
-<div class="section">
-  <h2>漏洞赏金</h2>
-  <div class="bounty">
-    <p>MobileChain 主网上线当天启动公开漏洞赏金计划（通过 Immunefi 等平台）。</p>
-    <table style="margin-top:16px;">
-      <tr><th>严重等级</th><th>奖励</th><th>典型范围</th></tr>
-      <tr><td><strong style="color:#c00;">严重</strong></td><td><strong>最高 50,000 USDC</strong></td><td>可盗取资金 / 无限铸币</td></tr>
-      <tr><td><strong style="color:#e67e00;">高危</strong></td><td>25,000 USDC</td><td>致链停止 / 分叉</td></tr>
-      <tr><td>中危</td><td>5,000 USDC</td><td>绕过限制 / 伪造数据</td></tr>
-      <tr><td>低危</td><td>1,000 USDC</td><td>边界条件漏洞</td></tr>
-    </table>
-    <p style="margin-top:12px;font-size:0.85em;color:#888;">赏金池由基金会 T0 解锁额划拨。每一笔动用经链上治理提案与社区投票。</p>
-  </div>
-</div>
+  <h3>A.2 代币经济 (tokenomics)</h3>
+  <table>
+    <tr><th>参数</th><th>值 (umc)</th><th>值 (MC)</th><th>常量</th></tr>
+    <tr><td>总量上限</td><td>1,000,000,000,000,000</td><td>10 亿</td><td><code>TotalSupplyCap</code></td></tr>
+    <tr><td>设备激励</td><td>550,000,000,000,000</td><td>5.5 亿</td><td><code>DeviceIncentivePercentBps=5500</code></td></tr>
+    <tr><td>质押安全</td><td>150,000,000,000,000</td><td>1.5 亿</td><td><code>StakingSecurityPercentBps=1500</code></td></tr>
+    <tr><td>团队</td><td>120,000,000,000,000</td><td>1.2 亿</td><td><code>TeamPercentBps=1200</code></td></tr>
+    <tr><td>基金会</td><td>130,000,000,000,000</td><td>1.3 亿</td><td><code>FoundationPercentBps=1300</code></td></tr>
+    <tr><td>早期开发</td><td>50,000,000,000,000</td><td>0.5 亿</td><td><code>EarlyDevPercentBps=500</code></td></tr>
+  </table>
 
+  <h3>A.3 设备激励 (depin)</h3>
+  <table>
+    <tr><th>参数</th><th>值</th><th>常量</th></tr>
+    <tr><td>初始金库</td><td>550,000,000,000,000 umc (5.5亿MC)</td><td><code>DefaultInitialPool</code></td></tr>
+    <tr><td>奖励 denom</td><td>umc</td><td><code>DefaultRewardDenom</code></td></tr>
+    <tr><td>铸币权限</td><td>无</td><td>maccPerms (无 Minter)</td></tr>
+  </table>
+
+  <h3>A.4 手机节点安全 (phonenode)</h3>
+  <table>
+    <tr><th>参数</th><th>值</th><th>含义</th></tr>
+    <tr><td>AttestationRequired</td><td>true</td><td>必须认证才能参与</td></tr>
+    <tr><td>AttestationValidity</td><td>2,592,000 秒 (30天)</td><td>认证有效期</td></tr>
+    <tr><td>SybilDeviceBinding</td><td>true</td><td>女巫设备绑定</td></tr>
+    <tr><td>OfflineGraceBlocks</td><td>100 区块</td><td>离线宽限</td></tr>
+    <tr><td>OfflineSlashBps</td><td>500 (5%)</td><td>离线罚没</td></tr>
+    <tr><td>ContribSlashBps</td><td>1000 (10%)</td><td>作弊贡献罚没</td></tr>
+    <tr><td>AttestSlashBps</td><td>2000 (20%)</td><td>伪造认证罚没</td></tr>
+    <tr><td>SlashCooldownBlocks</td><td>43200 区块 (~12h)</td><td>罚没冷却</td></tr>
+  </table>
+
+  <h3>A.5 边缘 AI (edgeai)</h3>
+  <table>
+    <tr><th>参数</th><th>值</th><th>含义</th></tr>
+    <tr><td>MaxTaskReward</td><td>1,000,000,000 umc (1000 MC)</td><td>单任务赏金上限</td></tr>
+    <tr><td>DisputePeriodBlocks</td><td>100 区块</td><td>争议窗口</td></tr>
+    <tr><td>AntiCheatThresholdBps</td><td>5000 (50%)</td><td>反作弊阈值</td></tr>
+    <tr><td>付费模型</td><td>需求方托管 (escrow) + 乐观结算</td><td>—</td></tr>
+  </table>
+
+  <h3>A.6 共识安全门槛 (ante)</h3>
+  <table>
+    <tr><th>参数</th><th>值</th></tr>
+    <tr><td>MinSelfDelegationLowerBound</td><td>30,000,000,000 umc (3万MC)</td></tr>
+    <tr><td>强制范围</td><td>全链统一</td></tr>
+  </table>
+
+  <h3>A.7 模块与代码结构</h3>
+  <table>
+    <tr><th>模块</th><th>路径</th><th>职责</th></tr>
+    <tr><td>mcchain</td><td>x/mcchain</td><td>系统锚点模块</td></tr>
+    <tr><td>tokenomics</td><td>x/tokenomics</td><td>总量上限、五池分配、团队 vesting</td></tr>
+    <tr><td>depin</td><td>x/depin</td><td>设备激励金库与按任务发放</td></tr>
+    <tr><td>phonenode</td><td>x/phonenode</td><td>设备认证、女巫绑定、分级罚没</td></tr>
+    <tr><td>edgeai</td><td>x/edgeai</td><td>AI 任务、托管付费、乐观结算、争议仲裁</td></tr>
+    <tr><td>dex</td><td>x/dex</td><td>原生 AMM 交易所、通缩引擎</td></tr>
+    <tr><td>referral</td><td>x/referral</td><td>社区推荐激励、不抽水模型</td></tr>
+    <tr><td>ante</td><td>app/ante.go</td><td>验证人最低自抵押强制</td></tr>
+    <tr><td>预言机</td><td>internal/oraclesvc</td><td>受控链下事实提交上链</td></tr>
+    <tr><td>Web 仪表盘</td><td>web/</td><td>钱包 + 区块浏览器</td></tr>
+  </table>
+</section>
+
+<!-- EPILOGUE -->
+<div class="vol-divider" id="epilogue"><h2>跋</h2><div class="sub">五千年等来的那一页</div></div>
+
+<section>
+  <p>从实物到金属，从纸张到信用，从中心数据库到公开账本——人类用了五千年，才把价值的记录与分配，第一次有可能脱离任何单一中心的掌控。MobileChain 想做的，是把这最后一步按到每一个人的口袋里：让那只握着手机的手，既是价值的创造者，也是价值的记录者，还是价值的拥有者。</p>
+  <blockquote>你不必是工程师，不必懂共识算法。你只需要亲手验算一次：打开区块浏览器，对照这份白皮书附录里的常量，确认「白皮书数字 = 代码数字」。归还，从你口袋里那块微微发热的玻璃开始。</blockquote>
+</section>
+
+<!-- Footer -->
 <div class="footer">
-  <p><strong>MobileChain (MC)</strong> — Apache 2.0 License</p>
-  <p><a href="https://github.com/mcchain/mcchain">github.com/mcchain/mcchain</a></p>
+  <p><strong>MobileChain (MC)</strong></p>
+  <p>链标识：mcchain-mainnet-1 · 主币 MC · 总量 10 亿 · 零通胀</p>
+  <p style="margin-top:12px;">
+    <a href="https://github.com/mcchain/mcchain">github.com/mcchain/mcchain</a>
+    &nbsp;·&nbsp;
+    <a href="MobileChain白皮书_完整典藏版.pdf">下载白皮书 PDF</a>
+    &nbsp;·&nbsp;
+    <a href="MC-WHITEPAPER.pdf">旧版白皮书 PDF</a>
+  </p>
+  <p class="license">Apache 2.0 License · 凡与代码不符，以代码为准</p>
 </div>
+
+</div>
+
+<!-- Active nav tracking -->
+<script>
+(function() {
+  const navLinks = document.querySelectorAll('.sidebar-nav a');
+  const sections = [];
+  navLinks.forEach(a => {
+    const id = a.getAttribute('href').replace('#', '');
+    const el = document.getElementById(id);
+    if (el) sections.push({ id, el, link: a });
+  });
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(({ id, el }) => {
+      if (el.getBoundingClientRect().top <= 120) current = id;
+    });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  });
+})();
+</script>
 
 </body>
 </html>

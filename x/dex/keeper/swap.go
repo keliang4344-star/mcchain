@@ -42,8 +42,8 @@ func (k Keeper) SwapExactIn(
 	}
 
 	// Calculate fee and non-LP portion to deduct from pool reserves.
-	// The LP portion (20%) stays in the reserve; burn (50%) + treasury (30%)
-	// portions are extracted from the pool.
+	// The LP portion (50%) stays in the reserve; burn (50%) is extracted
+	// from the pool. No treasury share.
 	feeTotal := amountIn.MulRaw(int64(pool.FeeRateBps)).QuoRaw(10000)
 	nonLPFee := feeTotal.MulRaw(nonLPFeeBps).QuoRaw(10000)
 
