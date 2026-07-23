@@ -115,8 +115,8 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 
 		// ---- DePIN 5% burn ----
 		// 每次贡献奖励结算时，5% 永久销毁（通缩飞轮），95% 正常拨付。
-		burnAmount := reward * uint64(types.DePINBurnRatioBps) / 10000
-		payoutAmount := reward - burnAmount
+		burnAmount := uint64(reward) * uint64(types.DePINBurnRatioBps) / 10000
+		payoutAmount := uint64(reward) - burnAmount
 
 		// ====================================================================
 		// V3 新增：线性摊薄释放检查（release.go，白皮书行 372）

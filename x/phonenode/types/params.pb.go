@@ -39,6 +39,8 @@ type Params struct {
 	ContribSlashBps uint32 `protobuf:"varint,6,opt,name=contrib_slash_bps,json=contribSlashBps,proto3" json:"contrib_slash_bps,omitempty"`
 	// attest_slash_bps 伪造 attestation slash 惩罚基点。
 	AttestSlashBps uint32 `protobuf:"varint,7,opt,name=attest_slash_bps,json=attestSlashBps,proto3" json:"attest_slash_bps,omitempty"`
+	// slash_cooldown_blocks slash 后再认证冷却区块数，默认 43200（~12h @ 4s 出块）。
+	SlashCooldownBlocks int64 `protobuf:"varint,8,opt,name=slash_cooldown_blocks,json=slashCooldownBlocks,proto3" json:"slash_cooldown_blocks,omitempty"`
 }
 
 func (m *Params) Reset()      { *m = Params{} }

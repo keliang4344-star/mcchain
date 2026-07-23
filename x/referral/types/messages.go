@@ -1,5 +1,11 @@
 package types
 
+import (
+	"encoding/json"
+
+	"github.com/cosmos/cosmos-sdk/codec"
+)
+
 // Referral represents a single referral record.
 // Mirrors the proto message defined in proto/mcchain/referral/query.proto.
 type Referral struct {
@@ -14,6 +20,33 @@ type Referral struct {
 func (m *Referral) Reset()         { *m = Referral{} }
 func (m *Referral) String() string { return "Referral" }
 func (*Referral) ProtoMessage()    {}
+
+// ProtoMarshaler interface implementation for cdc.MustMarshal / MustUnmarshal.
+func (m *Referral) Marshal() ([]byte, error) {
+	return json.Marshal(m)
+}
+func (m *Referral) MarshalTo(data []byte) (int, error) {
+	bz, err := m.Marshal()
+	if err != nil {
+		return 0, err
+	}
+	return copy(data, bz), nil
+}
+func (m *Referral) MarshalToSizedBuffer(data []byte) (int, error) {
+	return m.MarshalTo(data)
+}
+func (m *Referral) Size() int {
+	bz, err := m.Marshal()
+	if err != nil {
+		return 0
+	}
+	return len(bz)
+}
+func (m *Referral) Unmarshal(data []byte) error {
+	return json.Unmarshal(data, m)
+}
+
+var _ codec.ProtoMarshaler = (*Referral)(nil)
 
 // MsgCreateReferral is the message to create a new referral.
 // Mirrors proto/mcchain/referral/tx.proto.

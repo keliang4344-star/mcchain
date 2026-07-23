@@ -91,7 +91,7 @@ func (k Keeper) CheckDailyCaps(ctx sdk.Context, inviter string, bonus sdkmath.In
 		newUsed := used + bonus.Uint64()
 		if newUsed > params.DailyNetworkCap {
 			return fmt.Errorf("referral reward exceeds daily-network cap: used=%d + bonus=%s > cap=%d (day=%d)",
-				used, bonus.String(), params.DailyNetworkCap, ctx.BlockHeight()/uint64(BlockDayDivisor()))
+				used, bonus.String(), params.DailyNetworkCap, uint64(ctx.BlockHeight()) / uint64(BlockDayDivisor()))
 		}
 	}
 

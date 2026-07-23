@@ -12,10 +12,19 @@ func (m *QueryChainInfoRequest) Reset()         { *m = QueryChainInfoRequest{} }
 func (m *QueryChainInfoRequest) String() string { return fmt.Sprintf("%+v", *m) }
 func (m *QueryChainInfoRequest) ProtoMessage()  {}
 func (m *QueryChainInfoRequest) Marshal() ([]byte, error) {
-	return m.MarshalToSizedBuffer(make([]byte, m.Size()))
+	buf, err := m.MarshalToSizedBuffer(make([]byte, m.Size()))
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
 func (m *QueryChainInfoRequest) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	buf, err := m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	if err != nil {
+		return 0, err
+	}
+	n := copy(dAtA, buf)
+	return n, nil
 }
 func (m *QueryChainInfoRequest) MarshalToSizedBuffer(dAtA []byte) ([]byte, error) {
 	return dAtA, nil

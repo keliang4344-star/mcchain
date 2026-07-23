@@ -37,9 +37,10 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/spf13/cobra"
 
 	depintypes "mcchain/x/depin/types"
@@ -118,13 +119,13 @@ func runOracle(chainID, nodeURI, listenAddr string) error {
 	}
 
 	keyringDir := envOrDefault("ORACLE_KEYRING_DIR", os.ExpandEnv("$HOME/.mcchain-oracle"))
-	kr, err := keyring.New("mcchain-oracle", keyring.BackendTest, keyringDir, os.Stdin)
+	kr, err := keyring.New("mcchain-oracle", keyring.BackendTest, keyringDir, os.Stdin, depintypes.ModuleCdc)
 	if err != nil {
 		return fmt.Errorf("create keyring: %w", err)
 	}
 
 	// 通过助记词恢复或创建 oracle 账户
-	oracleRecord, err := kr.NewAccount("oracle", mnemonic, "", sdk.GetConfig().GetFullBIP44Path(), keyring.DefaultBIP39Passphrase)
+	oracleRecord, err := kr.NewAccount("oracle", mnemonic, "", sdk.GetConfig().GetFullBIP44Path(), hd.Secp256k1)
 	if err != nil {
 		// 账户可能已存在，尝试获取
 		var getErr error
@@ -310,8 +311,7 @@ func (s *OracleService) submitAttestationResult(deviceID, proof, signature strin
 
 	// 通过 TxFactory 构建并广播交易
 	txf := s.txFactory.
-		WithFromName("oracle").
-		WithFromAddress(s.oracleAddr)
+		WithFromName("oracle")
 
 	// 更新 account number 和 sequence
 	clientCtx := s.clientCtx
@@ -326,7 +326,7 @@ func (s *OracleService) submitAttestationResult(deviceID, proof, signature strin
 	}
 
 	// 签名
-	if err := tx.Sign(clientCtx, txf, "oracle", unsignedTx, true); err != nil {
+	if err := tx.Sign(txf, "oracle", unsignedTx, true); err != nil {
 		return "", fmt.Errorf("sign tx: %w", err)
 	}
 

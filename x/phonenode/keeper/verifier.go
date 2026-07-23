@@ -55,3 +55,13 @@ func (k Keeper) GetVerifierNodes(ctx sdk.Context) []string {
 	}
 	return out
 }
+
+// UpdateVerifierStatus 更新指定节点的验证者状态（active / inactive / jailed）。
+func (k Keeper) UpdateVerifierStatus(ctx sdk.Context, nodeID, status string) error {
+	st, err := k.GetNode(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+	st.VerifierStatus = status
+	return k.SetNode(ctx, st)
+}

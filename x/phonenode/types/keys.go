@@ -30,6 +30,8 @@ var (
 	NonceKeyPrefix = []byte("Nonce:")
 	// SlashCooldownKeyPrefix 是 slash 后再认证冷却截止高度前缀：SlashCooldownKey(addr) = "SlashCD:"+addr
 	SlashCooldownKeyPrefix = []byte("SlashCD:")
+	// VerifierStatusKeyPrefix 是节点验证者状态存储前缀。
+	VerifierStatusKeyPrefix = []byte("VerifierStatus:")
 )
 
 // AttestationKey 返回某节点的 attestation 状态 key。

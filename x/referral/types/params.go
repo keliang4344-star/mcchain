@@ -131,7 +131,7 @@ func validateMaxReferralsPerUser(i interface{}) error {
 }
 
 func validateCooldownBlocks(i interface{}) error {
-	v, ok := i.(uint64)
+	_, ok := i.(uint64)
 	if !ok {
 		return fmt.Errorf("invalid parameter type for CooldownBlocks: %T", i)
 	}

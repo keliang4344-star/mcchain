@@ -43,6 +43,7 @@ func DepinKeeper(t testing.TB) (*keeper.Keeper, sdk.Context) {
 		paramsSubspace,
 		nil, // bankKeeper: mock provided by individual tests
 		nil, // phonenodeKeeper: mock provided by individual tests (P2 关联校验)
+		nil, // referralKeeper: mock provided by individual tests
 	)
 
 	ctx := sdk.NewContext(stateStore, tmproto.Header{}, false, log.NewNopLogger())

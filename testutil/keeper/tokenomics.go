@@ -45,6 +45,18 @@ func (m *MockBankKeeper) MintCoins(_ sdk.Context, moduleName string, amt sdk.Coi
 	return nil
 }
 
+// BurnCoins 从指定模块账户销毁代币。
+func (m *MockBankKeeper) BurnCoins(_ sdk.Context, moduleName string, amt sdk.Coins) error {
+	addr := authtypes.NewModuleAddress(moduleName).String()
+	if _, ok := m.balances[addr]; !ok {
+		m.balances[addr] = sdk.ZeroInt()
+	}
+	for _, c := range amt {
+		m.balances[addr] = m.balances[addr].Sub(c.Amount)
+	}
+	return nil
+}
+
 // SendCoinsFromModuleToAccount 从模块账户拨付到外部地址（团队 vesting 账户）。
 func (m *MockBankKeeper) SendCoinsFromModuleToAccount(_ sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error {
 	from := authtypes.NewModuleAddress(senderModule).String()
