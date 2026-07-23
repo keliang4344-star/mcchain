@@ -34,7 +34,7 @@ class NodeService : LifecycleService() {
     @Inject lateinit var nodeStatusDao: NodeStatusDao
     @Inject lateinit var phoneNodeDao: PhoneNodeDao
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.asCoroutineDispatcher())
     private var wakeLock: PowerManager.WakeLock? = null
     private var syncJob: Job? = null
     private var heartbeatJob: Job? = null

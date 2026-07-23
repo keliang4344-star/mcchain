@@ -43,6 +43,12 @@ func (k msgServer) CreateTask(goCtx context.Context, msg *types.MsgCreateTask) (
 		return nil, err
 	}
 
+	// 可选绑定验证脚本哈希（白皮书行 490-493）：若 msg 携带 ScriptHash，
+	// 则建立 task→script 绑定，提交结果时校验脚本是否已注册。
+	// 注：MsgCreateTask 当前未含 ScriptHash 字段（proto 未重新生成），
+	// 此处保留扩展点，实际绑定通过 RegisterScriptSpec + SetTaskScriptHash 完成。
+	// TODO: 待 proto 重新生成后从 msg.ScriptHash 读取。
+
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("edgeai.TaskCreated",
 			sdk.NewAttribute("task_id", id),

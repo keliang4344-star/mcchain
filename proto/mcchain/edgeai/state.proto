@@ -62,3 +62,32 @@ message Dispute {
   // opened_at_block B3.1 争议窗口起算区块高度。
   int64 opened_at_block = 8;
 }
+
+// Reputation 节点声誉记录（白皮书行 497）。
+// 每个执行节点维护 ReputationScore（初始 100，范围 0-100）。
+// 任务通过 → +1（上限 100）；任务拒绝/作弊 → -10（下限 0）。
+// 声誉 < 30 的节点限制接单优先级。
+// 注：当前以非 protobuf Go 结构体持久化（JSON 编码），待 proto 重新生成后可迁移。
+message Reputation {
+  // node_addr 执行节点地址（bech32）。
+  string node_addr = 1;
+  // score 声誉分数（0-100）。
+  uint32 score = 2;
+  // last_contribution_block 最近一次贡献（任务通过/拒绝）的区块高度。
+  int64 last_contribution_block = 3;
+  // consecutive_missed_blocks 连续无贡献区块数（用于声誉衰减）。
+  int64 consecutive_missed_blocks = 4;
+}
+
+// ScriptSpec 验证脚本规范（白皮书行 490-493）。
+// 任务创建时可选绑定验证脚本哈希，提交结果时校验脚本哈希是否匹配。
+message ScriptSpec {
+  // script_hash 验证脚本的 SHA-256 哈希（hex 编码）。
+  string script_hash = 1;
+  // python_version 脚本要求的 Python 版本（如 "3.11"）。
+  string python_version = 2;
+  // timeout_seconds 脚本执行超时时间（秒）。
+  uint32 timeout_seconds = 3;
+  // network_allowed 脚本是否允许网络访问。
+  bool network_allowed = 4;
+}

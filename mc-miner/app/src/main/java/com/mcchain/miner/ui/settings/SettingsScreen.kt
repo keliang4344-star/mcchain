@@ -13,8 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mcchain.miner.MCParams
-import com.mcchain.miner.service.MinerService
-import com.mcchain.miner.service.NodeService
 import com.mcchain.miner.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -76,3 +76,43 @@ const (
 	ResultStatusValid    = "valid"
 	ResultStatusRejected = "rejected"
 )
+
+// Multi-Verifier Scoring constants (白皮书行 496-497)。
+// TODO: 待 protoc 重新生成 params.pb.go 后可迁移为链上参数。
+const (
+	// DefaultVerifierCount 多验证者投票评分系统中每轮抽检的验证者数量。
+	DefaultVerifierCount uint32 = 3
+
+	// DefaultThresholdScore 验证评分阈值（0-100），中位数低于此值则拒绝并进入争议。
+	DefaultThresholdScore uint32 = 30
+
+	// DefaultScriptTimeout 验证脚本默认超时时间（秒）。
+	DefaultScriptTimeout uint32 = 30
+
+	// DefaultScriptNetworkAllowed 验证脚本是否默认允许网络访问。
+	DefaultScriptNetworkAllowed bool = false
+)
+
+// Node Reputation constants (白皮书行 497)。
+const (
+	// DefaultReputationScore 新节点的初始声誉分数。
+	DefaultReputationScore uint32 = 100
+
+	// MaxReputationScore 声誉分数上限。
+	MaxReputationScore uint32 = 100
+
+	// MinReputationScore 声誉分数下限。
+	MinReputationScore uint32 = 0
+
+	// ReputationPassIncrease 任务通过时声誉增加量。
+	ReputationPassIncrease uint32 = 1
+
+	// ReputationCheatDecrease 任务拒绝/作弊时声誉减少量。
+	ReputationCheatDecrease uint32 = 10
+
+	// ReputationLowPriorityThreshold 声誉低于此值的节点限制接单优先级。
+	ReputationLowPriorityThreshold uint32 = 30
+
+	// ReputationDecayBlocks 连续无贡献多少区块后触发声誉衰减（-1）。
+	ReputationDecayBlocks int64 = 1000
+)

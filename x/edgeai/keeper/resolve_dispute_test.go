@@ -28,6 +28,7 @@ func (m *mockPhonenode) SlashIfBad(ctx sdk.Context, addr, reason string, bps uin
 	m.slashed = append(m.slashed, addr)
 	return nil
 }
+func (m *mockPhonenode) GetVerifierNodes(ctx sdk.Context) []string { return nil }
 
 func setupEdgeai(t *testing.T) (*Keeper, sdk.Context, *mockPhonenode) {
 	storeKey := sdk.NewKVStoreKey(types.StoreKey)

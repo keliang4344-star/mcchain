@@ -17,4 +17,16 @@ message Params {
   // arbitrator B3.1 争议仲裁者地址（部署时设为团队多签地址）。
   // 为空表示尚未配置，ResolveDispute 将被拒绝。
   string arbitrator = 4;
+  // verifier_count 多验证者投票评分系统中每轮抽检的验证者数量（默认 3）。
+  // TODO: 待 protoc 重新生成后生效，当前以模块常量 DefaultVerifierCount 兜底。
+  uint32 verifier_count = 5;
+  // threshold_score 验证评分阈值（0-100），中位数低于此值则拒绝并进入争议（默认 30）。
+  // TODO: 待 protoc 重新生成后生效，当前以模块常量 DefaultThresholdScore 兜底。
+  uint32 threshold_score = 6;
+  // default_script_timeout 验证脚本默认超时时间（秒，默认 30）。
+  // TODO: 待 protoc 重新生成后生效，当前以模块常量 DefaultScriptTimeout 兜底。
+  uint32 default_script_timeout = 7;
+  // script_network_allowed 验证脚本是否默认允许网络访问（默认 false）。
+  // TODO: 待 protoc 重新生成后生效，当前以模块常量 DefaultScriptNetworkAllowed 兜底。
+  bool script_network_allowed = 8;
 }

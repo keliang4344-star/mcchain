@@ -32,6 +32,17 @@
         android:theme="@style/Theme.MCMiner"
         android:networkSecurityConfig="@xml/network_security_config">
 
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
@@ -62,16 +73,6 @@
                 android:value="mcchain_mining_contribution" />
         </service>
 
-        <provider
-            android:name="androidx.startup.InitializationProvider"
-            android:authorities="${applicationId}.androidx-startup"
-            android:exported="false"
-            tools:node="merge">
-            <meta-data
-                android:name="com.mcchain.miner.McMinerAppInitializer"
-                android:value="androidx.startup" />
-        </provider>
-
         <receiver
             android:name=".service.BootReceiver"
             android:exported="true">
@@ -79,6 +80,17 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
 
     </application>
 

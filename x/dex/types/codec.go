@@ -15,6 +15,22 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 
 func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)
+
+	registry.RegisterImplementations(
+		(*codec.ProtoMarshaler)(nil),
+		&MsgCreatePool{},
+		&MsgCreatePoolResponse{},
+		&MsgAddLiquidity{},
+		&MsgAddLiquidityResponse{},
+		&MsgRemoveLiquidity{},
+		&MsgRemoveLiquidityResponse{},
+		&MsgSwapExactIn{},
+		&MsgSwapExactInResponse{},
+		&Pool{},
+		&Params{},
+		&GenesisState{},
+		&LiquidityLock{},
+	)
 }
 
 var (

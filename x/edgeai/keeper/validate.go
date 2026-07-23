@@ -88,6 +88,8 @@ func (k Keeper) detectCheatByConsensus(ctx sdk.Context) {
 						"task_id", r.TaskId, "submitter", r.Submitter, "err", err.Error())
 					continue
 				}
+				// 声誉更新：作弊 → -10（白皮书行 497）
+				k.DecrementReputation(ctx, r.Submitter, types.ReputationCheatDecrease)
 				r.Status = types.ResultStatusRejected
 				_ = k.SetResult(ctx, r)
 
@@ -160,6 +162,10 @@ func DeterminePayout(task *Task, params types.Params) uint64 {
 func (k Keeper) BeginBlock(ctx sdk.Context) {
 	// Phase 0: 多节点结果一致性投票（AntiCheatThresholdBps 自动作弊检测）
 	k.detectCheatByConsensus(ctx)
+
+	// Phase 0.5: 节点声誉衰减（白皮书行 497）
+	// 连续 ReputationDecayBlocks 区块无贡献 → 声誉 -1
+	k.DecayReputation(ctx)
 
 	params := k.GetParams(ctx)
 	results := k.AllResults(ctx)
@@ -300,6 +306,8 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 		if !settledTaskIDs[r.TaskId] {
 			settledTaskIDs[r.TaskId] = true
 			settledCount++
+			// 声誉更新：任务通过 → +1（白皮书行 497）
+			k.IncrementReputation(ctx, r.Submitter, types.ReputationPassIncrease)
 		}
 	}
 
@@ -361,11 +369,11 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 		}
 	}
 
-	// Phase 3: Verifier 抽检（B3.1 R5）
-	// 从已结算（done）任务中随机抽检一个，分配给在线的验证者节点复核。
-	// 抽检结果自动通过（honest），验证者获得 VerifierRewardPerSample 奖励。
-	// 若验证者发现作弊则自动创建 dispute。
-	k.SampleAndVerify(ctx)
+	// Phase 3: Verifier 多验证者投票评分（白皮书行 496-497）
+	// 替换原单体 auto-pass 逻辑：从合格节点中抽取 N 个验证者，
+	// 每人独立对已完成任务打分 (0-100)，去掉最高最低分取中位数，
+	// 中位数 ≥ ThresholdScore 则通过并奖励，否则拒绝并进入争议。
+	k.ScoreAndVerify(ctx)
 }
 
 // resolveDispute 将争议标记结案（供 BeginBlock 乐观结算使用）。

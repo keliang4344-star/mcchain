@@ -80,6 +80,20 @@ func (k Keeper) EstimateSwap(goCtx context.Context, req *types.QueryEstimateSwap
 	}, nil
 }
 
+func (k Keeper) LiquidityLock(goCtx context.Context, req *types.QueryLiquidityLockRequest) (*types.QueryLiquidityLockResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid request")
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	lock, found := k.GetLiquidityLock(ctx, req.LpAddress, req.PoolId)
+	if !found {
+		return nil, status.Error(codes.NotFound, "liquidity lock not found")
+	}
+
+	return &types.QueryLiquidityLockResponse{Lock: &lock}, nil
+}
+
 func (k Keeper) Price(goCtx context.Context, req *types.QueryPriceRequest) (*types.QueryPriceResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")

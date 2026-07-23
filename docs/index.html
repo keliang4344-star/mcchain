@@ -31,6 +31,8 @@
   .param { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); text-align: center; }
   .param .label { font-size: 0.8em; color: #888; text-transform: uppercase; letter-spacing: 1px; }
   .param .value { font-size: 1.3em; font-weight: 700; color: #0f3460; margin-top: 4px; }
+  .bounty { background: #fff; border-radius: 10px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .bounty strong { color: #c00; }
 </style>
 </head>
 <body>
@@ -64,11 +66,11 @@
   <div class="cards">
     <a class="card" href="https://github.com/mcchain/mcchain/blob/main/docs/WHITEPAPER.md">
       <h3>白皮书</h3>
-      <p>MC 公链完整技术阐述与核心理念</p>
+      <p>V3 哲学版：一部关于「所有权归流」的史诗</p>
     </a>
     <a class="card" href="https://github.com/mcchain/mcchain/blob/main/docs/TOKEN_ALLOCATION.md">
       <h3>通证分配</h3>
-      <p>总量 10 亿 MC，三池分配，零通胀锁定</p>
+      <p>总量 10 亿 MC，五池分配，零通胀锁定</p>
     </a>
     <a class="card" href="https://github.com/mcchain/mcchain/blob/main/docs/audit_checklist.md">
       <h3>审计清单</h3>
@@ -96,7 +98,7 @@
     <tr><td>Cosmos SDK</td><td>v0.47.14</td><td>模块化区块链框架</td></tr>
     <tr><td>CometBFT</td><td>v0.37.6</td><td>BFT 共识引擎</td></tr>
     <tr><td>IBC</td><td>ibc-go v7.1.0</td><td>跨链通信协议</td></tr>
-    <tr><td>Go</td><td>1.22.5</td><td>开发语言</td></tr>
+    <tr><td>Go</td><td>1.21+</td><td>开发语言</td></tr>
   </table>
 </div>
 
@@ -104,13 +106,29 @@
   <h2>自定义模块</h2>
   <table>
     <tr><th>模块</th><th>职责</th></tr>
-    <tr><td><code>x/tokenomics</code></td><td>唯一铸币总账，固化 10 亿总量</td></tr>
-    <tr><td><code>x/depin</code></td><td>设备注册 / 贡献计量 / 奖励引擎</td></tr>
-    <tr><td><code>x/phonenode</code></td><td>移动全节点 attestation / 心跳 / slash</td></tr>
-    <tr><td><code>x/edgeai</code></td><td>边缘 AI 任务市场 / 争议仲裁</td></tr>
-    <tr><td><code>x/mcchain</code></td><td>系统参数与查询</td></tr>
-    <tr><td><code>x/dex</code></td><td>原生 AMM 去中心化交易所</td></tr>
+    <tr><td><code>x/tokenomics</code></td><td>唯一铸币总账，五池分配，总量 10 亿不可治理增发</td></tr>
+    <tr><td><code>x/depin</code></td><td>设备激励金库，按真实任务逐笔发放</td></tr>
+    <tr><td><code>x/phonenode</code></td><td>手机全节点认证 / 女巫绑定 / 分级罚没</td></tr>
+    <tr><td><code>x/edgeai</code></td><td>边缘 AI 任务市场 / 托管付费 / 乐观结算 / 争议仲裁</td></tr>
+    <tr><td><code>x/mcchain</code></td><td>系统锚点、参数与查询</td></tr>
+    <tr><td><code>x/referral</code></td><td>社区推荐激励，不抽水共生模型</td></tr>
+    <tr><td><code>x/dex</code></td><td>原生 AMM 去中心化交易所 / 通缩引擎</td></tr>
   </table>
+</div>
+
+<div class="section">
+  <h2>漏洞赏金</h2>
+  <div class="bounty">
+    <p>MobileChain 主网上线当天启动公开漏洞赏金计划（通过 Immunefi 等平台）。</p>
+    <table style="margin-top:16px;">
+      <tr><th>严重等级</th><th>奖励</th><th>典型范围</th></tr>
+      <tr><td><strong style="color:#c00;">严重</strong></td><td><strong>最高 50,000 USDC</strong></td><td>可盗取资金 / 无限铸币</td></tr>
+      <tr><td><strong style="color:#e67e00;">高危</strong></td><td>25,000 USDC</td><td>致链停止 / 分叉</td></tr>
+      <tr><td>中危</td><td>5,000 USDC</td><td>绕过限制 / 伪造数据</td></tr>
+      <tr><td>低危</td><td>1,000 USDC</td><td>边界条件漏洞</td></tr>
+    </table>
+    <p style="margin-top:12px;font-size:0.85em;color:#888;">赏金池由基金会 T0 解锁额划拨。每一笔动用经链上治理提案与社区投票。</p>
+  </div>
 </div>
 
 <div class="footer">

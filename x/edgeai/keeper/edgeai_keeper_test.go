@@ -29,6 +29,7 @@ func (m *mockPhonenodeFalse) SlashIfBad(ctx sdk.Context, addr, reason string, bp
 	m.slashed = append(m.slashed, addr)
 	return nil
 }
+func (m *mockPhonenodeFalse) GetVerifierNodes(ctx sdk.Context) []string { return nil }
 
 // mockPayout：记录拨付调用，便于断言「贡献即挖矿」经济闭环。
 type mockPayout struct {
@@ -56,6 +57,7 @@ func (mockBankZero) SendCoinsFromAccountToModule(_ sdk.Context, _ sdk.AccAddress
 func (mockBankZero) SendCoinsFromModuleToAccount(_ sdk.Context, _ string, _ sdk.AccAddress, _ sdk.Coins) error {
 	return nil
 }
+func (mockBankZero) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) error { return nil }
 
 // mockBank：满足 BankKeeper 接口的最小实现（托管/拨付均 no-op，余额充足）。
 type mockBank struct{}
@@ -69,6 +71,7 @@ func (mockBank) SendCoinsFromAccountToModule(_ sdk.Context, _ sdk.AccAddress, _ 
 func (mockBank) SendCoinsFromModuleToAccount(_ sdk.Context, _ string, _ sdk.AccAddress, _ sdk.Coins) error {
 	return nil
 }
+func (mockBank) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) error { return nil }
 
 // mockBankCap：记录「模块账户→账户」拨付，用于断言需求方付费（escrow）经济闭环。
 type mockBankCap struct {
@@ -90,6 +93,7 @@ func (m *mockBankCap) SendCoinsFromModuleToAccount(_ sdk.Context, module string,
 	m.modToAcct = append(m.modToAcct, bankSend{module: module, to: to.String(), amount: amt.AmountOf("umc").Uint64()})
 	return nil
 }
+func (m *mockBankCap) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) error { return nil }
 
 // setupEdgeaiWith 构造一个可配置依赖的 edgeai keeper（用于 BeginBlock 等集成路径测试）。
 func setupEdgeaiWith(t *testing.T, pn types.PhonenodeKeeper, pay types.PayoutKeeper, bk types.BankKeeper) (*Keeper, sdk.Context) {

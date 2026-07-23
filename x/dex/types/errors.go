@@ -18,4 +18,6 @@ var (
 	ErrSwapSameDenom    = sdkerrors.Register(ModuleName, 14, "cannot swap same denom")
 	ErrInvalidTokenPair = sdkerrors.Register(ModuleName, 15, "invalid token pair for pool")
 	ErrDenomSortRequired = sdkerrors.Register(ModuleName, 16, "denoms must be sorted alphabetically")
+	ErrLpLocked           = sdkerrors.Register(ModuleName, 17, "LP tokens are locked")
+	ErrLpIncentiveEnded   = sdkerrors.Register(ModuleName, 18, "LP incentive period has ended")
 )

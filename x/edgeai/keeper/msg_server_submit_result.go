@@ -39,6 +39,14 @@ func (k msgServer) SubmitResult(goCtx context.Context, msg *types.MsgSubmitResul
 		return nil, types.ErrDuplicateResult
 	}
 
+	// 验证脚本哈希校验（白皮书行 490-493）：若任务绑定了验证脚本，
+	// 则检查绑定的脚本是否已注册；提交者无需显式传入 ScriptHash，
+	// 绑定关系在任务创建时由 creator 通过 SetTaskScriptHash 建立。
+	boundHash := k.Keeper.GetTaskScriptHash(ctx, msg.TaskId)
+	if err := k.Keeper.ValidateScriptHash(ctx, boundHash, ""); err != nil {
+		return nil, sdkerrors.Wrap(types.ErrScriptHashMismatch, err.Error())
+	}
+
 	r := &Result{
 		TaskId:           msg.TaskId,
 		Submitter:        nodeAddr,

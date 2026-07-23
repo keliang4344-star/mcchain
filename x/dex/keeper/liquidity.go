@@ -71,6 +71,25 @@ func (k Keeper) AddLiquidity(
 		return sdk.ZeroInt(), sdk.ZeroInt(), sdk.ZeroInt(), err
 	}
 
+	// Record LP lock: LP tokens are locked for params.LpLockBlocks (~7 days)
+	// per whitepaper line 508. Re-adding liquidity refreshes the lock and
+	// accumulates the locked amount.
+	params := k.GetParams(ctx)
+	lockHeight := uint64(ctx.BlockHeight())
+	lockedAmount := lpMinted
+	if existing, found := k.GetLiquidityLock(ctx, creator, poolID); found {
+		if prev, ok := sdk.NewIntFromString(existing.LpAmount); ok {
+			lockedAmount = lockedAmount.Add(prev)
+		}
+	}
+	k.SetLiquidityLock(ctx, types.LiquidityLock{
+		LpAddress:    creator,
+		PoolId:       poolID,
+		LockHeight:   lockHeight,
+		UnlockHeight: lockHeight + params.LpLockBlocks,
+		LpAmount:     lockedAmount.String(),
+	})
+
 	return lpMinted, actualA, actualB, nil
 }
 
@@ -101,6 +120,12 @@ func (k Keeper) RemoveLiquidity(
 	amountA, amountB = CalcRemoveLiquidity(reserveA, reserveB, lpAmount, totalLP)
 	if amountA.LT(minAOut) || amountB.LT(minBOut) {
 		return sdk.ZeroInt(), sdk.ZeroInt(), types.ErrSlippageExceeded
+	}
+
+	// Check LP token lock: per whitepaper line 508, LP tokens are locked
+	// for LpLockBlocks (default ~100800 = 7 days at 6s/block).
+	if k.HasActiveLock(ctx, creator, poolID) {
+		return sdk.ZeroInt(), sdk.ZeroInt(), types.ErrLpLocked
 	}
 
 	// Burn LP tokens from creator

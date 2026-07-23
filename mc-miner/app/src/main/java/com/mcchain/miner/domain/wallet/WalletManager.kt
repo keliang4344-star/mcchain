@@ -41,7 +41,8 @@ class WalletManager @Inject constructor(
      */
     fun recoverFromMnemonic(mnemonic: List<String>): KeyPair {
         val seed = DeterministicSeed(mnemonic, null, "", System.currentTimeMillis())
-        val masterKey = HDKeyDerivation.createMasterPrivateKey(seed.seedBytes!!)
+        val seedBytes = seed.seedBytes ?: throw IllegalStateException("Failed to derive seed bytes from mnemonic. Invalid mnemonic?")
+        val masterKey = HDKeyDerivation.createMasterPrivateKey(seedBytes)
         return deriveKeyPair(masterKey, 0)
     }
 

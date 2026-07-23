@@ -69,7 +69,7 @@ class NodeViewModel @Inject constructor(
                     phoneNodeDao.upsert(
                         PhoneNodeRecord(
                             deviceId = deviceId,
-                            nodeAddress = "",
+                            nodeAddress = "mc_node_${deviceId.take(12)}",
                             attestationToken = result.token,
                             attestationTime = System.currentTimeMillis(),
                             attestationExpiry = System.currentTimeMillis() + MCParams.PHONENODE_ATTESTATION_VALIDITY_SECONDS * 1000,

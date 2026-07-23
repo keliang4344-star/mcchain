@@ -15,6 +15,10 @@ func InitGenesis(ctx sdk.Context, k keeper.Keeper, genState types.GenesisState) 
 	}
 
 	k.SetNextPoolID(ctx, genState.NextPoolId)
+
+	// Whitepaper lines 504-505: create the initial MC/USDT pool at genesis
+	// if it doesn't already exist.
+	k.InitGenesisPool(ctx)
 }
 
 func ExportGenesis(ctx sdk.Context, k keeper.Keeper) *types.GenesisState {

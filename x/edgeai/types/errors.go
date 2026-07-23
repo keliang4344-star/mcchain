@@ -15,4 +15,5 @@ var (
 	ErrArbitratorNotSet  = sdkerrors.Register(ModuleName, 1207, "edgeai arbitrator not configured; set params.arbitrator before resolving disputes")
 	ErrInvalidResolution = sdkerrors.Register(ModuleName, 1208, "resolution must be 'honest' or 'cheat'")
 	ErrDisputeNotOpen    = sdkerrors.Register(ModuleName, 1209, "dispute is not open for this task")
+	ErrScriptHashMismatch = sdkerrors.Register(ModuleName, 1210, "script hash validation failed")
 )

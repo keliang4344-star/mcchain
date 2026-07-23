@@ -15,6 +15,11 @@ import (
 // genesis). Payout requires the device address to first be registered as a
 // phonenode (association key: SubmitContribution.Creator == phonenode node
 // Address), enforced below as the "发币闸口".
+//
+// V3 白皮书对照补齐（行 366-382）：
+//   - 七层防刷量防线（defense.go）在 attestation 检查通过后、入账前执行
+//   - 共振分发算法（resonance.go）在基础奖励计算后调整最终奖励
+//   - 线性摊薄释放（release.go）在发币前检查日释放额度
 func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmitContribution) (*types.MsgSubmitContributionResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
@@ -38,10 +43,51 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 		return nil, types.ErrDeviceNotAttested
 	}
 
+	// ========================================================================
+	// V3 新增：七层防刷量防线（defense.go，白皮书行 378-382）
+	// ========================================================================
+	// 在入账前执行全部七层防线，任一失败则拒绝本次贡献。
+	// 防线失败时重置设备连续提交计数器，防止状态污染。
+	defenseResult := k.Keeper.RunDefensePipeline(ctx, deviceAddr, msg.TaskType, score)
+	if !defenseResult.Passed {
+		k.Keeper.ResetConsecutiveCounter(ctx, deviceAddr)
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent("depin.DefenseBlocked",
+				sdk.NewAttribute("device", deviceAddr),
+				sdk.NewAttribute("task_id", msg.TaskId),
+				sdk.NewAttribute("task_type", msg.TaskType),
+				sdk.NewAttribute("failed_layer", strconv.Itoa(defenseResult.FailedLayer)),
+				sdk.NewAttribute("reason", defenseResult.RejectReason),
+			),
+		)
+		return nil, sdkerrors.Wrapf(types.ErrInvalidScore, "defense layer %d: %s", defenseResult.FailedLayer, defenseResult.RejectReason)
+	}
+
 	// 落盘 + 计奖（不在此处发币）
 	reward, err := k.Keeper.SubmitAndReward(ctx, msg.TaskId, deviceAddr, msg.TaskType, score)
 	if err != nil {
+		k.Keeper.ResetConsecutiveCounter(ctx, deviceAddr)
 		return nil, err
+	}
+
+	// ========================================================================
+	// V3 新增：共振分发算法调整奖励（resonance.go，白皮书行 366-376）
+	// ========================================================================
+	var resonanceMultiplier float64 = 1.0
+	if reward > 0 {
+		adjustedReward := k.Keeper.ComputeResonanceRewardWithContext(ctx, reward, deviceAddr, score)
+		if adjustedReward != reward {
+			resonanceMultiplier = float64(adjustedReward) / float64(reward)
+			reward = adjustedReward
+		}
+		// 更新贡献记录的奖励字段（共振调整后）
+		if c, ok := k.Keeper.GetContribution(ctx, msg.TaskId); ok {
+			c.Reward = reward
+			if setErr := k.Keeper.SetContribution(ctx, c); setErr != nil {
+				k.Keeper.Logger(ctx).Error("depin: update contribution reward after resonance",
+					"task_id", msg.TaskId, "err", setErr.Error())
+			}
+		}
 	}
 
 	// 仅当奖励 > 0 时，从 DePIN 模块账户（方案 A 池）向设备拨付。
@@ -71,6 +117,32 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 		burnAmount := reward * uint64(types.DePINBurnRatioBps) / 10000
 		payoutAmount := reward - burnAmount
 
+		// ====================================================================
+		// V3 新增：线性摊薄释放检查（release.go，白皮书行 372）
+		// ====================================================================
+		// 在烧毁之后、拨付之前检查日释放额度，确保每日发放不超线性摊薄上限。
+		allowed, dailyCap, remaining, releaseErr := k.Keeper.CheckDailyReleaseCap(ctx, payoutAmount)
+		if releaseErr != nil {
+			k.Keeper.Logger(ctx).Error("depin: daily release cap check error", "err", releaseErr.Error())
+		} else if !allowed {
+			k.Keeper.Logger(ctx).Info("depin: daily release cap exceeded",
+				"device", deviceAddr,
+				"payout_amount", payoutAmount,
+				"daily_cap", dailyCap,
+				"remaining", remaining,
+			)
+			ctx.EventManager().EmitEvent(
+				sdk.NewEvent("depin.ReleaseCapped",
+					sdk.NewAttribute("device", deviceAddr),
+					sdk.NewAttribute("task_id", msg.TaskId),
+					sdk.NewAttribute("payout_amount", strconv.FormatUint(payoutAmount, 10)),
+					sdk.NewAttribute("daily_cap", strconv.FormatUint(dailyCap, 10)),
+					sdk.NewAttribute("remaining", strconv.FormatUint(remaining, 10)),
+				),
+			)
+			return nil, sdkerrors.Wrapf(types.ErrInvalidScore, "daily release cap exceeded: need %d, cap %d, remaining %d", payoutAmount, dailyCap, remaining)
+		}
+
 		if burnAmount > 0 {
 			burnCoin := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewInt(int64(burnAmount))))
 			if burnErr := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoin); burnErr != nil {
@@ -93,6 +165,14 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 			return nil, sdkerrors.Wrapf(err, "failed to pay reward from depin pool")
 		}
 
+		// ====================================================================
+		// V3 新增：拨付成功后记录防线状态和释放额度
+		// ====================================================================
+		// 记录设备当日累计奖励（defense.go Layer7 日收益上限）
+		k.Keeper.RecordDailyReward(ctx, deviceAddr, payoutAmount)
+		// 记录当日全局释放额度（release.go 线性摊薄）
+		k.Keeper.RecordDailyRelease(ctx, payoutAmount)
+
 		// B5/R4：发币事件 —— 移动端 SDK 据此监听「贡献即挖矿」到账通知。
 		ctx.EventManager().EmitEvent(
 			sdk.NewEvent("depin.RewardPaid",
@@ -104,6 +184,7 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 				sdk.NewAttribute("payout", strconv.FormatUint(payoutAmount, 10)),
 				sdk.NewAttribute("burn", strconv.FormatUint(burnAmount, 10)),
 				sdk.NewAttribute("denom", denom),
+				sdk.NewAttribute("resonance_multiplier", strconv.FormatFloat(resonanceMultiplier, 'f', 4, 64)),
 			),
 		)
 

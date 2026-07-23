@@ -33,7 +33,7 @@ class MinerService : LifecycleService() {
     @Inject lateinit var edgeAiTaskDao: EdgeAiTaskDao
     @Inject lateinit var accountDao: AccountDao
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.asCoroutineDispatcher())
     private var wakeLock: PowerManager.WakeLock? = null
     private var miningJob: Job? = null
 

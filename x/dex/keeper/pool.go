@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"sort"
 
 	"github.com/cosmos/cosmos-sdk/store/prefix"
@@ -39,13 +40,18 @@ func (k Keeper) GetPool(ctx sdk.Context, poolID uint64) (types.Pool, bool) {
 	}
 
 	var pool types.Pool
-	k.cdc.MustUnmarshal(bz, &pool)
+	if err := json.Unmarshal(bz, &pool); err != nil {
+		panic(err)
+	}
 	return pool, true
 }
 
 func (k Keeper) SetPool(ctx sdk.Context, pool types.Pool) {
 	store := prefix.NewStore(ctx.KVStore(k.storeKey), PoolKeyPrefix)
-	bz := k.cdc.MustMarshal(&pool)
+	bz, err := json.Marshal(pool)
+	if err != nil {
+		panic(err)
+	}
 	store.Set(sdk.Uint64ToBigEndian(pool.Id), bz)
 }
 
@@ -57,7 +63,9 @@ func (k Keeper) GetAllPools(ctx sdk.Context) []types.Pool {
 	var pools []types.Pool
 	for ; iter.Valid(); iter.Next() {
 		var pool types.Pool
-		k.cdc.MustUnmarshal(iter.Value(), &pool)
+		if err := json.Unmarshal(iter.Value(), &pool); err != nil {
+			continue
+		}
 		pools = append(pools, pool)
 	}
 

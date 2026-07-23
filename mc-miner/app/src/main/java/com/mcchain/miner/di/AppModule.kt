@@ -29,6 +29,12 @@ object AppModule {
             "mcchain_db"
         )
             .fallbackToDestructiveMigration()
+            .addCallback(object : androidx.room.RoomDatabase.Callback() {
+                override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    super.onCreate(db)
+                    android.util.Log.i("McChainDB", "Database created successfully")
+                }
+            })
             .build()
     }
 
@@ -64,9 +70,4 @@ object AppModule {
     @Singleton
     fun provideNodeStatusDao(db: McChainDatabase) = db.nodeStatusDao()
 
-    @Provides
-    @Singleton
-    fun provideSecurePrefs(@ApplicationContext context: Context): SecurePrefs {
-        return SecurePrefs(context)
-    }
 }

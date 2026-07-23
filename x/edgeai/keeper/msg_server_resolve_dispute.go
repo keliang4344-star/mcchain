@@ -54,6 +54,8 @@ func (k msgServer) ResolveDispute(goCtx context.Context, msg *types.MsgResolveDi
 			if serr := k.Keeper.phonenodeKeeper.SlashIfBad(ctx, dispute.Submitter, "cheat_result", types.CheatSlashBps); serr != nil {
 				ctx.Logger().Error("edgeai: cheat slash failed", "task_id", msg.TaskId, "submitter", dispute.Submitter, "err", serr.Error())
 			}
+			// 声誉更新：仲裁裁定作弊 → -10（白皮书行 497）
+			k.Keeper.DecrementReputation(ctx, dispute.Submitter, types.ReputationCheatDecrease)
 		}
 		task.Status = types.TaskStatusCheated
 		_ = k.Keeper.SetTask(ctx, task)

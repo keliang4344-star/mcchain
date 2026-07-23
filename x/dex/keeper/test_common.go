@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/store"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	typesparams "github.com/cosmos/cosmos-sdk/x/params/types"
 	"github.com/stretchr/testify/require"
 
@@ -141,17 +142,20 @@ func (m *mockDexAccountKeeper) GetModuleAddress(name string) sdk.AccAddress {
 	return sdk.AccAddress([]byte(name))
 }
 
-func (m *mockDexAccountKeeper) GetModuleAccount(ctx sdk.Context, name string) sdk.ModuleAccountI {
+// HasAccount always returns true for any address.
+func (m *mockDexAccountKeeper) HasAccount(ctx sdk.Context, addr sdk.AccAddress) bool {
+	return true
+}
+
+func (m *mockDexAccountKeeper) GetModuleAccount(ctx sdk.Context, name string) authtypes.ModuleAccountI {
 	addr := sdk.AccAddress([]byte(name))
-	base := sdk.NewBaseAccountWithAddress(addr)
-	return sdk.NewModuleAccount(base, name)
+	base := authtypes.NewBaseAccount(addr, nil, 0, 0)
+	return authtypes.NewModuleAccount(base, name)
 }
 
-func (m *mockDexAccountKeeper) GetAccount(ctx sdk.Context, addr sdk.AccAddress) sdk.AccountI {
-	return sdk.NewBaseAccountWithAddress(addr)
+func (m *mockDexAccountKeeper) GetAccount(ctx sdk.Context, addr sdk.AccAddress) authtypes.AccountI {
+	return authtypes.NewBaseAccount(addr, nil, 0, 0)
 }
-
-func (m *mockDexAccountKeeper) SetModuleAccount(ctx sdk.Context, acc sdk.ModuleAccountI) {}
 
 // ---------------------------------------------------------------------------
 // Shared test setup for DEX
@@ -160,20 +164,18 @@ func (m *mockDexAccountKeeper) SetModuleAccount(ctx sdk.Context, acc sdk.ModuleA
 // setupDex creates a DEX keeper with in-memory store and a mock bank.
 func setupDex(t *testing.T) (*Keeper, sdk.Context, *mockDexBank) {
 	storeKey := sdk.NewKVStoreKey(types.StoreKey)
-	memKey := storetypes.NewMemoryStoreKey(types.MemStoreKey)
 	db := tmdb.NewMemDB()
 	cs := store.NewCommitMultiStore(db)
 	cs.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
-	cs.MountStoreWithDB(memKey, storetypes.StoreTypeMemory, nil)
 	require.NoError(t, cs.LoadLatestVersion())
 
 	registry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(registry)
-	ps := typesparams.NewSubspace(cdc, types.Amino, storeKey, memKey, "DexParams")
+	ps := typesparams.NewSubspace(cdc, types.Amino, storeKey, storeKey, "DexParams")
 
 	bk := newMockDexBank()
 	acct := &mockDexAccountKeeper{}
-	k := NewKeeper(cdc, storeKey, memKey, ps, bk, acct)
+	k := NewKeeper(cdc, storeKey, ps, bk, acct)
 	ctx := sdk.NewContext(cs, tmproto.Header{}, false, log.NewNopLogger())
 	k.SetParams(ctx, types.DefaultParams())
 	return k, ctx, bk

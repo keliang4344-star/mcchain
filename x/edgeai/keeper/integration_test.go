@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -189,7 +190,7 @@ func TestMaxTasksPerBlock_CapsSettlement(t *testing.T) {
 
 	// 创建 30 个任务，全部提交结果
 	for i := 1; i <= 30; i++ {
-		id := sdk.Uint64ToString(uint64(i))
+		id := fmt.Sprintf("%d", i)
 		quickCreateTask(t, k, ctx, id, creator, 100, types.TaskStatusOpen, 1)
 		quickCreateResult(t, k, ctx, id, creator, "hash", types.ResultStatusPending, 1)
 	}

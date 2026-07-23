@@ -225,7 +225,13 @@ class RpcClient @Inject constructor(
     }
 
     private suspend fun restGet(path: String): JsonObject? = withContext(Dispatchers.IO) {
-        val baseUrl = endpoint.replace(":${MCParams.DEFAULT_RPC_PORT}", ":${MCParams.DEFAULT_API_PORT}")
+        val baseUrl = try {
+            val uri = java.net.URI(endpoint)
+            val apiPort = if (uri.port > 0) uri.port - (MCParams.DEFAULT_RPC_PORT - MCParams.DEFAULT_API_PORT) else MCParams.DEFAULT_API_PORT
+            java.net.URI(uri.scheme, uri.userInfo, uri.host, apiPort, uri.path, uri.query, uri.fragment).toString().trimEnd('/')
+        } catch (e: Exception) {
+            endpoint.replace(":${MCParams.DEFAULT_RPC_PORT}", ":${MCParams.DEFAULT_API_PORT}")
+        }
         val url = "$baseUrl$path"
         val request = Request.Builder().url(url).get().build()
         try {
