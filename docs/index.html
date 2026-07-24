@@ -1,569 +1,70 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MobileChain (MC) — 让每一部手机成为价值的创造者、记录者与拥有者</title>
-<style>
-  :root {
-    --bg: #0a0a0a;
-    --bg-elevated: #111111;
-    --bg-card: #161616;
-    --gold: #c9a84c;
-    --gold-dim: #a88a3a;
-    --gold-muted: #7a6a3a;
-    --gold-subtle: rgba(201, 168, 76, 0.08);
-    --gold-glow: rgba(201, 168, 76, 0.15);
-    --text: #d4d4d4;
-    --text-dim: #888888;
-    --text-muted: #5a5a5a;
-    --border: #222222;
-    --border-light: #2a2a2a;
-  }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MC</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: #0a0a0a;
+            overflow: hidden;
+        }
 
-  html { scroll-behavior: smooth; }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.8;
-    -webkit-font-smoothing: antialiased;
-  }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
 
-  /* ── Decorative gold accent line ── */
-  .rule {
-    width: 60px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--gold), transparent);
-    margin: 0 auto;
-    border: none;
-  }
-  .rule.left { margin: 0; }
+        .mc {
+            display: flex;
+            align-items: center;
+            font-family: 'Georgia', 'Times New Roman', serif;
+            font-weight: 900;
+            font-size: clamp(8rem, 22vw, 20rem);
+            color: #c9a84c;
+            letter-spacing: 0.35em;
+            line-height: 1;
+            user-select: none;
+        }
 
-  /* ── Container ── */
-  .container {
-    max-width: 860px;
-    margin: 0 auto;
-    padding: 0 32px;
-  }
+        .divider {
+            width: 40%;
+            height: 1px;
+            background-color: #c9a84c;
+            border: none;
+            margin: 0.8rem 0 1.2rem 0;
+        }
 
-  /* ── Hero ── */
-  .hero {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    padding: 80px 32px 100px;
-    position: relative;
-  }
-
-  .hero::before {
-    content: '';
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 500px; height: 500px;
-    background: radial-gradient(circle, var(--gold-glow) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .hero-content { position: relative; z-index: 1; }
-
-  .hero-overline {
-    font-size: 0.75em;
-    letter-spacing: 6px;
-    text-transform: uppercase;
-    color: var(--gold-muted);
-    margin-bottom: 32px;
-  }
-
-  .hero h1 {
-    font-size: clamp(2.6em, 7vw, 4.8em);
-    font-weight: 700;
-    letter-spacing: 3px;
-    color: #ffffff;
-    margin-bottom: 8px;
-    line-height: 1.15;
-  }
-
-  .hero h1 .mc {
-    color: var(--gold);
-    font-weight: 800;
-  }
-
-  .hero .sub {
-    font-size: 1.15em;
-    color: var(--text-dim);
-    font-weight: 300;
-    letter-spacing: 2px;
-    margin-bottom: 48px;
-  }
-
-  .hero .statement {
-    max-width: 600px;
-    margin: 0 auto 20px;
-    font-size: 1.05em;
-    color: var(--text);
-    line-height: 2;
-  }
-
-  .hero .statement em {
-    font-style: normal;
-    color: var(--gold);
-    border-bottom: 1px solid var(--gold-subtle);
-  }
-
-  .hero .tag-row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 40px;
-  }
-
-  .hero .tag {
-    font-size: 0.78em;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    padding: 6px 16px;
-    border: 1px solid var(--border-light);
-    border-radius: 2px;
-  }
-
-  .scroll-hint {
-    position: absolute;
-    bottom: 40px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 1px;
-    height: 40px;
-    background: linear-gradient(to bottom, var(--gold-muted), transparent);
-    z-index: 1;
-  }
-
-  /* ── Sections ── */
-  section {
-    padding: 80px 0;
-    border-top: 1px solid var(--border);
-  }
-
-  section:first-of-type { border-top: none; }
-
-  .section-label {
-    font-size: 0.7em;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: var(--gold-muted);
-    margin-bottom: 20px;
-  }
-
-  section h2 {
-    font-size: 1.8em;
-    font-weight: 600;
-    color: #ffffff;
-    margin-bottom: 28px;
-    letter-spacing: 1px;
-  }
-
-  section h2 .dot {
-    color: var(--gold);
-  }
-
-  section p {
-    font-size: 0.97em;
-    color: var(--text-dim);
-    margin-bottom: 16px;
-    max-width: 680px;
-  }
-
-  section p strong {
-    color: var(--text);
-    font-weight: 500;
-  }
-
-  /* ── Three-column cards ── */
-  .card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
-    margin-top: 36px;
-  }
-
-  .card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 28px 24px;
-    transition: border-color 0.3s;
-  }
-
-  .card:hover { border-color: var(--border-light); }
-
-  .card .card-num {
-    font-size: 0.7em;
-    letter-spacing: 3px;
-    color: var(--gold-dim);
-    margin-bottom: 12px;
-  }
-
-  .card h3 {
-    font-size: 1.05em;
-    color: #ffffff;
-    font-weight: 500;
-    margin-bottom: 10px;
-  }
-
-  .card p {
-    font-size: 0.85em;
-    color: var(--text-dim);
-    margin-bottom: 0;
-  }
-
-  /* ── Stats row ── */
-  .stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 24px;
-    margin-top: 40px;
-  }
-
-  .stat {
-    text-align: center;
-    padding: 20px 12px;
-    border: 1px solid var(--border);
-    border-radius: 2px;
-  }
-
-  .stat .num {
-    font-size: 2em;
-    font-weight: 700;
-    color: var(--gold);
-    line-height: 1;
-    margin-bottom: 8px;
-  }
-
-  .stat .num.zero { color: var(--text); }
-
-  .stat .desc {
-    font-size: 0.78em;
-    color: var(--text-muted);
-    letter-spacing: 1px;
-  }
-
-  /* ── Blockquote ── */
-  blockquote {
-    border-left: 2px solid var(--gold);
-    padding: 16px 24px;
-    margin: 32px 0;
-    background: var(--gold-subtle);
-    color: var(--text);
-    font-style: italic;
-    font-size: 0.95em;
-    border-radius: 0 3px 3px 0;
-  }
-
-  blockquote cite {
-    display: block;
-    font-style: normal;
-    font-size: 0.8em;
-    color: var(--gold-muted);
-    margin-top: 10px;
-  }
-
-  /* ── Philosophy grid ── */
-  .phil-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 2px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    margin-top: 36px;
-  }
-
-  .phil-item {
-    background: var(--bg-elevated);
-    padding: 28px 24px;
-  }
-
-  .phil-item .icon {
-    font-size: 1.4em;
-    color: var(--gold-dim);
-    margin-bottom: 14px;
-  }
-
-  .phil-item h4 {
-    font-size: 0.95em;
-    color: #ffffff;
-    font-weight: 500;
-    margin-bottom: 8px;
-    letter-spacing: 0.5px;
-  }
-
-  .phil-item p {
-    font-size: 0.82em;
-    color: var(--text-dim);
-    margin: 0;
-  }
-
-  /* ── Footer ── */
-  footer {
-    text-align: center;
-    padding: 64px 32px 48px;
-    border-top: 1px solid var(--border);
-    color: var(--text-muted);
-    font-size: 0.83em;
-    line-height: 2.2;
-  }
-
-  footer .links {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 24px;
-    margin-bottom: 24px;
-  }
-
-  footer .links a {
-    color: var(--text-dim);
-    text-decoration: none;
-    border-bottom: 1px solid transparent;
-    transition: all 0.2s;
-    font-size: 0.88em;
-    letter-spacing: 0.5px;
-  }
-
-  footer .links a:hover {
-    color: var(--gold);
-    border-bottom-color: var(--gold);
-  }
-
-  footer .links a.file::before { content: '[ '; }
-  footer .links a.file::after { content: ' ]'; color: var(--gold-muted); }
-  footer .links a.file::after { content: ' ]'; }
-
-  footer .note {
-    color: var(--text-muted);
-    font-size: 0.78em;
-    opacity: 0.6;
-  }
-
-  /* ── Mobile ── */
-  @media (max-width: 640px) {
-    .container { padding: 0 20px; }
-    .hero { padding: 60px 20px 80px; }
-    .hero h1 { font-size: 2.4em; }
-    .hero .statement { font-size: 0.95em; }
-    section { padding: 56px 0; }
-    section h2 { font-size: 1.4em; }
-    .card-grid { grid-template-columns: 1fr; }
-  }
-</style>
+        .tagline {
+            font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+            font-size: clamp(0.9rem, 1.6vw, 1.2rem);
+            color: #c9a84c;
+            font-weight: 400;
+            letter-spacing: 0.15em;
+            user-select: none;
+        }
+    </style>
 </head>
 <body>
-
-<!-- ═══════════ HERO ═══════════ -->
-<section class="hero" id="top">
-  <div class="hero-content">
-    <div class="hero-overline">A Blockchain for the Next Billion Devices</div>
-    <h1><span class="mc">MC</span></h1>
-    <div class="sub">MobileChain</div>
-
-    <div class="statement">
-      全球 <em>50 亿部智能手机</em>，99% 的时间里算力空转、数据被无偿收集。<br>
-      MobileChain 要做的，是给这些沉默的设备 <em>发一张属于它们自己的资产负债表</em>——
-      当一部手机第一次因它真实完成的任务而收到一笔写进公开账本的回报，
-      那部设备才第一次从「被征用的生产资料」变成 <em>自主的生产者</em>。
+    <div class="container">
+        <div class="mc">M &nbsp;C</div>
+        <hr class="divider">
+        <div class="tagline">手机即节点 · 移动即共识</div>
     </div>
-
-    <div class="tag-row">
-      <span class="tag">10 亿 MC 固定总量</span>
-      <span class="tag">零通胀</span>
-      <span class="tag">一部手机即一个节点</span>
-      <span class="tag">代码即契约</span>
-      <span class="tag">开源可审计</span>
-    </div>
-  </div>
-  <div class="scroll-hint"></div>
-</section>
-
-<!-- ═══════════ WHAT ═══════════ -->
-<section id="what">
-  <div class="container">
-    <div class="section-label">What</div>
-    <h2>MobileChain <span class="dot">是什么</span></h2>
-    <p>
-      MobileChain（MC）是一条 <strong>为手机而生的 Layer-1 公链</strong>，基于 Cosmos SDK 与 CometBFT 共识引擎构建。
-      它的核心命题只有一个：<strong>让每一部智能手机都能以最低的门槛，成为公链真实的一部分</strong>——不需要矿机、不需要服务器、不需要百万质押。
-    </p>
-    <p>
-      链上内置五大原生模块：<strong>DePIN 设备激励</strong>（55% 总量分配给真实贡献者）、<strong>PhoneNode 手机节点安全</strong>（30 天认证 + 分级罚没）、
-      <strong>EdgeAI 边缘算力市场</strong>（链上托管 + 乐观结算）、<strong>原生 DEX</strong>（内置通缩飞轮）、<strong>推荐激励</strong>（不抽水共生模型）。
-      所有经济规则写死在代码中，总量 10 亿 MC 创世一次性铸满，此后永不通胀。
-    </p>
-
-    <div class="stats">
-      <div class="stat">
-        <div class="num">10<small>亿</small></div>
-        <div class="desc">固定总量 (MC)</div>
-      </div>
-      <div class="stat">
-        <div class="num zero">0</div>
-        <div class="desc">永久通胀率</div>
-      </div>
-      <div class="stat">
-        <div class="num">55<small>%</small></div>
-        <div class="desc">归属设备贡献者</div>
-      </div>
-      <div class="stat">
-        <div class="num">30<small>章</small></div>
-        <div class="desc">可审计白皮书</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ WHY ═══════════ -->
-<section id="why">
-  <div class="container">
-    <div class="section-label">Why</div>
-    <h2>解决 <span class="dot">什么问题</span></h2>
-
-    <blockquote>
-      平台用「免费」买断了用户的议价权。你写的每条动态、拍的每段视频、留的每次点击，
-      都成了平台训练算法、投放广告、抬高估值的原料。你得到的回报：免费服务——以及越来越精准、越来越贵地推送给你的广告。
-      <cite>—— MobileChain 白皮书 · 第二卷</cite>
-    </blockquote>
-
-    <p style="margin-top: 28px;">
-      MobileChain 要回答的，是<strong>网络的价值归谁</strong>这一根本问题。
-      当区块链解决了「无需信任的记账」，当智能手机让算力扩散到每个人的口袋，
-      我们终于有条件回答：<strong>一条由数十亿手机构成的网络，其价值不应归于某家公司的股东，而应归于其真实的贡献者。</strong>
-    </p>
-  </div>
-</section>
-
-<!-- ═══════════ PHILOSOPHY ═══════════ -->
-<section id="philosophy">
-  <div class="container">
-    <div class="section-label">Philosophy</div>
-    <h2>核心 <span class="dot">哲学</span></h2>
-
-    <div class="phil-grid">
-      <div class="phil-item">
-        <div class="icon">&#9670;</div>
-        <h4>稀缺写进代码</h4>
-        <p>总量 10 亿 MC，创世一次性铸满，<code>TotalSupplyCap</code> 为链上常量，不可治理修改。每一笔真实行为都按规则销毁一部分 MC。</p>
-      </div>
-      <div class="phil-item">
-        <div class="icon">&#9670;</div>
-        <h4>五池即契约</h4>
-        <p>55/15/12/13/5 五池分配，最大份额留给真实建设者。团队仅 12%，锁进多签，1 年 cliff + 3 年线性释放。</p>
-      </div>
-      <div class="phil-item">
-        <div class="icon">&#9670;</div>
-        <h4>对代码的信任</h4>
-        <p>把对「人」的信任系统性地置换为对「代码」的信任：设备激励池无铸币权限、基金会动用走链上治理、验证人最低自抵押由链级强制。</p>
-      </div>
-      <div class="phil-item">
-        <div class="icon">&#9670;</div>
-        <h4>共振而非通胀</h4>
-        <p>激励的节奏与网络真实贡献同频，而非与时间流逝共振。零通胀下安全由质押池滴灌、手续费回流和罚没回充驱动。</p>
-      </div>
-      <div class="phil-item">
-        <div class="icon">&#9670;</div>
-        <h4>归还给天下人</h4>
-        <p>当规则无人能凌驾、关键参数由社区投票、基金会由社区掌控时，这条链便不再属于某一团队，而属于所有以真实贡献参与其中的人。</p>
-      </div>
-      <div class="phil-item">
-        <div class="icon">&#9670;</div>
-        <h4>把简单留给用户</h4>
-        <p>把复杂留给代码。命令行、Web 仪表盘、Keplr 互操作、REST 接口——透明是信仰，任何人都能独立验证，无需依赖任何官方页面。</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ HOW ═══════════ -->
-<section id="how">
-  <div class="container">
-    <div class="section-label">How</div>
-    <h2>如何 <span class="dot">运作</span></h2>
-
-    <div class="card-grid">
-      <div class="card">
-        <div class="card-num">01</div>
-        <h3>PhoneNode — 手机即节点</h3>
-        <p>全节点跑在手机上，30 天设备认证 + 女巫绑定 + 离线宽限 100 区块 + 分级罚没（离线 5% / 作弊 10% / 伪造 20%），99% 时间闲置的算力被激活为公链共识的一部分。</p>
-      </div>
-      <div class="card">
-        <div class="card-num">02</div>
-        <h3>DePIN — 按贡献分配</h3>
-        <p>5.5 亿 MC 设备激励池，按真实任务发放、通过认证才发放、线性摊薄。七层防刷体系：身份门槛、唯一绑定、认证时效、任务证明、分级罚没、罚没冷却、预言机核验。</p>
-      </div>
-      <div class="card">
-        <div class="card-num">03</div>
-        <h3>EdgeAI — 边缘算力市场</h3>
-        <p>需求方付费托管 (escrow) + 乐观结算。需求方发任务即锁赏金，算力方看到锁定才计算，争议期过后自动结算。把分散的手机算力组织成去中心化 AI 推理网络。</p>
-      </div>
-      <div class="card">
-        <div class="card-num">04</div>
-        <h3>DEX — 内生通缩</h3>
-        <p>内置 AMM（x×y=k），0.3% 手续费中 50% 销毁。初始流动性 500 万 MC + 10 万 USDT，初始价格 0.02 USDT/MC。交易即通缩。</p>
-      </div>
-      <div class="card">
-        <div class="card-num">05</div>
-        <h3>Referral — 不抽水的共生</h3>
-        <p>推荐奖励从设备激励池专设预算额外拨付，不从被推荐人收益中扣除。一代 10%、二代 5%、三代 2%。根植于真实贡献而非拉人头。</p>
-      </div>
-      <div class="card">
-        <div class="card-num">06</div>
-        <h3>Governance — 可治理与不可治理</h3>
-        <p>总量上限永不可治理修改。安全参数、资金动用、协议演进可经治理提案调整。一份质押一份权重，让最关心长期健康的人拥有最大话语权。</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ VISION ═══════════ -->
-<section id="vision">
-  <div class="container">
-    <div class="section-label">Vision</div>
-    <h2>愿景</h2>
-    <p style="font-size: 1.05em; color: var(--text); max-width: 680px;">
-      让全世界每一部手机，都能以最低的门槛，成为一条可被审计的公链真实的一部分，并从自己的真实贡献中获得回报。
-    </p>
-    <p>
-      当那部手机在深夜的床头柜上安静出块、完成一次 AI 推理、领到一笔微薄却来自真实贡献的 MC 时——<strong>归还，就已经发生了</strong>。
-      这一次，不是靠宣言，而是靠代码。
-    </p>
-
-    <blockquote style="margin-top: 36px;">
-      人类用了五千年，才把价值的记录与分配，第一次有可能脱离任何单一中心的掌控。
-      MobileChain 想做的，是把这最后一步按到每一个人的口袋里：让那只握着手机的手，既是价值的创造者，也是价值的记录者，还是价值的拥有者。
-      <cite>—— MobileChain 白皮书 · 跋</cite>
-    </blockquote>
-  </div>
-</section>
-
-<!-- ═══════════ FOOTER ═══════════ -->
-<footer>
-  <div class="container">
-    <div class="links">
-      <a href="https://github.com/mcchain/mcchain" target="_blank" rel="noopener">GitHub</a>
-      <a class="file" href="MobileChain白皮书_完整典藏版.pdf">完整白皮书 PDF（v6.0 · 30 章）</a>
-      <a class="file" href="MC-WHITEPAPER.pdf">旧版白皮书 PDF（归档）</a>
-      <a href="WHITEPAPER.md">白皮书 Markdown</a>
-    </div>
-    <p>MobileChain (MC) &middot; mcchain-mainnet-1 &middot; 总量 10 亿 &middot; 零通胀</p>
-    <p class="note">Apache 2.0 License &middot; 凡与代码不符，以代码为准</p>
-  </div>
-</footer>
-
 </body>
 </html>
