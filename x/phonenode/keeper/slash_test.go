@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
@@ -30,14 +31,21 @@ func TestSlashCooldownBlocksReAttest(t *testing.T) {
 	require.False(t, k.IsAttested(ctx, addr)) // attestation 已吊销
 	require.True(t, k.InSlashCooldown(ctx, addr), "被 slash 后应处于冷却期")
 
-	// 冷却期内再认证应被拒
-	err = k.SubmitAttestation(ctx, addr, "root2", "nonce2", "devhash2")
+	// 设备密钥（用于 attestation challenge-response 验签）
+	devPriv := secp256k1.GenPrivKey()
+	devPub := devPriv.PubKey().(*secp256k1.PubKey)
+	devPubHex := hex.EncodeToString(devPub.Key)
+	sig2, _ := devPriv.Sign([]byte("devhash2|nonce2"))
+	sig3, _ := devPriv.Sign([]byte("devhash3|nonce3"))
+
+	// 冷却期内再认证应被拒（在验签之前短路）
+	err = k.SubmitAttestation(ctx, addr, "root2", "nonce2", "devhash2", devPubHex, hex.EncodeToString(sig2))
 	require.ErrorIs(t, err, types.ErrSlashCooldown)
 
 	// 推进区块越过冷却，冷却解除，再认证放行
 	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + k.GetParams(ctx).SlashCooldownBlocks + 1)
 	require.False(t, k.InSlashCooldown(ctx, addr), "冷却期过后应解除")
-	err = k.SubmitAttestation(ctx, addr, "root3", "nonce3", "devhash3")
+	err = k.SubmitAttestation(ctx, addr, "root3", "nonce3", "devhash3", devPubHex, hex.EncodeToString(sig3))
 	require.NoError(t, err)
 	require.True(t, k.IsAttested(ctx, addr))
 }

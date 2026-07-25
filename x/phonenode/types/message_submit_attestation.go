@@ -9,12 +9,14 @@ const TypeMsgSubmitAttestation = "submit_attestation"
 
 var _ sdk.Msg = &MsgSubmitAttestation{}
 
-func NewMsgSubmitAttestation(creator string, rootHash string, nonce string, deviceIDHash string) *MsgSubmitAttestation {
+func NewMsgSubmitAttestation(creator string, rootHash string, nonce string, deviceIDHash string, devicePubKey string, signature string) *MsgSubmitAttestation {
 	return &MsgSubmitAttestation{
 		Creator:      creator,
 		RootHash:     rootHash,
 		Nonce:        nonce,
 		DeviceIdHash: deviceIDHash,
+		DevicePubKey: devicePubKey,
+		Signature:    signature,
 	}
 }
 

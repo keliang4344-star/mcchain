@@ -257,6 +257,11 @@ type MsgSubmitAttestation struct {
 	RootHash     string `protobuf:"bytes,2,opt,name=root_hash,json=rootHash,proto3" json:"root_hash,omitempty"`
 	Nonce        string `protobuf:"bytes,3,opt,name=nonce,proto3" json:"nonce,omitempty"`
 	DeviceIdHash string `protobuf:"bytes,4,opt,name=device_id_hash,json=deviceIdHash,proto3" json:"device_id_hash,omitempty"`
+	// DevicePubKey 是设备持有的 secp256k1 公钥（压缩 33 字节，hex 编码）。
+	// 用于 challenge-response 验签，防止任何人仅凭 SHA256(deviceID) 伪造 attestation。
+	DevicePubKey string `protobuf:"bytes,5,opt,name=device_pubkey,json=devicePubkey,proto3" json:"device_pubkey,omitempty"`
+	// Signature 是设备对 "deviceIDHash|nonce" 的 secp256k1 签名（64 字节，hex 编码）。
+	Signature string `protobuf:"bytes,6,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *MsgSubmitAttestation) Reset()         { *m = MsgSubmitAttestation{} }
@@ -316,6 +321,20 @@ func (m *MsgSubmitAttestation) GetNonce() string {
 func (m *MsgSubmitAttestation) GetDeviceIdHash() string {
 	if m != nil {
 		return m.DeviceIdHash
+	}
+	return ""
+}
+
+func (m *MsgSubmitAttestation) GetDevicePubKey() string {
+	if m != nil {
+		return m.DevicePubKey
+	}
+	return ""
+}
+
+func (m *MsgSubmitAttestation) GetSignature() string {
+	if m != nil {
+		return m.Signature
 	}
 	return ""
 }
@@ -734,6 +753,20 @@ func (m *MsgSubmitAttestation) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.Signature) > 0 {
+		i -= len(m.Signature)
+		copy(dAtA[i:], m.Signature)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Signature)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.DevicePubKey) > 0 {
+		i -= len(m.DevicePubKey)
+		copy(dAtA[i:], m.DevicePubKey)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.DevicePubKey)))
+		i--
+		dAtA[i] = 0x2a
+	}
 	if len(m.DeviceIdHash) > 0 {
 		i -= len(m.DeviceIdHash)
 		copy(dAtA[i:], m.DeviceIdHash)
@@ -894,6 +927,14 @@ func (m *MsgSubmitAttestation) Size() (n int) {
 		n += 1 + l + sovTx(uint64(l))
 	}
 	l = len(m.DeviceIdHash)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.DevicePubKey)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.Signature)
 	if l > 0 {
 		n += 1 + l + sovTx(uint64(l))
 	}
@@ -1591,6 +1632,70 @@ func (m *MsgSubmitAttestation) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.DeviceIdHash = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DevicePubKey", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DevicePubKey = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Signature", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Signature = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

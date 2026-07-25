@@ -2,8 +2,10 @@ package keeper
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"mcchain/x/phonenode/types"
 )
 
@@ -75,7 +77,7 @@ func (k Keeper) GetDeviceOwner(ctx sdk.Context, deviceIDHash string) string {
 //   - 计算 expiry = 当前时间 + AttestationValidity，写入 status=valid
 //
 // 链上只存根哈希 + nonce + device_id_hash + expiry + status；重验证（Play Integrity / Key Attestation）链下完成。
-func (k Keeper) SubmitAttestation(ctx sdk.Context, nodeAddr, rootHash, nonce, deviceIDHash string) error {
+func (k Keeper) SubmitAttestation(ctx sdk.Context, nodeAddr, rootHash, nonce, deviceIDHash, devicePubKey, signature string) error {
 	if _, err := k.GetNode(ctx, nodeAddr); err != nil {
 		return err
 	}
@@ -92,6 +94,13 @@ func (k Keeper) SubmitAttestation(ctx sdk.Context, nodeAddr, rootHash, nonce, de
 	// nonce 不可重放：已使用过的 nonce 直接拒绝
 	if ctx.KVStore(k.storeKey).Has(types.NonceKey(nodeAddr, nonce)) {
 		return types.ErrNonceReused
+	}
+
+	// === attestation 链上验签（修复“空壳”：原证明=SHA256(deviceID) 人人可伪造）===
+	// 设备用其私钥对 "deviceIDHash|nonce" 签名，链上用注册公钥验签；
+	// 未过验签一律拒绝，杜绝任何人仅凭哈希伪造 attestation。
+	if err := k.verifyDeviceAttestation(ctx, nodeAddr, deviceIDHash, nonce, devicePubKey, signature); err != nil {
+		return err
 	}
 
 	// 设备绑定防女巫：device_id_hash 1:1 绑定地址
@@ -116,4 +125,51 @@ func (k Keeper) SubmitAttestation(ctx sdk.Context, nodeAddr, rootHash, nonce, de
 	ctx.KVStore(k.storeKey).Set(types.NonceKey(nodeAddr, nonce), []byte{1})
 
 	return nil
+}
+
+// verifyDeviceAttestation 验证设备对 challenge 的签名，并维护设备公钥绑定。
+func (k Keeper) verifyDeviceAttestation(ctx sdk.Context, nodeAddr, deviceIDHash, nonce, devicePubKey, signature string) error {
+	if devicePubKey == "" || signature == "" {
+		return types.ErrInvalidAttestation.Wrap("device pubkey and signature are required for attestation")
+	}
+	pubBz, err := hex.DecodeString(devicePubKey)
+	if err != nil || len(pubBz) != 33 {
+		return types.ErrInvalidAttestation.Wrap("invalid device pubkey encoding (expect 33-byte compressed hex)")
+	}
+	sigBz, err := hex.DecodeString(signature)
+	if err != nil {
+		return types.ErrInvalidAttestation.Wrap("invalid signature encoding (expect hex)")
+	}
+	// 兼容 keplr / cosmjs 的 65 字节（含 recovery id）格式：去掉首字节恢复位。
+	if len(sigBz) == 65 {
+		sigBz = sigBz[1:]
+	}
+	if len(sigBz) != 64 {
+		return types.ErrInvalidAttestation.Wrap("invalid signature length (expect 64-byte compact)")
+	}
+	pk := &secp256k1.PubKey{Key: pubBz}
+	msg := []byte(deviceIDHash + "|" + nonce)
+	if !pk.VerifySignature(msg, sigBz) {
+		return types.ErrInvalidAttestation.Wrap("attestation signature verification failed")
+	}
+	// 设备公钥绑定：首次存储；后续必须与已存公钥一致，防止设备密钥随意轮换绕过绑定。
+	if stored := k.GetDevicePubKey(ctx, nodeAddr); stored != "" && stored != devicePubKey {
+		return types.ErrDeviceAlreadyBound.Wrap("device pubkey changed after registration")
+	}
+	k.SetDevicePubKey(ctx, nodeAddr, devicePubKey)
+	return nil
+}
+
+// SetDevicePubKey 持久化某节点绑定的设备公钥（hex 字符串）。
+func (k Keeper) SetDevicePubKey(ctx sdk.Context, addr, pubKeyHex string) {
+	ctx.KVStore(k.storeKey).Set(types.DevicePubKeyKey(addr), []byte(pubKeyHex))
+}
+
+// GetDevicePubKey 读取某节点绑定的设备公钥（hex 字符串）；未绑定返回空串。
+func (k Keeper) GetDevicePubKey(ctx sdk.Context, addr string) string {
+	bz := ctx.KVStore(k.storeKey).Get(types.DevicePubKeyKey(addr))
+	if bz == nil {
+		return ""
+	}
+	return string(bz)
 }

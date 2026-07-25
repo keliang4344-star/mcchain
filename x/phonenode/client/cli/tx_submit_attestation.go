@@ -10,13 +10,15 @@ import (
 
 func CmdSubmitAttestation() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "submit-attestation [root_hash] [nonce] [device_id_hash]",
-		Short: "Broadcast message submit-attestation (hardware attestation anti-sybil)",
-		Args:  cobra.ExactArgs(3),
+		Use:   "submit-attestation [root_hash] [nonce] [device_id_hash] [device_pubkey] [signature]",
+		Short: "Broadcast message submit-attestation (device-key challenge-response attestation)",
+		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			argRootHash := args[0]
 			argNonce := args[1]
 			argDeviceIDHash := args[2]
+			argDevicePubKey := args[3]
+			argSignature := args[4]
 
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
@@ -28,6 +30,8 @@ func CmdSubmitAttestation() *cobra.Command {
 				argRootHash,
 				argNonce,
 				argDeviceIDHash,
+				argDevicePubKey,
+				argSignature,
 			)
 			if err := msg.ValidateBasic(); err != nil {
 				return err

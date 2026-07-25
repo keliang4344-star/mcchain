@@ -17,7 +17,7 @@ func (k msgServer) SubmitAttestation(goCtx context.Context, msg *types.MsgSubmit
 		return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid creator address (%s)", err)
 	}
 
-	if err := k.Keeper.SubmitAttestation(ctx, nodeAddr, msg.RootHash, msg.Nonce, msg.DeviceIdHash); err != nil {
+	if err := k.Keeper.SubmitAttestation(ctx, nodeAddr, msg.RootHash, msg.Nonce, msg.DeviceIdHash, msg.DevicePubKey, msg.Signature); err != nil {
 		return nil, err
 	}
 

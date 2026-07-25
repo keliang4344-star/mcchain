@@ -32,6 +32,8 @@ var (
 	SlashCooldownKeyPrefix = []byte("SlashCD:")
 	// VerifierStatusKeyPrefix 是节点验证者状态存储前缀。
 	VerifierStatusKeyPrefix = []byte("VerifierStatus:")
+	// DevicePubKeyKeyPrefix 是节点地址 → 设备公钥 的存储前缀（attestation 验签绑定）。
+	DevicePubKeyKeyPrefix = []byte("DevPub:")
 )
 
 // AttestationKey 返回某节点的 attestation 状态 key。
@@ -62,4 +64,9 @@ func SlashCooldownKey(addr string) []byte {
 // VerifierStatusKey 返回节点验证者状态 key。
 func VerifierStatusKey(nodeID string) []byte {
 	return append(VerifierStatusKeyPrefix, []byte(nodeID)...)
+}
+
+// DevicePubKeyKey 返回某节点绑定的设备公钥 key。
+func DevicePubKeyKey(addr string) []byte {
+	return append(DevicePubKeyKeyPrefix, []byte(addr)...)
 }
