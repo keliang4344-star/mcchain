@@ -122,10 +122,10 @@ graph TD
 - **风险点**：团队多签地址/公钥在 `types` 中硬编码（部署时须替换）；`goal_bonded` 不能为零（已注释）。
 
 ### 2.2 x/depin（✅ 已完成）
-- **功能**：`RegisterDevice`(入网) → `AttestDevice`(经 `DefaultOracle` 验证，默认 Soft、可切 Tee) → `SubmitContribution`(落盘+计分+发币闸口)。
+- **功能**：`RegisterDevice`(入网) → `AttestDevice`(经 `DefaultOracle` 验证，生产默认强制 `TeeOracle`，本地开发可 `MC_ORACLE_ALLOW_SOFT=1` 退回 Soft) → `SubmitContribution`(落盘+计分+发币闸口)。
 - **奖励引擎**（`reward.go`，纯函数）：`ComputeReward(score, taskType)` = score×系数（inference 5x / data_label 3x / bandwidth 1x），score∈[0,100] 且 ≥30 才发，封顶 500/任务；`IsValidTaskType` 白名单。
 - **发币闸口**（`msg_server_submit_contribution.go`）：reward>0 时须 `phonenode.HasNode` 且 `phonenode.IsAttested`，否则拒付；经 `bank.SendCoinsFromModuleToAccount` 从 depin 池出币；发 `depin.RewardPaid` 事件供移动端监听。
-- **预言机抽象**（`types/oracle.go`）：`AttestationOracle` 接口，`SoftOracle`(非空即可) / `TeeOracle`(secp256k1 验签 `deviceAddr|challenge`)，支持生产切换。
+- **预言机抽象**（`types/oracle.go`）：`AttestationOracle` 接口，`SoftOracle`(非空即可，仅本地开发) / `TeeOracle`(secp256k1 验签 `deviceAddr|challenge`)；生产经 `app.go` 默认强制 `TeeOracle`（`MC_ORACLE_PUBKEY` 缺省即 panic）。
 - **测试**：14 个测试函数，覆盖 register/attest/contribution/reward/store/params。
 
 ### 2.3 x/phonenode（✅ 已完成）

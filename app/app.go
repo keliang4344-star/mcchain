@@ -931,10 +931,20 @@ func New(
 	app.ScopedTransferKeeper = scopedTransferKeeper
 	// this line is used by starport scaffolding # stargate/app/beforeInitReturn
 
-	// T2 生产预言机切换：若设置 MC_ORACLE_PUBKEY（33 字节压缩 secp256k1 公钥的 base64），
-	// 则把默认 SoftOracle 切换为 TeeOracle 做链上验签；未设置则保持 Soft（测试网兼容）。
-	// 链下服务见 cmd/oracle（对 deviceAddr|challenge 签名）；公钥由运营离线保管。
-	if envPub := os.Getenv("MC_ORACLE_PUBKEY"); envPub != "" {
+	// T2 生产预言机强制（P0③）：主网/生产必须启用 TeeOracle 做链上真实验签，
+	// 且 MC_ORACLE_PUBKEY 必须设置（= 33 字节压缩 secp256k1 公钥的 base64）；
+	// 未设置则直接 panic，杜绝「默认 SoftOracle 静默放行任意 attestation」的隐患
+	// （SoftOracle 仅校验 challenge+signature 非空，等于来者不拒）。
+	// 仅本地单节点开发/测试可通过显式设置 MC_ORACLE_ALLOW_SOFT=1 退回 SoftOracle，并大声告警。
+	// 链下签名服务见 cmd/oracle（P0② 已强制：签名前先验证真实设备硬件 attestation）；公钥由运营离线保管。
+	envPub := os.Getenv("MC_ORACLE_PUBKEY")
+	if envPub == "" {
+		if os.Getenv("MC_ORACLE_ALLOW_SOFT") == "1" {
+			fmt.Fprintf(os.Stderr, "[WARN] MC_ORACLE_PUBKEY 未设置，已按 MC_ORACLE_ALLOW_SOFT=1 退回 SoftOracle（仅限本地开发，生产必须启用 TeeOracle）\n")
+		} else {
+			panic(fmt.Errorf("MC_ORACLE_PUBKEY must be set for production: a 33-byte compressed secp256k1 pubkey (base64); set MC_ORACLE_ALLOW_SOFT=1 only for local single-node dev"))
+		}
+	} else {
 		bz, berr := base64.StdEncoding.DecodeString(envPub)
 		if berr != nil || len(bz) != 33 {
 			panic(fmt.Errorf("MC_ORACLE_PUBKEY must be base64 of 33-byte compressed secp256k1 pubkey: %w", berr))
