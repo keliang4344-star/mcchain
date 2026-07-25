@@ -6,11 +6,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// P1-2 / D2: DefaultParams must lock InitialPool=5.5e14 (umc, 五池模型设备激励池 55%)
-// and RewardDenom="umc".
+// P1-2 / D2: DefaultParams must lock InitialPool=4.675e14 (umc) — 即设备激励池整体
+// 55%（5.5e14）切出推荐返佣生态预算（8.25e13，= 55% 的 15%）后的 DePIN 挖矿奖励金库余额，
+// 由 tokenomics.InitGenesis 一次性注入 depin 模块账户；RewardDenom="umc"。
 func TestDefaultParams(t *testing.T) {
 	p := DefaultParams()
-	require.Equal(t, uint64(550_000_000_000_000), p.InitialPool)
+	require.Equal(t, uint64(467_500_000_000_000), p.InitialPool)
 	require.Equal(t, "umc", p.RewardDenom)
 }
 
@@ -34,7 +35,7 @@ func TestParamSetPairs(t *testing.T) {
 	require.True(t, keys[string(ParamsKeyRewardDenom)])
 
 	// validators accept the default values
-	require.NoError(t, validateInitialPool(uint64(550_000_000_000_000)))
+	require.NoError(t, validateInitialPool(uint64(467_500_000_000_000)))
 	require.NoError(t, validateRewardDenom("umc"))
 
 	// validators reject bad values

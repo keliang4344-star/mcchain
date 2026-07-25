@@ -55,8 +55,9 @@ func TestQueryAllocations(t *testing.T) {
 	require.Equal(t, foundationAmt, byName[types.FoundationPoolName].AllocatedAmount)
 	require.Equal(t, earlyDevAmt, byName[types.EarlyDevPoolName].AllocatedAmount)
 
-	// 当前余额（实时 bank）与拨付一致（设备激励池全额托管于 depin 模块账户）。
-	require.Equal(t, deviceAmt, byName[types.DeviceIncentivePoolName].CurrentBalance)
+	// 当前余额（实时 bank）：设备激励分配额(550M) 在创世时切出 82.5M 推荐返佣预算后，
+	// 剩余 467.5M 注入 depin 模块账户（CurrentBalance 反映实际托管额，非分配额）。
+	require.Equal(t, depinVaultAmt, byName[types.DeviceIncentivePoolName].CurrentBalance)
 	require.Equal(t, stakingAmt, byName[types.StakingSecurityPoolName].CurrentBalance)
 	require.Equal(t, teamAmt, byName[types.TeamPoolName].CurrentBalance)
 	require.Equal(t, foundationAmt, byName[types.FoundationPoolName].CurrentBalance)

@@ -5,6 +5,8 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	depinmoduletypes "mcchain/x/depin/types"
+	referralmoduletypes "mcchain/x/referral/types"
 	"mcchain/x/tokenomics/types"
 )
 
@@ -36,8 +38,7 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) error 
 		return fmt.Errorf("tokenomics: mint cap: %w", err)
 	}
 
-	// 解析各池拨付额（五池）。
-	deviceCoins := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromUint64(allocAmount(genState, types.DeviceIncentivePoolName))))
+	// 解析各池拨付额（五池）。设备激励池(deviceCoins)的切分与拨付见步骤③。
 	stakingCoins := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromUint64(allocAmount(genState, types.StakingSecurityPoolName))))
 	teamCoins := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromUint64(allocAmount(genState, types.TeamPoolName))))
 	earlyDevCoins := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromUint64(allocAmount(genState, types.EarlyDevPoolName))))
@@ -53,12 +54,30 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) error 
 		return fmt.Errorf("tokenomics: send to team vesting account: %w", err)
 	}
 
-	// ③ 设备激励池：全额注入 depin 模块账户（= DePIN 挖矿奖励金库，55% cap）。
-	// 校验分配额与 DepinInitialPoolSlice / depin.DefaultInitialPool 三者一致（防漂移）。
+	// ③ 设备激励池：整体 55% cap（= DepinInitialPoolSlice）由 tokenomics 模块账户托管，
+	// 创世时切出「推荐返佣生态预算（ReferralEcosystemBudget，白皮书 §25，= 55% 的 15%）」
+	// 拨付到 referral.EcosystemModuleAccount（供三级返佣 ClaimRewards 领取，修复「奖励领不出」P0），
+	// 剩余部分注入 depin 模块账户作为 DePIN 挖矿奖励金库（= depin.DefaultInitialPool）。
+	// 校验：分配额 == DepinInitialPoolSlice，且不变量
+	//   DepinInitialPoolSlice - ReferralEcosystemBudget == depin.DefaultInitialPool 成立（防漂移）。
 	if allocAmount(genState, types.DeviceIncentivePoolName) != types.DepinInitialPoolSlice {
 		return fmt.Errorf("tokenomics: device_incentive alloc %d != DepinInitialPoolSlice %d",
 			allocAmount(genState, types.DeviceIncentivePoolName), types.DepinInitialPoolSlice)
 	}
+	if types.DepinInitialPoolSlice-types.ReferralEcosystemBudget != depinmoduletypes.DefaultInitialPool {
+		return fmt.Errorf("tokenomics: invariant broken: DepinInitialPoolSlice(%d) - ReferralEcosystemBudget(%d) != depin.DefaultInitialPool(%d)",
+			types.DepinInitialPoolSlice, types.ReferralEcosystemBudget, depinmoduletypes.DefaultInitialPool)
+	}
+
+	// 3a 推荐返佣生态预算：从设备激励池切出，拨付到 referral 生态模块账户（可支出，供返佣领取）。
+	ecosystemCoins := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromUint64(types.ReferralEcosystemBudget)))
+	if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, referralmoduletypes.EcosystemModuleAccount, ecosystemCoins); err != nil {
+		return fmt.Errorf("tokenomics: fund referral ecosystem account: %w", err)
+	}
+
+	// 3b 剩余设备激励：注入 depin 模块账户（= DePIN 挖矿奖励金库）。
+	deviceForDepin := allocAmount(genState, types.DeviceIncentivePoolName) - types.ReferralEcosystemBudget
+	deviceCoins := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromUint64(deviceForDepin)))
 	if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, types.DepinModuleName, deviceCoins); err != nil {
 		return fmt.Errorf("tokenomics: send device incentive pool to depin: %w", err)
 	}

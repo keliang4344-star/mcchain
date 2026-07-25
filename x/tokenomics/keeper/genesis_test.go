@@ -16,7 +16,9 @@ import (
 // 设备激励 55% / 质押安全 15% / 团队 12% / 基金会 13% / 早期开发 5%。
 const (
 	capAmt        = uint64(1e15)                // 总量上限
-	deviceAmt     = uint64(550_000_000_000_000) // 55%（设备激励，全额注入 depin）
+	deviceAmt     = uint64(550_000_000_000_000) // 55%（设备激励池分配额，五池占比不变）
+	depinVaultAmt = uint64(467_500_000_000_000) // 设备激励切出 82.5M 推荐返佣后注入 depin 的实际金库（= depin.DefaultInitialPool）
+	ecosystemAmt  = uint64(82_500_000_000_000)  // 设备激励 55% 内切出的推荐返佣生态预算（→ referral.ecosystem，供三级返佣领取）
 	stakingAmt    = uint64(150_000_000_000_000) // 15%（质押安全）
 	teamAmt       = uint64(120_000_000_000_000) // 12%（团队 vesting）
 	foundationAmt = uint64(130_000_000_000_000) // 13%（基金会，拆分运营+vesting）
@@ -47,10 +49,15 @@ func TestInitGenesis(t *testing.T) {
 	teamBal := bk.GetBalance(ctx, types.TeamAddress, types.DefaultDenom)
 	require.Equal(t, teamAmt, uint64(teamBal.Amount.Int64()))
 
-	// ③ 设备激励池全额注入 depin 模块账户 == 5.5e14。
+	// ③ 设备激励池切出 82.5M 推荐返佣预算后，剩余 4.675e14 注入 depin 模块账户（= depin.DefaultInitialPool）。
 	depinAddr := authtypes.NewModuleAddress(types.DepinModuleName)
 	depinBal := bk.GetBalance(ctx, depinAddr, types.DefaultDenom)
-	require.Equal(t, deviceAmt, uint64(depinBal.Amount.Int64()))
+	require.Equal(t, depinVaultAmt, uint64(depinBal.Amount.Int64()))
+
+	// ③b 推荐返佣生态模块账户余额 == 8.25e13（由 tokenomics 从设备激励池切出拨付，供三级返佣 ClaimRewards）。
+	ecoAddr := authtypes.NewModuleAddress("ecosystem")
+	ecoBal := bk.GetBalance(ctx, ecoAddr, types.DefaultDenom)
+	require.Equal(t, ecosystemAmt, uint64(ecoBal.Amount.Int64()))
 
 	// ④ 质押安全模块账户余额 == 1.5e14。
 	stakingAddr := authtypes.NewModuleAddress(types.StakingSecurityPoolName)

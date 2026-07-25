@@ -507,7 +507,7 @@ MobileChain 不信"一步到位"，只信"分阶段、可验证地推进"。
 
 **路线图（如实标注）**
 
-- 已完成 ✅：五大原生模块、五池经济端到端验证、零通胀模型、手机节点安全体系、EdgeAI 经济层全流程（发布/托管/乐观结算/仲裁）、验证人门槛、预言机加固、Web 仪表盘、完整文档。
+- 已完成 ✅：五大原生模块、五池经济端到端验证、零通胀模型、手机节点安全体系、EdgeAI 经济层全流程（发布/托管/乐观结算/仲裁）、验证人门槛、预言机加固、预言机真机绑定（多根真实硬件 attestation 强制验证）、TeeOracle 生产默认强制、Web 仪表盘、完整文档。
 - 进行中 🔄：主网上线准备、Web 体验优化、移动端 SDK 打磨。
 - 规划中 📋：治理渐进移交、智能合约层评估（CosmWasm）、链下扩容、跨链互操作（IBC）、EdgeAI 算力市场规模化。
 
@@ -638,9 +638,9 @@ MobileChain 规划主网上线当天启动公开漏洞赏金（通过 Immunefi �
 
 按"链上求真"原则，路线图如实标注三档：
 
-- **已完成 ✅**：五大原生模块、五池经济（55/15/12/13/5）端到端验证、零通胀模型、手机节点安全体系（认证/女巫绑定/离线宽限/分级罚没/冷却）、EdgeAI 经济层全流程（发布/托管/乐观结算/仲裁）、验证人门槛（3 万 MC ante）、预言机加固（Bearer+限流+TLS）、Web 仪表盘、完整文档。
+- **已完成 ✅**：五大原生模块、五池经济（55/15/12/13/5）端到端验证、零通胀模型、手机节点安全体系（认证/女巫绑定/离线宽限/分级罚没/冷却）、EdgeAI 经济层全流程（发布/托管/乐观结算/仲裁）、验证人门槛（3 万 MC ante）、预言机加固（Bearer+限流+TLS）、**预言机真机绑定（/sign 强制验证多根真实硬件 attestation：Play Integrity/华为/Android Key Attestation，fail-closed）**、**TeeOracle 生产默认强制（MC_ORACLE_PUBKEY 缺省即 panic，本地开发可 MC_ORACLE_ALLOW_SOFT=1 退回）**、Web 仪表盘、完整文档。
 - **进行中 🔄**：主网上线准备（创世/原始节点、验证人招募、最终审计）、Web RPC 可配置化与体验优化、移动端 SDK 打磨。
-- **规划中 📋**：EdgeAI 验证层（链上重算比对、验证脚本真实执行）、预言机真机绑定（TEE/Android Key Attestation）、治理渐进移交、智能合约层评估（CosmWasm）、链下扩容/批量结算、跨链互操作（IBC）、EdgeAI 算力市场规模化。
+- **规划中 📋**：EdgeAI 验证层（链上重算比对、验证脚本真实执行）、治理渐进移交、智能合约层评估（CosmWasm）、链下扩容/批量结算、跨链互操作（IBC）、EdgeAI 算力市场规模化。
 
 路线图随真实进展更新，以"标志性事件达成"而非"承诺日期"衡量推进——请始终以链上状态与开源代码为准。
 
@@ -669,11 +669,13 @@ MobileChain 规划主网上线当天启动公开漏洞赏金（通过 Immunefi �
 |---|---|---|---|
 | 总量上限 | 1,000,000,000,000,000（1e15） | 10 亿 | `TotalSupplyCap` |
 | 设备激励 55% | 550,000,000,000,000 | 5.5 亿 | `DeviceIncentivePercentBps=5500` |
+| └ 推荐返佣生态预算 | 82,500,000,000,000 | 0.825 亿（= 55% 的 15%） | `ReferralEcosystemBudget` |
+| └ 注入 depin 挖矿金库 | 467,500,000,000,000 | 4.675 亿 | `DepinInitialPoolSlice - ReferralEcosystemBudget` |
 | 质押安全 15% | 150,000,000,000,000 | 1.5 亿 | `StakingSecurityPercentBps=1500` |
 | 团队 12% | 120,000,000,000,000 | 1.2 亿 | `TeamPercentBps=1200` |
 | 基金会 13% | 130,000,000,000,000 | 1.3 亿 | `FoundationPercentBps=1300` |
 | 早期开发 5% | 50,000,000,000,000 | 0.5 亿 | `EarlyDevPercentBps=500` |
-| 设备池注入 depin | 550,000,000,000,000 | 5.5 亿 | `DepinInitialPoolSlice` |
+| 设备池注入 depin | 467,500,000,000,000 | 4.675 亿 | `DepinInitialPoolSlice - ReferralEcosystemBudget` |
 | 团队多签阈值 | 3-of-5 | — | `TeamMultisigThreshold=3` |
 | 团队释放 | 1 年 cliff + 3 年线性 | — | `x/tokenomics/keeper/genesis.go` |
 
@@ -681,10 +683,10 @@ MobileChain 规划主网上线当天启动公开漏洞赏金（通过 Immunefi �
 
 | 参数 | 值 | 源码常量 |
 |---|---|---|
-| 初始金库 | 550,000,000,000,000 umc（5.5 亿 MC，55%） | `DefaultInitialPool` |
+| 初始金库 | 467,500,000,000,000 umc（4.675 亿 MC，= 设备激励 55% 切出推荐返佣预算 8.25 亿后） | `DefaultInitialPool` |
 | 奖励 denom | `umc` | `DefaultRewardDenom` |
 | 铸币权限 | 无（只发放，不铸造） | maccPerms（无 Minter） |
-| 与 tokenomics 一致性 | `DefaultInitialPool == DepinInitialPoolSlice`（创世断言） | `x/tokenomics/keeper/genesis.go` |
+| 与 tokenomics 一致性 | `DepinInitialPoolSlice - ReferralEcosystemBudget == DefaultInitialPool`（创世断言） | `x/tokenomics/keeper/genesis.go` |
 
 ## A.4 手机节点安全（phonenode）
 

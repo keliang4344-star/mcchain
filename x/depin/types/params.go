@@ -16,10 +16,11 @@ var (
 )
 
 // DefaultInitialPool is the default size of the DePIN reward pool, in umc.
-// 5.5e14 umc == 5.5e8 MC (55% of the 1B total supply) — the whole device-incentive
-// pool of the five-pool model, injected once at genesis by tokenomics.InitGenesis
-// (tokenomics → depin module account). Must equal tokenomics.DepinInitialPoolSlice.
-const DefaultInitialPool uint64 = 550_000_000_000_000
+// 4.675e14 umc == 4.675e8 MC — 即设备激励池整体额度（DepinInitialPoolSlice = 5.5e14，
+// 占 1B 总量 55%）切出「推荐返佣生态预算（ReferralEcosystemBudget = 8.25e13，= 55% 的 15%）」
+// 之后的剩余部分，由 tokenomics.InitGenesis 一次性注入 depin 模块账户（tokenomics → depin）。
+// 不变量（防漂移）：DepinInitialPoolSlice - ReferralEcosystemBudget == DefaultInitialPool。
+const DefaultInitialPool uint64 = 467_500_000_000_000
 
 // DefaultRewardDenom is the denom used for DePIN reward payouts.
 const DefaultRewardDenom = "umc"

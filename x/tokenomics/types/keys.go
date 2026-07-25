@@ -63,11 +63,18 @@ const (
 	FoundationPercentBps      = uint32(1300)
 	EarlyDevPercentBps        = uint32(500)
 
-	// DepinInitialPoolSlice 设备激励池整体拨付到 depin 模块账户的额度（= 55% cap）。
-	// 设备激励池即 DePIN 挖矿奖励金库，创世时全额注入 depin 模块账户，
-	// 由 depin 按已验证任务逐笔对外拨付；必须等于 x/depin/types.DefaultInitialPool。
+	// DepinInitialPoolSlice 设备激励池整体额度（= 55% cap，含 DePIN 挖矿 + 推荐返佣两部分）。
+	// 设备激励池即 DePIN 挖矿奖励金库，创世时切出推荐返佣预算后注入 depin 模块账户，
+	// depin 实际接收额 = DepinInitialPoolSlice - ReferralEcosystemBudget，
+	// 必须等于 x/depin/types.DefaultInitialPool。
 	// 5.5e14 umc = 5.5e8 MC（占 10 亿总量的 55%）。
 	DepinInitialPoolSlice = uint64(550_000_000_000_000)
+
+	// ReferralEcosystemBudget 推荐返佣生态账户拨款（umc）。
+	// 白皮书 line 398：推荐预算约 8,250 万 MC（= 设备激励 55% 的 15%），在 55% 之内；
+	// 由 tokenomics InitGenesis 从设备激励池切出并拨付到 referral.EcosystemModuleAccount，
+	// 供三级返佣 ClaimRewards 领取（修复"奖励领不出"P0）。
+	ReferralEcosystemBudget = uint64(82_500_000_000_000)
 
 	// DepinModuleName 生态切片拨付的目标模块名（C2：以常量替代字符串，编译期可查）。
 	// tokenomics → depin 的跨模块转账统一引用此常量，避免隐式字符串耦合。
