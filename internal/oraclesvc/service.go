@@ -60,7 +60,7 @@ func Run(listen string) error {
 		log.Printf("  /sign rate limit: %d req/min", rateLimit)
 	}
 
-	h := NewSecureHandler(priv, addr, pubB64, signToken, rateLimit)
+	h := NewSecureHandler(priv, addr, pubB64, signToken, rateLimit, NewRegistryFromEnv())
 
 	cert, key := os.Getenv("ORACLE_TLS_CERT"), os.Getenv("ORACLE_TLS_KEY")
 	if cert != "" && key != "" {
@@ -72,14 +72,16 @@ func Run(listen string) error {
 	return http.ListenAndServe(listen, h)
 }
 
-// NewHandler 构造预言机 HTTP 处理器（无认证 / 无限流，便于单测）。
-func NewHandler(priv *secp256k1.PrivKey, addr, pubB64 string) http.Handler {
-	return NewSecureHandler(priv, addr, pubB64, "", 0)
+// NewHandler 构造预言机 HTTP 处理器（无认证 / 无限流，便于单测），verifier 为
+// attestation 注册表（nil 时拒绝一切 /sign —— fail-closed）。
+func NewHandler(priv *secp256k1.PrivKey, addr, pubB64 string, verifier AttestationVerifier) http.Handler {
+	return NewSecureHandler(priv, addr, pubB64, "", 0, verifier)
 }
 
 // NewSecureHandler 构造带认证的预言机 HTTP 处理器。
-// signToken 非空 → /sign 需 `Authorization: Bearer <token>`；ratePerMin>0 → 每分钟限流。
-func NewSecureHandler(priv *secp256k1.PrivKey, addr, pubB64, signToken string, ratePerMin int) http.Handler {
+// signToken 非空 → /sign 需 `Authorization: Bearer <token>`；ratePerMin>0 → 每分钟限流；
+// verifier 为 attestation 注册表，/sign 在签名前必须先通过真机验证（P0②）。
+func NewSecureHandler(priv *secp256k1.PrivKey, addr, pubB64, signToken string, ratePerMin int, verifier AttestationVerifier) http.Handler {
 	rl := &rateLimiter{limit: ratePerMin}
 
 	mux := http.NewServeMux()
@@ -114,8 +116,9 @@ func NewSecureHandler(priv *secp256k1.PrivKey, addr, pubB64, signToken string, r
 			return
 		}
 		var req struct {
-			DeviceAddr string `json:"device_addr"`
-			Challenge  string `json:"challenge"`
+			DeviceAddr string           `json:"device_addr"`
+			Challenge  string           `json:"challenge"`
+			Attestation AttestationClaim `json:"attestation"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "bad json", http.StatusBadRequest)
@@ -123,6 +126,15 @@ func NewSecureHandler(priv *secp256k1.PrivKey, addr, pubB64, signToken string, r
 		}
 		if req.DeviceAddr == "" || req.Challenge == "" {
 			http.Error(w, "device_addr and challenge required", http.StatusBadRequest)
+			return
+		}
+		// P0②：签名前必须先验证真实设备 attestation（fail-closed：无注册表或验证失败即拒绝）。
+		if verifier == nil {
+			http.Error(w, "attestation verifier not configured", http.StatusServiceUnavailable)
+			return
+		}
+		if err := verifier.Verify(r.Context(), req.Attestation); err != nil {
+			http.Error(w, "attestation verification failed: "+err.Error(), http.StatusForbidden)
 			return
 		}
 		// 与链上 TeeOracle.VerifyDeviceAttestation 完全一致的待签消息
