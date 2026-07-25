@@ -1,0 +1,43 @@
+classDiagram
+    direction LR
+
+    class Params {
+        +uint64 InitialPool
+        +string RewardDenom
+    }
+
+    class PhonenodeKeeper {
+        <<interface>>
+        +HasNode(ctx sdk.Context, addr string) bool
+    }
+
+    class BankKeeper {
+        <<interface>>
+        +MintCoins(ctx, moduleName, amt) error
+        +SendCoinsFromModuleToAccount(ctx, senderModule, recipient, amt) error
+    }
+
+    class Keeper {
+        -bankKeeper BankKeeper
+        -phonenodeKeeper PhonenodeKeeper
+        +GetParams(ctx) Params
+        +SubmitAndReward(ctx, taskId, device, taskType, score) (int, error)
+    }
+
+    class MinSelfDelegationDecorator {
+        +AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error)
+    }
+
+    class PhonenodeStore {
+        +GetNode(ctx, addr) (*NodeState, error)
+        +HasNode(ctx, addr) bool
+    }
+
+    Keeper --> PhonenodeKeeper : uses
+    Keeper --> BankKeeper : uses
+    PhonenodeStore ..|> PhonenodeKeeper : implements
+    MinSelfDelegationDecorator ..> Params : reads lower bound const
+
+    note for Params "proto field 1=initial_pool(uint64), 2=reward_denom(string)"
+    note for MinSelfDelegationDecorator "implements sdk.AnteDecorator"
+    note for Keeper "MsgSubmitContribution 调用 SubmitAndReward + 关联校验 + 发币"

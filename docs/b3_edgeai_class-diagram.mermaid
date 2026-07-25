@@ -1,0 +1,91 @@
+classDiagram
+    direction LR
+
+    class EdgeaiKeeper {
+        -cdc codec.BinaryCodec
+        -storeKey storetypes.StoreKey
+        -memKey storetypes.StoreKey
+        -paramstore paramtypes.Subspace
+        -bankKeeper BankKeeper
+        -phonenodeKeeper PhonenodeKeeper
+        -depinKeeper DepinKeeper
+        +CreateTask(ctx, creator, spec, rewardAmount) Task
+        +AssignTask(ctx, taskId, nodeAddr)
+        +SubmitResult(ctx, taskId, executor, proofRoot, resultHash)
+        +SubmitDispute(ctx, taskId, challenger, reason)
+        +ResolveDispute(ctx, resolver, taskId, cheated)
+        +BeginBlockAccept(ctx)
+        -acceptResult(ctx, Result)
+        -payout(ctx, toAddr, amt)
+    }
+
+    class Task {
+        +string id
+        +string creator
+        +string spec
+        +sdk.Int reward_amount
+        +string status
+        +string assigned_to
+        +int64 created_height
+        +int64 dispute_until
+    }
+
+    class Result {
+        +string task_id
+        +string executor
+        +string proof_root
+        +string result_hash
+        +bool attested
+        +string status
+        +int64 submitted_height
+    }
+
+    class Dispute {
+        +string id
+        +string task_id
+        +string challenger
+        +string reason
+        +string status
+        +bool cheated
+        +int64 resolve_height
+    }
+
+    class BankKeeper {
+        <<cosmos-sdk interface>>
+        +SendCoinsFromModuleToAccount(ctx, senderModule, toAddr, amt) error
+    }
+
+    class PhonenodeKeeper {
+        <<interface used by edgeai>>
+        +HasNode(ctx, addr) bool
+        +IsAttested(ctx, addr) bool
+        +SlashIfBad(ctx, addr, reason, penaltyBps)  // B2 提供
+    }
+
+    class DepinKeeper {
+        <<interface used by edgeai>>
+        +PayOutFromPool(ctx, toAddr, amt) error  // B3 新增
+    }
+
+    class DepinModuleAcct {
+        <<module account balance>>
+        +InitialPoolSlice 1e14 umc (B1 生态池切片)
+    }
+
+    class TokenomicsKeeper {
+        <<x/tokenomics, 只读引用>>
+        +MintCoins(...)  // B3 绝不调用
+    }
+
+    EdgeaiKeeper ..> Task : stores
+    EdgeaiKeeper ..> Result : stores
+    EdgeaiKeeper ..> Dispute : stores
+    EdgeaiKeeper --> PhonenodeKeeper : IsAttested / SlashIfBad 闸口
+    EdgeaiKeeper --> DepinKeeper : PayOutFromPool 拨付
+    EdgeaiKeeper --> BankKeeper : (经 depin)
+    DepinKeeper ..> DepinModuleAcct : 从余额拨付
+    DepinModuleAcct ..> TokenomicsKeeper : 源自 B1 已铸生态池(受 cap)
+
+    note for EdgeaiKeeper "绝不 MintCoins；奖励经 depin.PayOutFromPool 从生态池切片拨付"
+    note for DepinModuleAcct "余额=DepinInitialPoolSlice 1e14 umc，已在 B1 cap 内铸出"
+    note for TokenomicsKeeper "B3 不改动 minted_supply"

@@ -1,0 +1,49 @@
+sequenceDiagram
+    autonumber
+    participant U as 任务需求方/节点(客户端)
+    participant EK as x/edgeai (MsgServer+Keeper)
+    participant PN as x/phonenode
+    participant DP as x/depin (PayOutFromPool)
+    participant BM as x/bank
+    participant TK as x/tokenomics(只读)
+
+    rect rgb(235,245,255)
+    note over U,EK: ① 任务发布 → 领取 → 提交结果（attestation 双闸口）
+    U->>EK: CreateTask(creator, spec, reward_amount)
+    EK->>EK: 写 Task{status=open}
+    U->>EK: AssignTask(taskId, nodeAddr)
+    EK->>PN: IsAttested(nodeAddr) + HasNode(nodeAddr)
+    alt 未 attest / 已领取
+        EK-->>U: 拒绝 (ErrNotAttested / ErrAlreadyAssigned)
+    else 通过
+        EK->>EK: Task{status=assigned, assigned_to=nodeAddr}
+    end
+    U->>EK: SubmitResult(taskId, executor, proof_root, result_hash)
+    EK->>PN: IsAttested(executor) + HasNode(executor)
+    EK->>EK: 写 Result{status=pending, attested=true, dispute_until=cur+DisputePeriodBlocks}
+    end
+
+    rect rgb(235,255,238)
+    note over EK,DP: ② BeginBlock optimistic 自动接受 + 拨付（不 mint）
+    EK->>EK: BeginBlockAccept(ctx) 扫描 pending 且 cur>=dispute_until 且无未决 Dispute
+    EK->>EK: acceptResult → Result{status=accepted}
+    EK->>DP: PayOutFromPool(executor, reward_amount)
+    DP->>BM: SendCoinsFromModuleToAccount(depinModule, executor, amt)  // 从生态池切片
+    EK--x TK: 绝不调用 MintCoins（minted_supply 不变）
+    end
+
+    rect rgb(255,240,235)
+    note over U,EK: ③ 争议 → 裁定 → slash / 奖励（复用 B2）
+    U->>EK: SubmitDispute(taskId, challenger, reason)
+    EK->>PN: IsAttested(challenger)
+    EK->>EK: 写 Dispute{status=open}
+    U->>EK: ResolveDispute(resolver, taskId, cheated=true)
+    EK->>EK: 校验 resolver == Params.ResolverAddress
+    alt cheated=true
+        EK->>PN: SlashIfBad(executor, "edgeai_cheat", SlashBpsOnCheat)
+        EK->>DP: PayOutFromPool(challenger, challengerReward)
+    else cheated=false（恶意挑战）
+        EK->>PN: SlashIfBad(challenger, "edgeai_false_dispute", SlashBpsOnCheat)
+    end
+    EK--x TK: 无任何 MintCoins
+    end

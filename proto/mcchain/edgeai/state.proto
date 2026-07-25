@@ -1,0 +1,93 @@
+syntax = "proto3";
+package mcchain.edgeai;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "mcchain/x/edgeai/types";
+
+// Task 链上 AI 任务状态（protobuf 持久化，与全链状态编码一致）。
+message Task {
+  // id 任务唯一 ID（链上自增）。
+  string id = 1;
+  // creator 需求方地址（bech32）。
+  string creator = 2;
+  // description 任务描述。
+  string description = 3;
+  // reward 任务奖励（umc）。
+  uint64 reward = 4;
+  // status open/assigned/done/disputed/cheated。
+  string status = 5;
+  // assignee 领取该任务的节点地址（B3.1 任务分配语义）。
+  string assignee = 6;
+  // created_at 创建时区块时间（unix 秒）。
+  int64 created_at = 7;
+  // created_at_block 创建时区块高度（用于任务过期判定）。
+  int64 created_at_block = 8;
+}
+
+// Result 一次任务结果提交（protobuf 持久化）。
+message Result {
+  // task_id 关联任务 ID。
+  string task_id = 1;
+  // submitter 提交结果节点地址（bech32）。
+  string submitter = 2;
+  // result_hash 结果指纹（链下验证用）。
+  string result_hash = 3;
+  // attestation_nonce 移动节点 attestation 随机数（B2  attested-execution gate）。
+  string attestation_nonce = 4;
+  // status pending/valid/rejected。
+  string status = 5;
+  // submitted_at 提交时区块时间（unix 秒）。
+  int64 submitted_at = 6;
+  // submitted_at_block B3.1 争议窗口起算区块高度。
+  int64 submitted_at_block = 7;
+}
+
+// Dispute 争议记录（protobuf 持久化）。
+message Dispute {
+  // task_id 关联任务 ID。
+  string task_id = 1;
+  // challenger 发起争议方地址（bech32）。
+  string challenger = 2;
+  // submitter B3.1 被质疑结果的提交者（裁定 cheat 时 slash 对象）。
+  string submitter = 3;
+  // reason 争议理由。
+  string reason = 4;
+  // status open/resolved。
+  string status = 5;
+  // resolution none/cheat/honest。
+  string resolution = 6;
+  // opened_at 争议开启时区块时间（unix 秒）。
+  int64 opened_at = 7;
+  // opened_at_block B3.1 争议窗口起算区块高度。
+  int64 opened_at_block = 8;
+}
+
+// Reputation 节点声誉记录（白皮书行 497）。
+// 每个执行节点维护 ReputationScore（初始 100，范围 0-100）。
+// 任务通过 → +1（上限 100）；任务拒绝/作弊 → -10（下限 0）。
+// 声誉 < 30 的节点限制接单优先级。
+// 注：当前以非 protobuf Go 结构体持久化（JSON 编码），待 proto 重新生成后可迁移。
+message Reputation {
+  // node_addr 执行节点地址（bech32）。
+  string node_addr = 1;
+  // score 声誉分数（0-100）。
+  uint32 score = 2;
+  // last_contribution_block 最近一次贡献（任务通过/拒绝）的区块高度。
+  int64 last_contribution_block = 3;
+  // consecutive_missed_blocks 连续无贡献区块数（用于声誉衰减）。
+  int64 consecutive_missed_blocks = 4;
+}
+
+// ScriptSpec 验证脚本规范（白皮书行 490-493）。
+// 任务创建时可选绑定验证脚本哈希，提交结果时校验脚本哈希是否匹配。
+message ScriptSpec {
+  // script_hash 验证脚本的 SHA-256 哈希（hex 编码）。
+  string script_hash = 1;
+  // python_version 脚本要求的 Python 版本（如 "3.11"）。
+  string python_version = 2;
+  // timeout_seconds 脚本执行超时时间（秒）。
+  uint32 timeout_seconds = 3;
+  // network_allowed 脚本是否允许网络访问。
+  bool network_allowed = 4;
+}

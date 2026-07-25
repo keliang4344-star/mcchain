@@ -1,0 +1,82 @@
+{
+  "title": "MC 公链 · 业务指标",
+  "uid": "mc-business",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "DePIN 奖励拨付次数",
+      "type": "stat",
+      "datasource": "${DS}",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum(increase(depin_reward_paid_count[5m]))", "legendFormat": "次数/5m" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "DePIN 奖励拨付金额(umc)",
+      "type": "timeseries",
+      "datasource": "${DS}",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        { "expr": "sum(rate(depin_reward_paid_amount[5m]))", "legendFormat": "umc/s" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "EdgeAI 贡献即挖矿拨付次数",
+      "type": "stat",
+      "datasource": "${DS}",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "sum(increase(edgeai_reward_paid_count[5m]))", "legendFormat": "次数/5m" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "EdgeAI 争议裁定作弊次数",
+      "type": "stat",
+      "datasource": "${DS}",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "expr": "sum(increase(edgeai_dispute_cheat_count[5m]))", "legendFormat": "次数/5m" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "移动节点 Slash 次数",
+      "type": "timeseries",
+      "datasource": "${DS}",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "sum(rate(phonenode_slash_count[10m]))", "legendFormat": "slash/s" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "EdgeAI 拨付金额(umc)",
+      "type": "timeseries",
+      "datasource": "${DS}",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        { "expr": "sum(rate(edgeai_reward_paid_amount[5m]))", "legendFormat": "umc/s" }
+      ]
+    }
+  ],
+  "annotations": { "list": [] },
+  "editable": true
+}

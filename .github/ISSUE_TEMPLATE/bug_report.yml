@@ -1,0 +1,55 @@
+name: "Bug 报告 / Bug Report"
+description: 报告 MC 公链运行或代码缺陷
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量提供可复现信息，帮助快速定位。
+  - type: input
+    id: env-os
+    attributes:
+      label: 操作系统 / OS
+      placeholder: "Ubuntu 22.04 / Windows 11 / macOS"
+    validations:
+      required: true
+  - type: input
+    id: go-version
+    attributes:
+      label: Go 版本
+      placeholder: "1.22.5"
+    validations:
+      required: true
+  - type: input
+    id: chain-version
+    attributes:
+      label: 链版本 / chain-id
+      placeholder: "mcchain-mainnet-1 / mcchain-1 / commit hash"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 完整、可复现的操作步骤
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 截图
+      description: 粘贴关键日志（脱敏，勿含私钥）
+      render: shell

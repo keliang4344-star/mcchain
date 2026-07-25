@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    participant C as 生态工具(SDK/浏览器/钱包/DePIN, 链下)
+    participant EK as x/ecosystem (只读聚合)
+    participant TK as x/tokenomics
+    participant PN as x/phonenode
+    participant EA as x/edgeai
+    participant DP as x/depin
+    participant EV as Tendermint 事件索引
+
+    rect rgb(235,245,255)
+    note over C,EK: ① 生态总览聚合查询（只读，零状态变更）
+    C->>EK: q ecosystem overview
+    EK->>TK: GetMintedSupply / GetAllocations
+    EK->>PN: CountNodes (+ IsAttested 过滤)
+    EK->>EA: CountTasks (open/disputed)
+    EK->>DP: CountDevices
+    EK-->>C: OverviewResp（聚合视图）
+    end
+
+    rect rgb(255,240,235)
+    note over C,EV: ② 标准化事件流（状态变更点 EmitEvent）
+    PN->>EV: EmitEvent("mcchain.phonenode.Attestation"/"Slash")
+    EA->>EV: EmitEvent("mcchain.edgeai.TaskCreated"/"ResultAccepted"/"Dispute"/"Resolved")
+    DP->>EV: EmitEvent("mcchain.depin.Contribution"/"Payout")
+    TK->>EV: EmitEvent("mcchain.tokenomics.Mint"/"Allocation")
+    EV-->>C: 区块浏览器/SDK 订阅 mcchain.<module>.<Event>
+    end
+
+    rect rgb(235,255,238)
+    note over C,EA: ③ 链下契约消费（钱包复用 B4 proof / DePIN 复用 B3 任务类型）
+    C->>PN: q phonenode proof-state <addr>  // 钱包轻客户端验证(B4)
+    C->>EA: 提交/查询 edgeai 任务(inference/data_label/bandwidth) // DePIN 需求(B3)
+    C->>EK: q ecosystem node-detail / task-detail
+    end

@@ -1,0 +1,12 @@
+syntax = "proto3";
+package mcchain.mcchain;
+
+import "gogoproto/gogo.proto";
+import "mcchain/mcchain/params.proto";
+
+option go_package = "mcchain/x/mcchain/types";
+
+// GenesisState defines the mcchain module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+}

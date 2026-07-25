@@ -1,0 +1,25 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: 'default'
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  routes:
+    - matchers:
+        - severity = 'critical'
+      receiver: 'critical'
+
+receivers:
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://alertmanager:9093/'   # 占位：替换为你的企微/钉钉/飞书 webhook
+  - name: 'critical'
+    webhook_configs:
+      - url: 'http://alertmanager:9093/'
+
+# 说明：默认仅本地占位 webhook。生产请把 webhook_configs.url 改为你的
+# 企业微信/钉钉/飞书机器人地址，或接入邮件/短信。Alertmanager 文档：
+# https://prometheus.io/docs/alerting/latest/configuration/

@@ -1,0 +1,14 @@
+syntax = "proto3";
+package mcchain.dex;
+option go_package = "mcchain/x/dex/types";
+
+message Pool {
+  uint64 id = 1;
+  string denom_a = 2;
+  string denom_b = 3;
+  string reserve_a = 4;
+  string reserve_b = 5;
+  string total_lp = 6;
+  uint32 fee_rate_bps = 7;
+  string owner = 8;
+}

@@ -1,0 +1,70 @@
+classDiagram
+    direction LR
+
+    class PhoneNodeParams {
+        <<x/phonenode, 扩展>>
+        +bool attestation_required
+        +int64 attestation_validity
+        +bool sybil_device_binding
+        +int64 offline_grace_blocks   // B2: slash 宽限
+        +uint32 offline_slash_bps
+        +uint32 contrib_slash_bps
+        +uint32 attest_slash_bps
+        +int64 bandwidth_cap_bytes_per_block  // B4 新增
+        +int64 heartbeat_interval_blocks       // B4 新增
+        +int64 sync_throttle_window           // B4 新增
+        +int32 max_mobile_peers               // B4 新增
+        +Validate() error  // 断言 offline_grace_blocks >= heartbeat_interval_blocks
+    }
+
+    class NodeState {
+        +string address
+        +bool registered
+        +int proof_count
+        +string last_root   // B2 心跳检测依据
+    }
+
+    class StateProof {
+        +string node
+        +string root
+        +string leaf
+        +string index
+        +string proof
+    }
+
+    class ProofStateCLI {
+        <<x/phonenode/client/cli>>
+        +proof-state(addr)  // QueryStoreWithProof
+    }
+
+    class BaseApp {
+        <<cosmos-sdk>>
+        +ABCI Query /store/phonenode/key?prove=true
+        +返回 IAVL 承诺证明
+    }
+
+    class NodeConfig {
+        <<app.toml 模板>>
+        +pruning="custom"
+        +pruning-keep-recent=100
+        +snapshot-interval=1000
+        +snapshot-keep-recent=2
+    }
+
+    class ClientAppContract {
+        <<docs/client_app_contract.md 链下>>
+        +gRPC/REST 端点清单
+        +同步/重连/节流协议
+        +弱网低电量验收
+    }
+
+    PhoneNodeParams ..> NodeState : 节奏/宽限约束
+    ProofStateCLI --> BaseApp : QueryStoreWithProof(nodeKey)
+    BaseApp ..> NodeState : 证明可验证
+    NodeConfig ..> BaseApp : pruning/snapshot 配置驱动
+    ClientAppContract ..> BaseApp : 消费 proof/query
+    ClientAppContract ..> PhoneNodeParams : 弱网参数指导节流
+
+    note for PhoneNodeParams "OfflineGraceBlocks(B2) >= HeartbeatIntervalBlocks(B4)，Validate 强约束"
+    note for BaseApp "pruning/snapshot 由节点 app.toml 驱动，链上零侵入"
+    note for ClientAppContract "链下契约，本批次不实现 App"

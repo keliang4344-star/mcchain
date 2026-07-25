@@ -1,0 +1,47 @@
+syntax = "proto3";
+package mcchain.tokenomics;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "mcchain/x/tokenomics/types";
+
+// PoolAllocation 记录某一分配池的占比与已拨付金额（R2：分配+释放）。
+message PoolAllocation {
+  // name 池名称："team" | "community" | "ecosystem"
+  string name = 1;
+  // percent_bps 占比（基点，10000 = 100%）
+  uint32 percent_bps = 2;
+  // allocated_amount 实际拨付金额（umc）
+  uint64 allocated_amount = 3;
+  // address 池地址（团队=多签vesting地址；其余=模块账户地址）
+  string address = 4;
+}
+
+// ReleaseSchedule 团队池释放曲线元数据（仅缓存元数据，进度实时算，Q9）。
+// 建模口径：1 年 cliff（0 释放）+ 3 年线性（总 4 年）。
+message ReleaseSchedule {
+  // team_address 团队多签 vesting 账户地址（占位，主网前替换真实多签）
+  string team_address = 1;
+  // start_time 线性释放起点（= cliff 结束，genesis + 1yr），Unix 秒
+  int64 start_time = 2;
+  // cliff_time cliff 结束时间（genesis + 1yr），Unix 秒
+  int64 cliff_time = 3;
+  // end_time 释放结束时间（genesis + 4yr），Unix 秒
+  int64 end_time = 4;
+  // total_locked 锁仓总额（= 团队分配额）
+  uint64 total_locked = 5;
+}
+
+// GenesisState 定义 tokenomics 模块创世状态（R1：总量固化）。
+message GenesisState {
+  // denom 链上主币 denom（"umc"）
+  string denom = 1;
+  // total_supply_cap 总量上限（umc），必须与 Go 常量 TotalSupplyCap 一致（双保险）
+  uint64 total_supply_cap = 2;
+  // minted_supply 累计已发行量（umc），genesis 一次性 = cap，只增不减
+  uint64 minted_supply = 3;
+  // allocations 三大池分配记录
+  repeated PoolAllocation allocations = 4 [(gogoproto.nullable) = false];
+  // release 团队池释放曲线元数据
+  ReleaseSchedule release = 5 [(gogoproto.nullable) = false];
+}

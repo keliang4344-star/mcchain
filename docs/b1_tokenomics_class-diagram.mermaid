@@ -1,0 +1,110 @@
+classDiagram
+    direction LR
+
+    class TokenomicsKeeper {
+        -cdc codec.BinaryCodec
+        -storeKey storetypes.StoreKey
+        -accountKeeper AccountKeeper
+        -bankKeeper BankKeeper
+        -depinModuleName string
+        +InitGenesis(ctx, GenesisState)
+        +ExportGenesis(ctx) *GenesisState
+        +MintCoins(ctx, amt sdk.Coins) error
+        +SetMintedSupply(ctx, sdk.Int)
+        +GetMintedSupply(ctx) sdk.Int
+        +SetAllocations(ctx, []PoolAllocation)
+        +GetAllocations(ctx) []PoolAllocation
+        +SetReleaseSchedule(ctx, ReleaseSchedule)
+        +GetReleaseSchedule(ctx) ReleaseSchedule
+        +QuerySupply(ctx) QuerySupplyResponse
+        +QueryAllocations(ctx) QueryAllocationsResponse
+        +QueryRelease(ctx) QueryReleaseResponse
+        +MintedSupplyInvariant(ctx) (string, bool)
+        +PoolSumInvariant(ctx) (string, bool)
+    }
+
+    class TokenomicsModule {
+        <<AppModule / AppModuleBasic>>
+        +Name() string
+        +RegisterServices(cfg module.Configurator)
+        +RegisterInvariants(ir sdk.InvariantRegistry)
+        +InitGenesis(ctx, cdc, gs) []abci.ValidatorUpdate
+        +ExportGenesis(ctx, cdc) json.RawMessage
+        +ConsensusVersion() uint64
+    }
+
+    class GenesisState {
+        +string denom
+        +uint64 total_supply_cap
+        +uint64 minted_supply
+        +PoolAllocation[] allocations
+        +ReleaseSchedule release
+    }
+
+    class PoolAllocation {
+        +string name
+        +uint32 percent_bps
+        +uint64 allocated_amount
+        +string address
+    }
+
+    class ReleaseSchedule {
+        +string team_address
+        +int64 start_time
+        +int64 cliff_time
+        +int64 end_time
+        +uint64 total_locked
+    }
+
+    class AccountKeeper {
+        <<interface>>
+        +GetAccount(ctx, addr) AccountI
+        +SetAccount(ctx, acc) error
+    }
+
+    class BankKeeper {
+        <<interface>>
+        +MintCoins(ctx, moduleName string, amt sdk.Coins) error
+        +SendCoinsFromModuleToAccount(ctx, senderModule string, recipient sdk.AccAddress, amt sdk.Coins) error
+        +SendCoinsFromModuleToModule(ctx, senderModule, recipientModule string, amt sdk.Coins) error
+        +GetBalance(ctx, addr sdk.AccAddress, denom string) sdk.Coin
+        +GetModuleAddress(name string) sdk.AccAddress
+    }
+
+    class ContinuousVestingAccount {
+        <<cosmos-sdk x/auth/vesting>>
+        +OriginalVesting sdk.Coins
+        +StartTime int64
+        +EndTime int64
+        +GetVestedCoins(t) sdk.Coins
+    }
+
+    class DepinModuleAccount {
+        <<模块账户(已移除 Minter)>>
+        +InitialPool 1e14 umc (来自生态切片)
+    }
+
+    class CommunityModuleAccount {
+        <<模块账户 community>>
+        +余额 3.5e14 umc
+    }
+
+    class EcosystemModuleAccount {
+        <<模块账户 ecosystem>>
+        +余额 4e14 umc (InitialPool 已转 depin)
+    }
+
+    TokenomicsModule --> TokenomicsKeeper : holds
+    TokenomicsModule ..> GenesisState : InitGenesis/ExportGenesis
+    TokenomicsKeeper --> BankKeeper : uses
+    TokenomicsKeeper --> AccountKeeper : uses
+    TokenomicsKeeper ..> ContinuousVestingAccount : 创建(InitGenesis, 团队池)
+    TokenomicsKeeper ..> DepinModuleAccount : SendCoins(生态→depin 1e14)
+    TokenomicsKeeper ..> CommunityModuleAccount : SendCoins(3.5e14)
+    TokenomicsKeeper ..> EcosystemModuleAccount : SendCoins(5e14)
+    GenesisState *-- PoolAllocation : contains
+    GenesisState *-- ReleaseSchedule : contains
+
+    note for TokenomicsKeeper "无 Msg service；运行期不增发/不销毁（R3）"
+    note for ContinuousVestingAccount "团队池：1年cliff + 3年线性(总4年)；地址=3-of-5多签派生(占位)"
+    note for DepinModuleAccount "Q7：depin 不再自铸，InitialPool 由 tokenomics 经生态池拨付"

@@ -1,0 +1,77 @@
+%% ① Genesis 统一拨付顺序：tokenomics.InitGenesis 必须在 depin.InitGenesis 之前
+sequenceDiagram
+    participant IC as app.InitChainer
+    participant MM as module.Manager
+    participant TK as tokenomics.Keeper
+    participant AK as AccountKeeper
+    participant BK as BankKeeper
+    participant TVA as TeamVestingAccount(多签)
+    participant CA as community模块账户
+    participant EA as ecosystem模块账户
+    participant DA as depin模块账户
+    participant DG as depin.InitGenesis
+    participant CR as CrisisKeeper(不变量)
+
+    IC->>MM: InitGenesis(genesisState)
+    Note over MM: 顺序 ...mcchain → tokenomics → depin → phonenode...
+    MM->>TK: InitGenesis(ctx, tokenomicsGenesis)
+    TK->>BK: MintCoins(tokenomics, 1e15 umc)
+    BK->>TK: tokenomics账户 +1e15
+    TK->>TK: SetMintedSupply(ctx, 1e15)
+    TK->>AK: SetAccount(ContinuousVestingAccount@teamAddr)
+    AK->>TVA: 创建团队锁仓账户(1.5e14, 1yr cliff, 4yr end)
+    TK->>BK: SendCoinsFromModuleToAccount(tokenomics→teamAddr, 1.5e14)
+    BK->>TVA: +1.5e14 (锁仓)
+    TK->>BK: SendCoinsFromModuleToModule(tokenomics→community, 3.5e14)
+    BK->>CA: +3.5e14
+    TK->>BK: SendCoinsFromModuleToModule(tokenomics→ecosystem, 5e14)
+    BK->>EA: +5e14
+    TK->>BK: SendCoinsFromModuleToModule(ecosystem→depin, 1e14)
+    BK->>DA: +1e14 (InitialPool 生态切片)
+    TK->>TK: SetAllocations / SetReleaseSchedule(写 KVStore)
+    TK-->>MM: done
+    MM->>DG: InitGenesis(ctx, depinGenesis)
+    DG->>DG: SetParams(InitialPool=1e14)  // 已不含 MintCoins(Q7)
+    DG-->>MM: done
+    MM->>CR: 每轮 BeginBlock 触发不变量
+    CR->>TK: MintedSupplyInvariant / PoolSumInvariant
+    TK-->>CR: minted(1e15) ≤ cap(1e15) ✓；Σallocated(1e15)==minted ✓
+
+%% ② 查询流程：supply / allocations / release（全部只读，不改状态）
+sequenceDiagram
+    participant U as 用户 / mcchaind q
+    participant CLI as tokenomics CLI
+    participant QS as tokenomics.QueryServer
+    participant TK as tokenomics.Keeper
+    participant BS as tokenomics KVStore
+    participant BK as BankKeeper
+    participant T as ctx.BlockTime()
+
+    U->>CLI: q tokenomics supply
+    CLI->>QS: Supply(ctx, QuerySupplyRequest{})
+    QS->>TK: GetMintedSupply(ctx)
+    TK->>BS: 读 MintedSupplyKey
+    BS-->>TK: 1e15
+    QS-->>CLI: {total_supply_cap=1e15, minted_supply=1e15, denom=umc}
+    CLI-->>U: 表格
+
+    U->>CLI: q tokenomics allocations
+    CLI->>QS: Allocations(ctx, QueryAllocationsRequest{})
+    QS->>TK: GetAllocations(ctx)
+    TK->>BS: 读 AllocationsKey
+    BS-->>TK: [team,community,ecosystem]
+    loop 每个池
+        QS->>BK: GetBalance(poolAddr, "umc")
+        BK-->>QS: 当前余额
+    end
+    QS-->>CLI: [{name,percent_bps,allocated_amount,current_balance,address}]
+    CLI-->>U: 表格
+
+    U->>CLI: q tokenomics release
+    CLI->>QS: Release(ctx, QueryReleaseRequest{})
+    QS->>TK: GetReleaseSchedule(ctx)
+    TK->>BS: 读 ReleaseScheduleKey
+    QS->>T: 当前区块时间
+    QS->>QS: vested = f(start,end,now) 线性
+    QS-->>CLI: {team:{total_locked,vested,remaining,progress_bps,start,cliff,end}}
+    CLI-->>U: 表格

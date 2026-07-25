@@ -1,0 +1,12 @@
+syntax = "proto3";
+package mcchain.depin;
+
+import "gogoproto/gogo.proto";
+import "mcchain/depin/params.proto";
+
+option go_package = "mcchain/x/depin/types";
+
+// GenesisState defines the depin module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+}

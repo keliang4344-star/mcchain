@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    participant C as 移动端轻客户端/App(链下)
+    participant CLI as mcchaind q phonenode proof-state
+    participant BA as baseapp (cosmos-sdk)
+    participant PN as x/phonenode KVStore
+    participant NODE as 移动全节点
+    participant CFG as 节点 app.toml
+
+    rect rgb(235,245,255)
+    note over C,BA: ① 轻客户端 IAVL proof 验证（无需全节点）
+    C->>CLI: q phonenode proof-state <addr>
+    CLI->>BA: QueryStoreWithProof(nodeKey, "phonenode")
+    BA->>PN: 读 KV + 生成 IAVL 承诺证明
+    BA-->>CLI: value(NodeState) + proof
+    CLI-->>C: 打印 value + 证明
+    C->>C: 本地验证 IAVL 证明（余额/attestation/任务状态同理）
+    end
+
+    rect rgb(255,240,235)
+    note over NODE,PN: ② 弱网参数生效 + 与 B2 离线宽限协调
+    NODE->>PN: SubmitStateProof(node, root, ...) @ 每 HeartbeatIntervalBlocks
+    PN->>PN: 更新 NodeState.LastRoot（B2 心跳依据）
+    note over NODE,PN: B2 BeginBlock 用 OfflineGraceBlocks 判定离线；\n因 OfflineGraceBlocks >= HeartbeatIntervalBlocks，弱网不误 slash
+    NODE->>NODE: 按 BandwidthCapBytesPerBlock / SyncThrottleWindow 节流（链下）
+    end
+
+    rect rgb(235,255,238)
+    note over NODE,CFG: ③ pruning / snapshot 快速同步
+    CFG->>NODE: pruning="custom" keep-recent=100 / snapshot-interval=1000
+    NODE->>NODE: 运行期按配置裁剪状态 + 周期性生成 snapshot
+    NODE-->>C: 新移动端从最近 snapshot 初始化并追赶（不全量重放）
+    C->>PN: q ...（不受影响，仍为最新状态）
+    end

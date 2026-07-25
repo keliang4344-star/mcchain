@@ -1,0 +1,11 @@
+syntax = "proto3";
+package mcchain.referral;
+option go_package = "mcchain/x/referral/types";
+
+import "gogoproto/gogo.proto";
+import "mcchain/referral/params.proto";
+
+// GenesisState defines the referral module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
