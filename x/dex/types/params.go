@@ -14,9 +14,10 @@ const (
 	// 7 × 24 × 3600 / 6 ≈ 100,800 blocks.
 	LpLockBlocksDefault = 100800
 
-	// LpIncentivePerDayDefault is the default daily LP incentive: 5,000 MC.
-	// In umc (6 decimal places): 5,000 × 10^6 = 5,000,000,000,000.
-	LpIncentivePerDayDefault = "5000000000000"
+	// LpIncentivePerDayDefault is the default daily LP incentive: 5,000 MC
+	// (whitepaper §24, sourced from the device incentive pool / depin module account).
+	// In umc (6 decimal places): 5,000 × 10^6 = 5,000,000,000.
+	LpIncentivePerDayDefault = "5000000000"
 
 	// LpIncentiveEndHeightDefault is the default end height for LP incentives.
 	// 6 months ≈ 180 days × 14,400 blocks/day (at ~6s/block) = 2,592,000 blocks.

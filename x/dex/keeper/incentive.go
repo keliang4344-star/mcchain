@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	depinmoduletypes "mcchain/x/depin/types"
 	"mcchain/x/dex/types"
 )
 
@@ -17,9 +18,9 @@ import (
 // contains umc, proportionally to each pool's umc reserve. This automatically
 // benefits LP holders without needing to enumerate them.
 //
-// The incentive is sourced from the protocol treasury (community module).
-// If the treasury has insufficient umc, the distribution is skipped for
-// that day.
+// The incentive is sourced from the device incentive pool (depin module account),
+// per whitepaper §24. If the depin module account has insufficient umc, the
+// distribution is skipped for that day.
 func (k Keeper) DistributeLPIncentive(ctx sdk.Context) {
 	params := k.GetParams(ctx)
 
@@ -79,7 +80,7 @@ func (k Keeper) DistributeLPIncentive(ctx sdk.Context) {
 
 		coin := sdk.NewCoins(sdk.NewCoin(InitialPoolDenomMC, share))
 		if err := k.bankKeeper.SendCoinsFromModuleToModule(
-			ctx, types.CommunityModuleName, types.ModuleName, coin,
+			ctx, depinmoduletypes.ModuleName, types.ModuleName, coin,
 		); err != nil {
 			ctx.Logger().Error("LP incentive treasury transfer failed",
 				"pool_id", pr.poolID,

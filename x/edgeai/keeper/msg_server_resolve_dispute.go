@@ -57,6 +57,8 @@ func (k msgServer) ResolveDispute(goCtx context.Context, msg *types.MsgResolveDi
 			// 声誉更新：仲裁裁定作弊 → -10（白皮书行 497）
 			k.Keeper.DecrementReputation(ctx, dispute.Submitter, types.ReputationCheatDecrease)
 		}
+		// 回收托管中的提交者 80% 奖励（销毁 / 回退模块池）。
+		k.Keeper.clawbackSubmitterReward(ctx, msg.TaskId)
 		task.Status = types.TaskStatusCheated
 		_ = k.Keeper.SetTask(ctx, task)
 	}

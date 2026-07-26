@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"mcchain/x/dex/types"
 )
@@ -84,11 +85,29 @@ func (k Keeper) InitGenesisPool(ctx sdk.Context) {
 		Owner:      "", // genesis pool has no owner; LP tokens go to community module
 	}
 
+	// ZERO-INFLATION GUARD: the initial pool reserves MUST be pre-funded, never minted.
+	// MC (umc) is carved from the foundation T0 unlock and transferred to the dex module
+	// account by x/tokenomics at genesis (within the 1B cap). USDT (uusdt) is provided
+	// externally by the market-maker partner (whitepaper §24). The chain MUST NOT mint
+	// either asset here — doing so would break the 10亿 MC hard cap.
+	dexAddr := authtypes.NewModuleAddress(types.ModuleName)
+	mcBal := k.bankKeeper.GetBalance(ctx, dexAddr, InitialPoolDenomMC)
+	usdtBal := k.bankKeeper.GetBalance(ctx, dexAddr, InitialPoolDenomUSDT)
+	if mcBal.Amount.LT(amountMC) || usdtBal.Amount.LT(amountUSDT) {
+		ctx.Logger().Info("genesis pool skipped: reserves not pre-funded",
+			"mc_have", mcBal.Amount.String(), "mc_need", amountMC.String(),
+			"usdt_have", usdtBal.Amount.String(), "usdt_need", amountUSDT.String(),
+			"note", "MC from foundation T0 (tokenomics), USDT from market maker")
+		return
+	}
+
 	// Store the pool.
 	k.SetPool(ctx, pool)
 	k.SetNextPoolID(ctx, 2)
 
 	// Mint LP tokens to the community module as protocol-owned liquidity.
+	// LP share tokens (pool1 denom) are NOT MC and do not count toward the 1B cap,
+	// so dex retains Minter permission solely for minting LP shares.
 	lpDenom := types.PoolDenom(1)
 	lpCoins := sdk.NewCoins(sdk.NewCoin(lpDenom, lpMinted))
 	if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, lpCoins); err != nil {
@@ -97,17 +116,6 @@ func (k Keeper) InitGenesisPool(ctx sdk.Context) {
 	if err := k.bankKeeper.SendCoinsFromModuleToModule(
 		ctx, types.ModuleName, types.CommunityModuleName, lpCoins,
 	); err != nil {
-		panic(err)
-	}
-
-	// Ensure the dex module account holds the initial reserves.
-	// These must be pre-funded via the bank module's genesis state.
-	reserveCoinsA := sdk.NewCoins(sdk.NewCoin(denoms[0], reserveA))
-	reserveCoinsB := sdk.NewCoins(sdk.NewCoin(denoms[1], reserveB))
-	if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, reserveCoinsA); err != nil {
-		panic(err)
-	}
-	if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, reserveCoinsB); err != nil {
 		panic(err)
 	}
 

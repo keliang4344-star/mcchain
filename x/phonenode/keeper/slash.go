@@ -6,6 +6,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	tokenomicsmoduletypes "mcchain/x/tokenomics/types"
 	"mcchain/x/phonenode/types"
 )
 
@@ -82,9 +84,39 @@ func (k Keeper) SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint
 	}
 	consAddr := sdk.GetConsAddress(pubKey)
 
+	// === 罚没金路由（B2）：不再销毁，改路由至质押安全池 ===
+	// 原 staking.Slash 会销毁这部分代币（破坏 B1 供应上限与通缩模型）。
+	// 此处改为：按 penaltyBps 计算罚没额（bond denom），先从质押池转入本模块账户，
+	// 再 SendCoinsFromModuleToModule 路由至质押安全池（staking_security 模块账户），
+	// 作为安全基金/保险，而非销毁（与 owner 指令一致：发往 security pool）。
+	// 保留 Jail 以吊销其出块资格。
 	fraction := sdk.NewDecWithPrec(int64(penaltyBps), 4)
-	power := val.GetTokens().Int64()
-	k.slashingKeeper.Slash(ctx, consAddr, fraction, power, ctx.BlockHeight()-1)
+	tokens := val.GetTokens() // 质押代币数量（bond denom）
+	slashedAmt := fraction.MulInt(tokens).TruncateInt()
+	bondDenom := k.stakingKeeper.BondDenom(ctx)
+	slashedCoins := sdk.NewCoins(sdk.NewCoin(bondDenom, slashedAmt))
+
+	if !slashedCoins.IsZero() {
+		// 1) 质押池 → 本模块账户（中转）
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(
+			ctx,
+			stakingtypes.BondedPoolName,
+			types.ModuleName,
+			slashedCoins,
+		); err != nil {
+			return fmt.Errorf("phonenode: move slash from bonded pool: %w", err)
+		}
+		// 2) 本模块账户 → 质押安全池（staking_security），owner 指定去向
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(
+			ctx,
+			types.ModuleName,
+			tokenomicsmoduletypes.StakingSecurityPoolName,
+			slashedCoins,
+		); err != nil {
+			return fmt.Errorf("phonenode: route slash to security pool: %w", err)
+		}
+	}
+
 	k.slashingKeeper.Jail(ctx, consAddr)
 
 	k.emitSlashEvent(ctx, addr, reason, penaltyBps)

@@ -12,10 +12,13 @@ type AccountKeeper interface {
 	// Methods imported from account should be defined here
 }
 
-// BankKeeper defines the expected interface needed to retrieve account balances.
+// BankKeeper defines the expected interface needed to retrieve account balances
+// and route slashed funds to the security pool.
 type BankKeeper interface {
 	SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
-	// Methods imported from bank should be defined here
+	// SendCoinsFromModuleToModule moves coins from one module account to another.
+	// Used to route slashed funds to the security pool instead of burning them.
+	SendCoinsFromModuleToModule(ctx sdk.Context, senderModule, recipientModule string, amt sdk.Coins) error
 }
 
 // StakingKeeper B2 slashing 所需的 staking 接口子集（仅取方法签名，避免 x/phonenode 依赖具体实现）。
@@ -24,6 +27,8 @@ type StakingKeeper interface {
 	Validator(ctx sdk.Context, addr sdk.ValAddress) stakingtypes.ValidatorI
 	// ValidatorByConsAddr returns the validator with the given consensus address.
 	ValidatorByConsAddr(ctx sdk.Context, consAddr sdk.ConsAddress) stakingtypes.ValidatorI
+	// BondDenom returns the staking bond denom, used to denominate routed slash coins.
+	BondDenom(ctx sdk.Context) string
 }
 
 // SlashingKeeper B2 slashing 所需的 slashing 接口子集。slash 一律走 staking.Slash/Jail，

@@ -23,7 +23,9 @@ const (
 	teamAmt       = uint64(120_000_000_000_000) // 12%（团队 vesting）
 	foundationAmt = uint64(130_000_000_000_000) // 13%（基金会，拆分运营+vesting）
 	earlyDevAmt   = uint64(50_000_000_000_000)  // 5%（早期开发，T0 全额拨付）
-	foundOpsAmt   = uint64(50_000_000_000_000)  // 基金会 T0 即时解锁（运营流动，5000 万）
+	// 基金会 T0 即时解锁（运营流动）：原 5000 万，其中 500 万 MC 按白皮书 §24 划给
+	// DEX 初始流动性（由 tokenomics 创世转账至 dex 模块账户），运营流动实拨 4500 万。
+	foundOpsAmt   = uint64(45_000_000_000_000)  // 基金会 T0 即时解锁（运营流动，4500 万）
 	foundVestAmt  = uint64(80_000_000_000_000)  // 基金会 2 年期线性释放（8000 万）
 )
 
@@ -33,7 +35,7 @@ const (
 //   - 设备激励池全额（5.5e14）注入 depin 模块账户；
 //   - 质押安全模块账户 == 1.5e14；
 //   - 团队 vesting 账户 == 1.2e14；早期开发地址 == 0.5e14（T0 全额）；
-//   - 基金会拆分：运营流动地址 == 0.5e14（T0 即时）+ 2 年期线性 vesting 地址 == 0.8e14；
+//   - 基金会拆分：运营流动地址 == 0.45e14（T0 即时，其中 0.05e14 划给 DEX 初始流动性）+ 2 年期线性 vesting 地址 == 0.8e14；
 //   - 团队 vesting 账户已写入状态；ReleaseSchedule 已写入且 start==cliff。
 func TestInitGenesis(t *testing.T) {
 	k, ctx, bk, ak := keepertest.TokenomicsKeeper(t)
@@ -64,7 +66,7 @@ func TestInitGenesis(t *testing.T) {
 	stakingBal := bk.GetBalance(ctx, stakingAddr, types.DefaultDenom)
 	require.Equal(t, stakingAmt, uint64(stakingBal.Amount.Int64()))
 
-	// ⑤ 基金会拆分：运营流动地址 == 0.5e14（T0 即时解锁）。
+	// ⑤ 基金会拆分：运营流动地址 == 0.45e14（T0 即时解锁，其中 0.05e14 划给 DEX 初始流动性）。
 	foundOpsBal := bk.GetBalance(ctx, types.FoundationOpsAddress, types.DefaultDenom)
 	require.Equal(t, foundOpsAmt, uint64(foundOpsBal.Amount.Int64()))
 

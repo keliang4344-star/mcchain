@@ -41,6 +41,7 @@ func PhonenodeKeeper(t testing.TB) (*keeper.Keeper, sdk.Context) {
 		storeKey,
 		memStoreKey,
 		paramsSubspace,
+		nil, // bankKeeper（测试仅走非验证人 slash 路径，不触碰路由转账）
 		nil, // stakingKeeper（测试不触发 slash 时可留空）
 		nil, // slashingKeeper
 	)

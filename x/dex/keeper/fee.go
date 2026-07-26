@@ -63,7 +63,7 @@ func (k Keeper) ProcessSwapFee(
 		}
 	}
 
-	// Send 30% to protocol treasury (community module)
+	// Send treasury share to protocol treasury (community module); 0% per whitepaper §24 (no treasury cut from swap fees).
 	if treasuryAmt.IsPositive() {
 		treasuryCoin := sdk.NewCoins(sdk.NewCoin(denomIn, treasuryAmt))
 		if err := k.bankKeeper.SendCoinsFromModuleToModule(

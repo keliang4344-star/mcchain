@@ -224,6 +224,9 @@ var (
 		// 需求方付费（escrow）：edgeai 模块账户托管 creator 托管的 reward，
 		// 结算时经 bank 向其拨付 submitter；仅需注册为模块账户，无 Minter/Burner 权限。
 		edgeaimoduletypes.ModuleName: nil,
+		// DEX 保留 Minter/Burner 仅用于铸造/销毁 LP 份额代币（poolN denom，非 MC、不计入
+		// 1B 上限）；MC(umc) 的创世初始流动性由 tokenomics 从基金会 T0 转账预拨，DEX 绝不新铸 MC
+		// （白皮书 §24 / 零通胀硬约束）。
 		dexmoduletypes.ModuleName: {authtypes.Minter, authtypes.Burner},
 		referralmoduletypes.ModuleName: nil, // ecosystem pool rewards are paid via bank
 		referralmoduletypes.EcosystemModuleAccount: nil, // ecosystem pool for referral rewards
@@ -591,6 +594,7 @@ func New(
 		keys[phonenodemoduletypes.StoreKey],
 		keys[phonenodemoduletypes.MemStoreKey],
 		app.GetSubspace(phonenodemoduletypes.ModuleName),
+		app.BankKeeper,
 		app.StakingKeeper,
 		app.SlashingKeeper,
 	)
@@ -808,7 +812,6 @@ func New(
 		capabilitytypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
-		dexmoduletypes.ModuleName,
 		referralmoduletypes.ModuleName,
 		distrtypes.ModuleName,
 		stakingtypes.ModuleName,
@@ -837,6 +840,7 @@ func New(
 		depinmoduletypes.ModuleName,
 		phonenodemoduletypes.ModuleName,
 		edgeaimoduletypes.ModuleName,
+		dexmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 	app.mm.SetOrderInitGenesis(genesisModuleOrder...)

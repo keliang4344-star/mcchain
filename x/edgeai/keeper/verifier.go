@@ -120,68 +120,79 @@ func (k Keeper) AssignVerification(ctx sdk.Context, taskID, verifierAddr string)
 }
 
 // SubmitVerification processes a verification submission from a verifier node.
-//   - isHonest == true  → mark verified, pay reward from module account.
-//   - isHonest == false → auto-create a Dispute (calling existing dispute logic).
-func (k Keeper) SubmitVerification(ctx sdk.Context, taskID, verifierAddr string, isHonest bool, proof string) error {
+//
+// The verifier is expected to have re-run the task off-chain and submits the
+// ResultHash (verifierResultHash) it observed. Verification is REAL: we compare
+// the verifier's submitted hash against the original submitter's ResultHash via
+// verifyResultHashMatch:
+//   - match  → task verified: mark honest, pay the verifier from the 15% reserve.
+//   - differ → task flagged as cheat: auto-create a Dispute for arbitrator ruling
+//              (the arbitrator's cheat verdict later triggers clawbackSubmitterReward).
+func (k Keeper) SubmitVerification(ctx sdk.Context, taskID, verifierAddr, verifierResultHash string) error {
 	// Update the verification record
 	v, err := k.GetVerification(ctx, taskID, verifierAddr)
 	if err != nil || v == nil {
 		return fmt.Errorf("edgeai: verification not found for task %s verifier %s", taskID, verifierAddr)
 	}
-	v.IsHonest = isHonest
-	v.Proof = proof
+
+	// 取提交者原始结果哈希
+	result, _ := k.GetResultByTask(ctx, taskID)
+	var submitterHash string
+	if result != nil {
+		submitterHash = result.ResultHash
+	}
+
+	_, cheat := verifyResultHashMatch(submitterHash, verifierResultHash)
+	v.VerifierResultHash = verifierResultHash
 	_ = k.SetVerification(ctx, v)
 
-	if !isHonest {
-		// Verifier claims the result is dishonest → auto-create dispute.
-		// Re-use the existing OpenDispute pathway by constructing the same
-		// Dispute record that msg_server_open_dispute.go creates.
+	if cheat {
+		// 结果不一致 → 作弊嫌疑，自动创建争议，由仲裁者裁定（将触发 clawback）。
 		existing, _ := k.GetDispute(ctx, taskID)
-		if existing != nil {
-			// dispute already exists, skip duplicate
-			return nil
+		if existing == nil {
+			task, terr := k.GetTask(ctx, taskID)
+			submitter := ""
+			if result != nil {
+				submitter = result.Submitter
+			}
+			if terr == nil && task != nil {
+				d := &Dispute{
+					TaskId:        taskID,
+					Challenger:    verifierAddr,
+					Submitter:     submitter,
+					Reason:        fmt.Sprintf("verifier result hash %s != submitter hash %s", truncateHash(verifierResultHash), truncateHash(submitterHash)),
+					Status:        "open",
+					Resolution:    "none",
+					OpenedAt:      ctx.BlockTime().Unix(),
+					OpenedAtBlock: ctx.BlockHeight(),
+				}
+				if derr := k.SetDispute(ctx, d); derr == nil {
+					task.Status = types.TaskStatusDisputed
+					_ = k.SetTask(ctx, task)
+					// 声誉更新：作弊嫌疑 → -10（白皮书行 497）
+					if submitter != "" {
+						k.DecrementReputation(ctx, submitter, types.ReputationCheatDecrease)
+					}
+				}
+			}
 		}
-
-		task, err := k.GetTask(ctx, taskID)
-		if err != nil || task == nil {
-			return fmt.Errorf("edgeai: task %s not found for verification dispute", taskID)
-		}
-
-		// Find the submitter of the disputed result
-		result, _ := k.GetResultByTask(ctx, taskID)
-		submitter := ""
-		if result != nil {
-			submitter = result.Submitter
-		}
-
-		d := &Dispute{
-			TaskId:        taskID,
-			Challenger:    verifierAddr,
-			Submitter:     submitter,
-			Reason:        fmt.Sprintf("verifier sampling flagged cheating: %s", proof),
-			Status:        "open",
-			Resolution:    "none",
-			OpenedAt:      ctx.BlockTime().Unix(),
-			OpenedAtBlock: ctx.BlockHeight(),
-		}
-		if err := k.SetDispute(ctx, d); err != nil {
-			return err
-		}
-		task.Status = types.TaskStatusDisputed
-		_ = k.SetTask(ctx, task)
-
 		ctx.EventManager().EmitEvent(
-			sdk.NewEvent("edgeai.VerifierDispute",
+			sdk.NewEvent("edgeai.VerifierCheatFlagged",
 				sdk.NewAttribute("task_id", taskID),
 				sdk.NewAttribute("verifier", verifierAddr),
-				sdk.NewAttribute("proof", proof),
+				sdk.NewAttribute("verifier_hash", truncateHash(verifierResultHash)),
+				sdk.NewAttribute("submitter_hash", truncateHash(submitterHash)),
 			),
 		)
 		telemetry.IncrCounter(1, "edgeai", "verifier_dispute_count")
 		return nil
 	}
 
-	// Honest verification → claim reward from verifier reserve (15% of task payout)
+	// 一致 → 验证通过：标记诚实并领取 15% 验证者预留池奖励。
+	v.IsHonest = true
+	v.Proof = fmt.Sprintf("verify: submitter=%s verifier=%s match", truncateHash(submitterHash), truncateHash(verifierResultHash))
+	_ = k.SetVerification(ctx, v)
+
 	if v.Rewarded {
 		return nil // already rewarded
 	}
@@ -258,11 +269,7 @@ func (k Keeper) SampleAndVerify(ctx sdk.Context) {
 		return
 	}
 
-	// Auto-submit as honest: in this simplified on-chain path we cannot
-	// actually re-execute the AI computation, so we trust the result.
-	if err := k.SubmitVerification(ctx, task.Id, verifierAddr, true,
-		"auto-pass: on-chain sampling"); err != nil {
-		k.Logger(ctx).Error("edgeai: submit verification failed",
-			"task_id", task.Id, "verifier", verifierAddr, "err", err.Error())
-	}
+	// 注意：链上无法重跑沙箱，因此只做"指派"，不自动判定。
+	// 真正的验证裁定由验证者离线重跑后通过 SubmitVerification 提交结果哈希，
+	// 经哈希比对得出 verified / cheat 结论（见 SubmitVerification）。
 }

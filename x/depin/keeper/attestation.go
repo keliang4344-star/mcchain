@@ -1,8 +1,6 @@
 package keeper
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -17,28 +15,26 @@ func attestationResultKey(deviceID string) []byte {
 	return append(AttestationResultKeyPrefix, []byte(deviceID)...)
 }
 
-// VerifyDeviceAttestation 验证设备身份证明。
-// 流程：读取链上已注册节点设备指纹 → SHA256 校验 → 返回结果。
+// VerifyDeviceAttestation 验证设备身份证明（真实 attestation）。
+//
+// 移除原 SHA256(deviceID) 占位校验（人人可凭哈希伪造，属安全空壳）：
+// 改为直接信任 phonenode 模块中该设备的链上 attestation 状态——设备须先在
+// phonenode 注册为移动节点，并持有当前有效（status=valid 且未过期）的硬件
+// attestation。任何未经验证者一律拒绝，从根源杜绝伪造 attestation。
+// DePIN 的贡献拨付（SubmitContribution）亦叠加该 IsAttested 闸口，确保发币
+// 仅面向真实 attest 设备。
 func (k Keeper) VerifyDeviceAttestation(ctx sdk.Context, deviceID, proof, signature string) (bool, string) {
-	// 查询 phonenode 模块：设备是否已注册为节点
+	// 设备须先在 phonenode 注册为移动节点
 	if !k.phonenodeKeeper.HasNode(ctx, deviceID) {
 		return false, "device not registered as phonenode"
 	}
 
-	// 校验 attestation proof：对 deviceID 做 SHA256，与 proof 比对
-	hash := sha256.Sum256([]byte(deviceID))
-	expectedProof := hex.EncodeToString(hash[:])
-
-	if expectedProof != proof {
-		return false, fmt.Sprintf("attestation proof mismatch: expected %s, got %s", expectedProof, proof)
-	}
-
-	// 通过 phonenode keeper 检查该节点是否已有有效 attestation
+	// 真实 attestation：信任 phonenode 模块中该节点的链上 attestation 状态
 	if !k.phonenodeKeeper.IsAttested(ctx, deviceID) {
-		return false, "device attestation not yet complete in phonenode"
+		return false, "device attestation not yet complete / expired in phonenode"
 	}
 
-	return true, "attestation verified"
+	return true, "attestation verified via phonenode"
 }
 
 // StoreAttestationResult 存储验证结果到 KVStore。

@@ -15,4 +15,5 @@ var (
 	ErrBelowMinPayout           = sdkerrors.Register(ModuleName, 1607, "pending rewards below minimum payout threshold")
 	ErrInvalidInviteCode        = sdkerrors.Register(ModuleName, 1608, "invalid invite code")
 	ErrEcosystemPoolInsufficient = sdkerrors.Register(ModuleName, 1609, "ecosystem pool insufficient funds")
+	ErrReferralCycle            = sdkerrors.Register(ModuleName, 1610, "referral would create a cycle (referred address is an ancestor of the referrer)")
 )

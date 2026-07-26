@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	depinmoduletypes "mcchain/x/depin/types"
+	dexmoduletypes "mcchain/x/dex/types"
 	referralmoduletypes "mcchain/x/referral/types"
 	"mcchain/x/tokenomics/types"
 )
@@ -92,11 +93,20 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) error 
 		return fmt.Errorf("tokenomics: send to early dev address: %w", err)
 	}
 
-	// 基金会池：拆分为「运营流动（T0 即时 5000 万）」+「2 年期线性释放（8000 万）」。
-	foundationOpsCoins := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromUint64(types.FoundationT0Unlock)))
+	// 基金会池：拆分为「运营流动（T0 即时，含划拨 DEX 初始流动性）」+「2 年期线性释放」。
+	// 白皮书 §24：DEX 初始流动性池的 MC 部分（500 万 MC）从基金会 T0 解锁额中划拨，
+	// 转账至 dex 模块账户（计入 1B 上限，链上不新铸）。剩余 T0 拨至基金会运营地址。
+	foundationOpsCoins := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromUint64(types.FoundationT0Unlock-types.DexInitialLiquidityMC)))
 	foundationVestingCoins := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromUint64(allocAmount(genState, types.FoundationPoolName)-types.FoundationT0Unlock)))
 	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, types.FoundationOpsAddress, foundationOpsCoins); err != nil {
 		return fmt.Errorf("tokenomics: send to foundation ops address: %w", err)
+	}
+
+	// DEX 初始流动性（MC 部分）：从基金会 T0 解锁额中划拨，转账至 dex 模块账户。
+	// 计入 1B 总量上限，链上不新铸（修复 DEX 创世新铸 MC 突破 10亿 上限的缺陷）。
+	dexLiquidityCoins := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromUint64(types.DexInitialLiquidityMC)))
+	if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, dexmoduletypes.ModuleName, dexLiquidityCoins); err != nil {
+		return fmt.Errorf("tokenomics: fund dex initial liquidity: %w", err)
 	}
 	foundationVestingStart := genesisTime.Unix()
 	foundationVestingEnd := genesisTime.AddDate(2, 0, 0).Unix()

@@ -60,7 +60,9 @@ func TestQueryAllocations(t *testing.T) {
 	require.Equal(t, depinVaultAmt, byName[types.DeviceIncentivePoolName].CurrentBalance)
 	require.Equal(t, stakingAmt, byName[types.StakingSecurityPoolName].CurrentBalance)
 	require.Equal(t, teamAmt, byName[types.TeamPoolName].CurrentBalance)
-	require.Equal(t, foundationAmt, byName[types.FoundationPoolName].CurrentBalance)
+	// 基金会 CurrentBalance 反映实际托管额：运营流动(0.45e14) + vesting(0.8e14) = 1.25e14
+	// （其中 0.05e14 按白皮书 §24 划给 DEX 初始流动性，不再计入基金会持有）。
+	require.Equal(t, foundOpsAmt+foundVestAmt, byName[types.FoundationPoolName].CurrentBalance)
 	require.Equal(t, earlyDevAmt, byName[types.EarlyDevPoolName].CurrentBalance)
 }
 

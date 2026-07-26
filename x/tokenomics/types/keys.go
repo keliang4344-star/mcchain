@@ -86,6 +86,10 @@ const (
 	// 剩余 8000 万 MC（8e13 umc）进入 2 年期线性释放 vesting 账户。
 	// 5e13 umc = 5e7 MC = 5000 万 MC。
 	FoundationT0Unlock = uint64(50_000_000_000_000)
+
+	// DexInitialLiquidityMC DEX 初始流动性池的 MC 部分（umc），从基金会 T0 解锁额中划拨。
+	// 计入 1B 总量上限（白皮书 §24），由 tokenomics 创世转账至 dex 模块账户，链上不新铸。
+	DexInitialLiquidityMC = uint64(5_000_000_000_000) // 5,000,000 MC
 )
 
 // ---------------------------------------------------------------------------

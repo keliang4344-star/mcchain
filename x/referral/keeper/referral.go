@@ -41,6 +41,14 @@ func (k Keeper) CreateReferral(
 		return 0, types.ErrSelfReferral
 	}
 
+	// Cycle guard: adding inviter -> invitee must not create a cycle in the
+	// referral graph (e.g., A refers B, B refers C, C refers A). Walk the
+	// existing parent chain upward from the new inviter up to MaxReferralDepth;
+	// if the new invitee is already an ancestor, reject the edge.
+	if k.wouldCreateCycle(ctx, inviter, invitee) {
+		return 0, types.ErrReferralCycle
+	}
+
 	// Cooldown check: find the most recent referral from this inviter
 	referrals := k.GetReferralsByInviter(ctx, inviter)
 	if len(referrals) > 0 {
@@ -109,6 +117,31 @@ func (k Keeper) GetReferralsByInviter(ctx sdk.Context, inviter string) []types.R
 		}
 	}
 	return referrals
+}
+
+// wouldCreateCycle reports whether adding the edge inviter -> invitee would
+// introduce a cycle in the referral graph. It walks the existing parent chain
+// upward from inviter (following who referred inviter, then that node's
+// referrer, ...) up to MaxReferralDepth levels. If any ancestor equals invitee,
+// the new edge would close a loop and the function returns true.
+func (k Keeper) wouldCreateCycle(ctx sdk.Context, inviter, invitee string) bool {
+	current := inviter
+	for depth := uint32(0); depth < types.MaxReferralDepth; depth++ {
+		refID, found := k.getReferralIDByInvitee(ctx, current)
+		if !found {
+			return false
+		}
+		ref, found := k.GetReferral(ctx, refID)
+		if !found || ref.Status != types.ReferralStatusActive {
+			return false
+		}
+		if ref.Inviter == invitee {
+			// invitee is already an ancestor of inviter -> cycle.
+			return true
+		}
+		current = ref.Inviter
+	}
+	return false
 }
 
 // ---------------------------------------------------------------------------
@@ -208,8 +241,19 @@ func (k Keeper) ClaimRewards(ctx sdk.Context, claimer string) (sdk.Coin, error) 
 		return sdk.Coin{}, fmt.Errorf("invalid claimer address: %w", err)
 	}
 
-	reward := sdk.NewCoins(sdk.NewCoin("umc", pending))
-	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.EcosystemModuleAccount, claimerAddr, reward); err != nil {
+	// 1% burn on referral reward distribution: of each payout, burn 1% from
+	// the ecosystem module account and pay the remaining 99% to the referrer.
+	burnAmt := pending.Quo(sdkmath.NewInt(100)) // integer: amount / 100
+	if !burnAmt.IsZero() {
+		burnCoins := sdk.NewCoins(sdk.NewCoin("umc", burnAmt))
+		if err := k.bankKeeper.BurnCoins(ctx, types.EcosystemModuleAccount, burnCoins); err != nil {
+			return sdk.Coin{}, err
+		}
+	}
+
+	payoutAmt := pending.Sub(burnAmt)
+	payout := sdk.NewCoins(sdk.NewCoin("umc", payoutAmt))
+	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.EcosystemModuleAccount, claimerAddr, payout); err != nil {
 		return sdk.Coin{}, err
 	}
 
@@ -218,10 +262,10 @@ func (k Keeper) ClaimRewards(ctx sdk.Context, claimer string) (sdk.Coin, error) 
 
 	ctx.EventManager().EmitTypedEvent(&ReferralRewardClaimedEvent{
 		Claimer: claimer,
-		Amount:  pending,
+		Amount:  payoutAmt,
 	})
 
-	return sdk.NewCoin("umc", pending), nil
+	return sdk.NewCoin("umc", payoutAmt), nil
 }
 
 // ---------------------------------------------------------------------------
