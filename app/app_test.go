@@ -1,6 +1,8 @@
 package app
 
 import (
+	"flag"
+	"os"
 	"testing"
 
 	dbm "github.com/cometbft/cometbft-db"
@@ -12,6 +14,15 @@ import (
 	depinmoduletypes "mcchain/x/depin/types"
 	tokenomicsmoduletypes "mcchain/x/tokenomics/types"
 )
+
+// TestMain 在运行 app 包全部测试前设置 MC_ORACLE_ALLOW_SOFT=1。
+// 单元测试/模拟不配置真实预言机公钥（MC_ORACLE_PUBKEY），退回 SoftOracle，
+// 避免 app.New 因缺失公钥而 panic（P0③ 生产强制逻辑；生产节点必须配置公钥）。
+func TestMain(m *testing.M) {
+	os.Setenv("MC_ORACLE_ALLOW_SOFT", "1")
+	flag.Parse()
+	os.Exit(m.Run())
+}
 
 // TestTokenomicsMaccPerms 验证 app.go 模块账户权限划分（Q7 硬约束 + 五池模型）：
 //   - tokenomics 持有 Minter（唯一发行入口）；
