@@ -4,27 +4,9 @@ import (
 	"fmt"
 
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
-	"gopkg.in/yaml.v2"
 )
 
 var _ paramtypes.ParamSet = (*Params)(nil)
-
-// Params defines the parameters for the referral module.
-// Mirrors proto/mcchain/referral/params.proto.
-type Params struct {
-	Level1RewardRateBps uint32 `json:"level1_reward_rate_bps" yaml:"level1_reward_rate_bps"`
-	Level2RewardRateBps uint32 `json:"level2_reward_rate_bps" yaml:"level2_reward_rate_bps"`
-	Level3RewardRateBps uint32 `json:"level3_reward_rate_bps" yaml:"level3_reward_rate_bps"`
-	MinPayout           string `json:"min_payout" yaml:"min_payout"`
-	MaxReferralsPerUser uint64 `json:"max_referrals_per_user" yaml:"max_referrals_per_user"`
-	CooldownBlocks      uint64 `json:"cooldown_blocks" yaml:"cooldown_blocks"`
-	DailyPerUserCap     uint64 `json:"daily_per_user_cap" yaml:"daily_per_user_cap"`
-	DailyNetworkCap     uint64 `json:"daily_network_cap" yaml:"daily_network_cap"`
-}
-
-func (p *Params) Reset()         { *p = Params{} }
-func (p *Params) String() string { out, _ := yaml.Marshal(p); return string(out) }
-func (p *Params) ProtoMessage()  {}
 
 func ParamKeyTable() paramtypes.KeyTable {
 	return paramtypes.NewKeyTable().RegisterParamSet(&Params{})

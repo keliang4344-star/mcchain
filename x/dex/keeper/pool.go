@@ -85,6 +85,11 @@ func (k Keeper) CreatePool(
 ) (types.Pool, error) {
 	params := k.GetParams(ctx)
 
+	// Reject zero/negative reserves: a pool must have positive liquidity.
+	if amountA.LTE(sdk.ZeroInt()) || amountB.LTE(sdk.ZeroInt()) {
+		return types.Pool{}, types.ErrZeroAmount
+	}
+
 	// Validate denoms are sorted alphabetically
 	denoms := []string{denomA, denomB}
 	sort.Strings(denoms)

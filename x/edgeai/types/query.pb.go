@@ -697,6 +697,7 @@ func _Query_Disputes_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+var Query_serviceDesc = _Query_serviceDesc
 var _Query_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "mcchain.edgeai.Query",
 	HandlerType: (*QueryServer)(nil),

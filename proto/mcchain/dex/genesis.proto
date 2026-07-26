@@ -13,4 +13,7 @@ message GenesisState {
 message Params {
   uint32 default_fee_rate_bps = 1;
   uint64 max_pools = 2;
+  string lp_incentive_per_day = 3;
+  uint64 lp_incentive_end_height = 4;
+  uint64 lp_lock_blocks = 5;
 }

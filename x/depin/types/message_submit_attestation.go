@@ -7,22 +7,10 @@ import (
 
 // MsgSubmitAttestation 是预言机向 depin 模块提交设备 attestation 验证结果的消息。
 //
-// 注意：本文件为手动编码实现 sdk.Msg（与 proto 定义对齐）。
-// 当 protoc 重新生成时，需删除本文件，改用 tx.pb.go 中自动生成的类型。
+// 注意：本文件仅保留 sdk.Msg 业务逻辑方法；消息结构体已由 protoc 生成的
+// tx.pb.go 提供（与 proto 定义对齐）。
 
 const TypeMsgSubmitAttestation = "submit_attestation"
-
-// MsgSubmitAttestation 手动编码的 proto 消息类型，必须包含 protobuf tag 供 gRPC 解码器使用。
-type MsgSubmitAttestation struct {
-	DeviceId         string `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
-	AttestationProof string `protobuf:"bytes,2,opt,name=attestation_proof,json=attestationProof,proto3" json:"attestation_proof,omitempty"`
-	Signature        string `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
-	OracleAddress    string `protobuf:"bytes,4,opt,name=oracle_address,json=oracleAddress,proto3" json:"oracle_address,omitempty"`
-}
-
-func (m *MsgSubmitAttestation) Reset()         { *m = MsgSubmitAttestation{} }
-func (m *MsgSubmitAttestation) String() string { return "MsgSubmitAttestation" }
-func (*MsgSubmitAttestation) ProtoMessage()    {}
 
 var _ sdk.Msg = &MsgSubmitAttestation{}
 
@@ -75,13 +63,3 @@ func (msg *MsgSubmitAttestation) ValidateBasic() error {
 	}
 	return nil
 }
-
-// MsgSubmitAttestationResponse 验证结果消息的响应。
-type MsgSubmitAttestationResponse struct {
-	Passed bool   `protobuf:"varint,1,opt,name=passed,proto3" json:"passed,omitempty"`
-	Reason string `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
-}
-
-func (m *MsgSubmitAttestationResponse) Reset()         { *m = MsgSubmitAttestationResponse{} }
-func (m *MsgSubmitAttestationResponse) String() string { return "MsgSubmitAttestationResponse" }
-func (*MsgSubmitAttestationResponse) ProtoMessage()    {}

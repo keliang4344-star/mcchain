@@ -33,10 +33,15 @@ message MsgRegisterNodeResponse {}
 
 // MsgSubmitAttestation 提交硬件 attestation 根哈希 + nonce（反女巫/链下重验证）。
 message MsgSubmitAttestation {
-  string creator       = 1;
-  string root_hash     = 2;
-  string nonce         = 3;
+  string creator        = 1;
+  string root_hash      = 2;
+  string nonce          = 3;
   string device_id_hash = 4;
+  // device_pub_key 是设备持有的 secp256k1 公钥（压缩 33 字节，hex 编码）。
+  // 用于 challenge-response 验签，防止任何人仅凭 SHA256(deviceID) 伪造 attestation。
+  string device_pub_key = 5;
+  // signature 是设备对 "device_id_hash|nonce" 的 secp256k1 签名（64 字节，hex 编码）。
+  string signature = 6;
 }
 
 message MsgSubmitAttestationResponse {}

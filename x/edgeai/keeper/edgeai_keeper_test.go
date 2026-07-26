@@ -95,6 +95,14 @@ func (m *mockBankCap) SendCoinsFromModuleToAccount(_ sdk.Context, module string,
 }
 func (m *mockBankCap) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) error { return nil }
 
+// mockReferralKeeper is a no-op referral keeper; TrackEdgeAIReward is required by
+// the keeper signature but is not asserted on by these tests.
+type mockReferralKeeper struct{}
+
+func (m *mockReferralKeeper) TrackEdgeAIReward(_ sdk.Context, _ string, _ sdk.Int) error {
+	return nil
+}
+
 // setupEdgeaiWith 构造一个可配置依赖的 edgeai keeper（用于 BeginBlock 等集成路径测试）。
 func setupEdgeaiWith(t *testing.T, pn types.PhonenodeKeeper, pay types.PayoutKeeper, bk types.BankKeeper) (*Keeper, sdk.Context) {
 	storeKey := sdk.NewKVStoreKey(types.StoreKey)
@@ -108,7 +116,7 @@ func setupEdgeaiWith(t *testing.T, pn types.PhonenodeKeeper, pay types.PayoutKee
 	registry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(registry)
 	ps := typesparams.NewSubspace(cdc, types.Amino, storeKey, memKey, "EdgeaiParams")
-	k := NewKeeper(cdc, storeKey, memKey, ps, pn, bk, pay)
+	k := NewKeeper(cdc, storeKey, memKey, ps, pn, bk, pay, &mockReferralKeeper{})
 	ctx := sdk.NewContext(cs, tmproto.Header{}, false, log.NewNopLogger())
 	k.SetParams(ctx, types.DefaultParams())
 	return k, ctx
@@ -160,7 +168,7 @@ func TestCreateTaskIDIncrements(t *testing.T) {
 func TestSubmitResultRejectedWhenNotAttested(t *testing.T) {
 	k, ctx, _ := setupEdgeai(t)
 	pn := &mockPhonenodeFalse{}
-	k2 := NewKeeper(k.cdc, k.storeKey, k.memKey, k.paramstore, pn, mockBank{}, &mockPayout{})
+	k2 := NewKeeper(k.cdc, k.storeKey, k.memKey, k.paramstore, pn, mockBank{}, &mockPayout{}, &mockReferralKeeper{})
 	ms := NewMsgServerImpl(*k2)
 	require.NoError(t, k.SetTask(ctx, &Task{Id: "1", Status: types.TaskStatusOpen}))
 
@@ -281,7 +289,8 @@ func TestBeginBlockPayoutAfterWindow(t *testing.T) {
 	require.Len(t, bk.modToAcct, 1, "窗口过后应拨付一笔奖励")
 	require.Equal(t, types.ModuleName, bk.modToAcct[0].module)
 	require.Equal(t, node, bk.modToAcct[0].to)
-	require.Equal(t, uint64(500), bk.modToAcct[0].amount)
+	// submitter 分得 80%（EdgeAISubmitterRatioBps），verifier 预留 15% + 销毁 5% 走其他路径
+	require.Equal(t, uint64(400), bk.modToAcct[0].amount)
 
 	task, _ := k.GetTask(ctx, "1")
 	require.Equal(t, types.TaskStatusDone, task.Status)
@@ -593,7 +602,8 @@ func TestFullLifecycle_CreateSubmitSettle(t *testing.T) {
 	// Step 4: 验证拨付
 	require.Len(t, bk.modToAcct, 1)
 	require.Equal(t, node, bk.modToAcct[0].to)
-	require.Equal(t, uint64(500), bk.modToAcct[0].amount)
+	// submitter 分得 80%（EdgeAISubmitterRatioBps），verifier 预留 15% + 销毁 5% 走其他路径
+	require.Equal(t, uint64(400), bk.modToAcct[0].amount)
 
 	// Step 5: 验证状态
 	task, _ := k.GetTask(ctx, "1")

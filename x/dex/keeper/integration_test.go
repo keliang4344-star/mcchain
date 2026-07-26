@@ -61,26 +61,23 @@ func TestDEX_CreatePoolAndSwap_FullFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, amountOut.GT(sdk.ZeroInt()), "swap should return positive output")
 
-	// Verify output using constant-product formula:
-	// amountIn * (1 - fee%) = 100MC * 9970/10000 = 99.7 MC effective
-	// new reserve MC: 500 + 99.7 = 599.7 → 500 + (99.7 * 0.2 LP) = 500 + 19.94 → but actually
-	// nonLPFee portion is subtracted...
-	// Actually: reserveIn after = reserveIn + amountIn - nonLPFee = 500M + 100M - nonLPFee
-	// nonLPFee = fee * 0.8, where fee = 100M * 30/10000 = 0.3M
-	// nonLPFee = 0.3M * 8000/10000 = 0.24M
-	// newReserveIn = 500M + 100M - 0.24M = 599.76M
-	// k = 500M * 500M = 250e12
-	// newReserveOut = k / newReserveIn = 250e12 / 599.76M ≈ 416.833M
-	// amountOut = 500M - 416.833M ≈ 83.167M
-	expectedOut := sdk.NewInt(83166694) // approximate
+	// Verify output via constant-product formula with effective input
+	// (= amountIn minus the non-LP burn fee removed from reserve). The LP
+	// portion of the fee stays in the reserve, so the swap preserves x*y=k.
+	feeTotal := swapAmount.MulRaw(30).QuoRaw(10000)
+	nonLPFee := feeTotal.MulRaw(nonLPFeeBps).QuoRaw(10000)
+	effectiveIn := swapAmount.Sub(nonLPFee)
+	expectedOut := CalcSwapOutput(reserveA, reserveB, effectiveIn, 0)
 	require.InDelta(t, expectedOut.Int64(), amountOut.Int64(), 100, "swap output should match constant-product formula")
 
-	// Verify pool reserves updated
+	// Verify pool reserves updated consistently:
+	// reserveIn' = reserveIn + effectiveIn ; reserveOut' = reserveOut - amountOut
 	pool, found := k.GetPool(ctx, 1)
 	require.True(t, found)
 	newRA, _ := sdk.NewIntFromString(pool.ReserveA)
 	newRB, _ := sdk.NewIntFromString(pool.ReserveB)
-	require.Equal(t, reserveA.Add(swapAmount), newRA.Add(amountOut).Add(sdk.NewInt(0)), "reserves should reflect swap")
+	require.Equal(t, reserveA.Add(effectiveIn), newRA, "reserveA should increase by effective input")
+	require.Equal(t, reserveB.Sub(amountOut), newRB, "reserveB should decrease by amountOut")
 
 	// Verify fee distribution: burn + treasury + LP events
 	// Burn (50%) + Treasury (30%)
@@ -131,7 +128,7 @@ func TestDEX_CreatePool_DenomSortValidation(t *testing.T) {
 	bk.setBalance(creator, "umc", 1000000000)
 	bk.setBalance(creator, "uusdc", 1000000000)
 
-	pool, err := k.CreatePool(ctx, "uusdc", "umc",
+	pool, err := k.CreatePool(ctx, "umc", "uusdc",
 		sdk.NewInt(500_000000), sdk.NewInt(500_000000), 30, creator, 0)
 	require.NoError(t, err)
 	require.Equal(t, "umc", pool.DenomA, "denoms should be alphabetically sorted")
@@ -190,7 +187,7 @@ func TestDEX_AddLiquidity_Basic(t *testing.T) {
 
 	// Verify LP balance
 	lpDenom := types.PoolDenom(1)
-	lpBal := bk.GetBalance(ctx, sdk.AccAddress([]byte(lp)), lpDenom)
+	lpBal := bk.GetBalance(ctx, sdk.MustAccAddressFromBech32(lp), lpDenom)
 	require.True(t, lpBal.Amount.GTE(lpMinted), "user should have LP tokens")
 }
 
@@ -239,7 +236,7 @@ func TestDEX_RemoveLiquidity_Basic(t *testing.T) {
 
 	// Record LP balance before removal
 	lpDenom := types.PoolDenom(1)
-	lpBalBefore := bk.GetBalance(ctx, sdk.AccAddress([]byte(lp)), lpDenom)
+	lpBalBefore := bk.GetBalance(ctx, sdk.MustAccAddressFromBech32(lp), lpDenom)
 
 	// Remove half of LP tokens
 	halfLP := lpBalBefore.Amount.QuoRaw(2)
@@ -258,7 +255,7 @@ func TestDEX_RemoveLiquidity_Basic(t *testing.T) {
 	require.InDelta(t, int64(50_000000), reserveB.Int64(), 2)
 
 	// Verify LP balance halved
-	lpBalAfter := bk.GetBalance(ctx, sdk.AccAddress([]byte(lp)), lpDenom)
+	lpBalAfter := bk.GetBalance(ctx, sdk.MustAccAddressFromBech32(lp), lpDenom)
 	require.InDelta(t, halfLP.Int64(), lpBalBefore.Amount.Sub(lpBalAfter.Amount).Int64(), 2)
 }
 
@@ -331,7 +328,7 @@ func TestDEX_SlippageProtection_RemoveLiquidity(t *testing.T) {
 	require.NoError(t, err)
 
 	lpDenom := types.PoolDenom(1)
-	lpBal := bk.GetBalance(ctx, sdk.AccAddress([]byte(lp)), lpDenom)
+	lpBal := bk.GetBalance(ctx, sdk.MustAccAddressFromBech32(lp), lpDenom)
 
 	// Try removing LP with impossibly high min outputs
 	_, _, err = k.RemoveLiquidity(ctx, 1, lpBal.Amount,

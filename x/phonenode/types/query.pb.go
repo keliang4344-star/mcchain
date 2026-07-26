@@ -630,6 +630,7 @@ func _Query_Slashes_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+var Query_serviceDesc = _Query_serviceDesc
 var _Query_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "mcchain.phonenode.Query",
 	HandlerType: (*QueryServer)(nil),

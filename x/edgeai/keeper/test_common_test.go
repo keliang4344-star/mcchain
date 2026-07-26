@@ -61,7 +61,7 @@ func setupEdgeaiFull(t *testing.T, verifierNodes []string) (*Keeper, sdk.Context
 	ps := typesparams.NewSubspace(cdc, types.Amino, storeKey, memKey, "EdgeaiParams")
 
 	m := &mockPhonenodeFull{verifierNodes: verifierNodes}
-	k := NewKeeper(cdc, storeKey, memKey, ps, m, mockBank{}, nil)
+	k := NewKeeper(cdc, storeKey, memKey, ps, m, mockBank{}, nil, &mockReferralKeeper{})
 	ctx := sdk.NewContext(cs, tmproto.Header{}, false, log.NewNopLogger())
 	k.SetParams(ctx, types.DefaultParams())
 	return k, ctx, m
@@ -83,7 +83,7 @@ func setupEdgeaiWithBankFull(t *testing.T, verifierNodes []string, bk types.Bank
 	ps := typesparams.NewSubspace(cdc, types.Amino, storeKey, memKey, "EdgeaiParams")
 
 	m := &mockPhonenodeFull{verifierNodes: verifierNodes}
-	k := NewKeeper(cdc, storeKey, memKey, ps, m, bk, nil)
+	k := NewKeeper(cdc, storeKey, memKey, ps, m, bk, nil, &mockReferralKeeper{})
 	ctx := sdk.NewContext(cs, tmproto.Header{}, false, log.NewNopLogger())
 	k.SetParams(ctx, types.DefaultParams())
 	return k, ctx, m

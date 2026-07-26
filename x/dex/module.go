@@ -1,7 +1,6 @@
 package dex
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -62,7 +61,9 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, config client.TxEncod
 }
 
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
-	types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx))
+	// dex query service has no google.api.http annotations, so no grpc-gateway
+	// .pb.gw.go is generated; REST routes are not registered (consistent with referral).
+	// types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx))
 }
 
 func (a AppModuleBasic) GetTxCmd() *cobra.Command {

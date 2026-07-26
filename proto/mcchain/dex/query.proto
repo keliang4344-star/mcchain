@@ -9,13 +9,14 @@ service Query {
   rpc Pools        (QueryPoolsRequest        ) returns (QueryPoolsResponse        );
   rpc EstimateSwap (QueryEstimateSwapRequest ) returns (QueryEstimateSwapResponse );
   rpc Price        (QueryPriceRequest        ) returns (QueryPriceResponse        );
+  rpc LiquidityLock(QueryLiquidityLockRequest) returns (QueryLiquidityLockResponse);
 }
 
 message QueryPoolRequest { uint64 pool_id = 1; }
 message QueryPoolResponse { Pool pool = 1; }
 
 message QueryPoolsRequest { bytes pagination = 1; }
-message QueryPoolsResponse { repeated Pool pools = 1; bytes pagination = 2; }
+message QueryPoolsResponse { repeated Pool pools = 1 [(gogoproto.nullable) = false]; bytes pagination = 2; }
 
 message QueryEstimateSwapRequest {
   uint64 pool_id = 1;
@@ -27,3 +28,6 @@ message QueryEstimateSwapResponse { string amount_out = 1; string price_impact_b
 
 message QueryPriceRequest { uint64 pool_id = 1; string denom = 2; }
 message QueryPriceResponse { string price = 1; string price_denom = 2; }
+
+message QueryLiquidityLockRequest { string lp_address = 1; uint64 pool_id = 2; }
+message QueryLiquidityLockResponse { LiquidityLock lock = 1; }

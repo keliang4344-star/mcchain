@@ -795,6 +795,7 @@ func New(
 		phonenodemoduletypes.ModuleName,
 		edgeaimoduletypes.ModuleName,
 		dexmoduletypes.ModuleName,
+		referralmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
 	)
 
@@ -808,6 +809,7 @@ func New(
 		authtypes.ModuleName,
 		banktypes.ModuleName,
 		dexmoduletypes.ModuleName,
+		referralmoduletypes.ModuleName,
 		distrtypes.ModuleName,
 		stakingtypes.ModuleName,
 		slashingtypes.ModuleName,
@@ -1158,6 +1160,7 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(phonenodemoduletypes.ModuleName)
 	paramsKeeper.Subspace(edgeaimoduletypes.ModuleName)
 	paramsKeeper.Subspace(dexmoduletypes.ModuleName)
+	paramsKeeper.Subspace(referralmoduletypes.ModuleName)
 	// this line is used by starport scaffolding # stargate/app/paramSubspace
 
 	return paramsKeeper

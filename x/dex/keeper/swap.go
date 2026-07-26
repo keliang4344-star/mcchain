@@ -33,7 +33,16 @@ func (k Keeper) SwapExactIn(
 		return sdk.ZeroInt(), err
 	}
 
-	amountOut := CalcSwapOutput(reserveIn, reserveOut, amountIn, pool.FeeRateBps)
+	// Calculate fee and the non-LP (burn) portion removed from pool reserves.
+	// The LP portion (FeeLPBps) stays in the reserve; the non-LP portion
+	// (burn + treasury) is extracted and burned via ProcessSwapFee. The swap's
+	// effective input is amountIn minus the non-LP fee, so amountOut and the
+	// reserve update stay consistent and preserve x*y=k.
+	feeTotal := amountIn.MulRaw(int64(pool.FeeRateBps)).QuoRaw(10000)
+	nonLPFee := feeTotal.MulRaw(nonLPFeeBps).QuoRaw(10000)
+
+	// Effective input added to the reserve = amountIn - nonLPFee.
+	amountOut := CalcSwapOutput(reserveIn, reserveOut, amountIn.Sub(nonLPFee), 0)
 	if amountOut.LTE(sdk.ZeroInt()) {
 		return sdk.ZeroInt(), types.ErrInsufficientLiquidity
 	}
@@ -41,14 +50,8 @@ func (k Keeper) SwapExactIn(
 		return sdk.ZeroInt(), types.ErrSlippageExceeded
 	}
 
-	// Calculate fee and non-LP portion to deduct from pool reserves.
-	// The LP portion (50%) stays in the reserve; burn (50%) is extracted
-	// from the pool. No treasury share.
-	feeTotal := amountIn.MulRaw(int64(pool.FeeRateBps)).QuoRaw(10000)
-	nonLPFee := feeTotal.MulRaw(nonLPFeeBps).QuoRaw(10000)
-
-	// Update reserves: subtract non-LP fee so only the LP portion (20%)
-	// remains in the pool reserve.
+	// Update reserves: add effective input (amountIn - nonLPFee); the non-LP
+	// fee is later burned by ProcessSwapFee, keeping module balance == reserves.
 	newReserveIn := reserveIn.Add(amountIn).Sub(nonLPFee)
 	newReserveOut := reserveOut.Sub(amountOut)
 	k.updateReservesByDenom(&pool, denomIn, newReserveIn)

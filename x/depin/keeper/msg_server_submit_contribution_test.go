@@ -24,8 +24,11 @@ type mockBankKeeper struct {
 	sentAmount sdk.Coins
 }
 
-func (m *mockBankKeeper) SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins {
-	return nil
+func (m *mockBankKeeper) SpendableCoins(_ sdk.Context, _ sdk.AccAddress) sdk.Coins {
+	// Simulate a funded DePIN reward pool so the linear-release vault
+	// initializes with a positive InitialBalance (production funds this at
+	// genesis via tokenomics). Without this, dailyCap=0 blocks all payouts.
+	return sdk.NewCoins(sdk.NewInt64Coin("umc", 1e15))
 }
 
 func (m *mockBankKeeper) SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error {
@@ -36,6 +39,10 @@ func (m *mockBankKeeper) SendCoinsFromModuleToAccount(ctx sdk.Context, senderMod
 }
 
 func (m *mockBankKeeper) MintCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error {
+	return nil
+}
+
+func (m *mockBankKeeper) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) error {
 	return nil
 }
 
@@ -54,6 +61,14 @@ func (m *mockPhonenodeKeeper) IsAttested(ctx sdk.Context, addr string) bool {
 	return m.attested[addr]
 }
 
+// mockReferralKeeper is a no-op referral keeper; TrackDepinReward is required by
+// the keeper signature but is not asserted on by these contribution tests.
+type mockReferralKeeper struct{}
+
+func (m *mockReferralKeeper) TrackDepinReward(_ sdk.Context, _ string, _ sdk.Int) error {
+	return nil
+}
+
 // newSubmitTestSetup builds a depin keeper (with mock bank + phonenode keepers)
 // backed by an in-memory store, with default params set.
 func newSubmitTestSetup(t *testing.T, bank types.BankKeeper, phone types.PhonenodeKeeper) (*keeper.Keeper, sdk.Context) {
@@ -70,7 +85,7 @@ func newSubmitTestSetup(t *testing.T, bank types.BankKeeper, phone types.Phoneno
 	cdc := codec.NewProtoCodec(registry)
 
 	paramsSubspace := typesparams.NewSubspace(cdc, types.Amino, storeKey, memStoreKey, "DepinParams")
-	k := keeper.NewKeeper(cdc, storeKey, memStoreKey, paramsSubspace, bank, phone)
+	k := keeper.NewKeeper(cdc, storeKey, memStoreKey, paramsSubspace, bank, phone, &mockReferralKeeper{})
 	ctx := sdk.NewContext(stateStore, tmproto.Header{}, false, log.NewNopLogger())
 	k.SetParams(ctx, types.DefaultParams())
 	return k, ctx
@@ -85,8 +100,11 @@ func TestSubmitContribution_UnregisteredPhonenode_Rejected(t *testing.T) {
 
 	deviceAddr := sdk.AccAddress([]byte("1234567890abcdef1234")).String()
 
-	// device is registered and attested in depin, but NOT in phonenode
-	require.NoError(t, k.SetDevice(ctx, &keeper.DeviceState{Address: deviceAddr, Attested: true}))
+	// device is registered+attested in depin (passes defense L1/L2) but NOT
+	// registered as a phonenode node (HasNode=false) → must hit the phonenode
+	// payout gate (ErrPhonenodeNotRegistered), not a defense-layer rejection.
+	require.NoError(t, k.SetDevice(ctx, &keeper.DeviceState{Address: deviceAddr, Registered: true, Attested: true}))
+	phone.attested[deviceAddr] = true // passes defense layer 2 (phonenode attestation)
 
 	msg := types.NewMsgSubmitContribution(deviceAddr, "task-p2a", keeper.TaskTypeInference, "80")
 	msgServer := keeper.NewMsgServerImpl(*k)
@@ -107,7 +125,7 @@ func TestSubmitContribution_RegisteredPhonenode_Paid(t *testing.T) {
 	deviceAddr := sdk.AccAddress([]byte("1234567890abcdef1234")).String()
 	expectedAddr := sdk.AccAddress([]byte("1234567890abcdef1234"))
 
-	require.NoError(t, k.SetDevice(ctx, &keeper.DeviceState{Address: deviceAddr, Attested: true}))
+	require.NoError(t, k.SetDevice(ctx, &keeper.DeviceState{Address: deviceAddr, Registered: true, Attested: true}))
 	// register the device as a phonenode AND attest it (B2 gate)
 	phone.registered[deviceAddr] = true
 	phone.attested[deviceAddr] = true
@@ -118,7 +136,14 @@ func TestSubmitContribution_RegisteredPhonenode_Paid(t *testing.T) {
 	_, err := msgServer.SubmitContribution(sdk.WrapSDKContext(ctx), msg)
 	require.NoError(t, err)
 
-	expected := sdk.NewCoins(sdk.NewCoin("umc", sdk.NewInt(400)))
+	// V3 经济：base = score(80) × inference rate(5) = 400；共振倍数 ≈ 1.2402
+	//（taskCount=1, quality=0.8, 空闲网络）→ 496；再扣 5% 通缩销毁
+	//（DePINBurnRatioBps=500）= 472 umc 实际拨付。
+	expectedBase := keeper.ComputeReward(80, keeper.TaskTypeInference)
+	require.Equal(t, 400, expectedBase)
+	expectedAdjusted := keeper.ComputeResonanceReward(expectedBase, 1, 0.0, 0.8)
+	expectedPayout := expectedAdjusted - expectedAdjusted*int(types.DePINBurnRatioBps)/10000
+	expected := sdk.NewCoins(sdk.NewCoin("umc", sdk.NewInt(int64(expectedPayout))))
 	require.Equal(t, types.ModuleName, bank.sentModule)
 	require.True(t, bank.sentTo.Equals(expectedAddr), "paid to %s, want %s", bank.sentTo, expectedAddr)
 	require.True(t, bank.sentAmount.IsEqual(expected), "paid %s, want %s", bank.sentAmount, expected)

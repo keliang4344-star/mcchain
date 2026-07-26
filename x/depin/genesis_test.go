@@ -24,8 +24,11 @@ type mockBankKeeper struct {
 	mintedCoins  sdk.Coins
 }
 
-func (m *mockBankKeeper) SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins {
-	return nil
+func (m *mockBankKeeper) SpendableCoins(_ sdk.Context, _ sdk.AccAddress) sdk.Coins {
+	// Simulate a funded DePIN reward pool so the linear-release vault
+	// initializes with a positive InitialBalance (production funds this at
+	// genesis via tokenomics). Without this, dailyCap=0 blocks all payouts.
+	return sdk.NewCoins(sdk.NewInt64Coin("umc", 1e15))
 }
 
 func (m *mockBankKeeper) SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error {
@@ -35,6 +38,18 @@ func (m *mockBankKeeper) SendCoinsFromModuleToAccount(ctx sdk.Context, senderMod
 func (m *mockBankKeeper) MintCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error {
 	m.mintedModule = moduleName
 	m.mintedCoins = amt
+	return nil
+}
+
+func (m *mockBankKeeper) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) error {
+	return nil
+}
+
+// mockReferralKeeper is a no-op referral keeper for genesis tests; TrackDepinReward
+// is never exercised on the genesis-only path.
+type mockReferralKeeper struct{}
+
+func (m *mockReferralKeeper) TrackDepinReward(_ sdk.Context, _ string, _ sdk.Int) error {
 	return nil
 }
 
@@ -54,7 +69,7 @@ func newDePinKeeperForGenesis(t *testing.T, bank types.BankKeeper) (*keeper.Keep
 	cdc := codec.NewProtoCodec(registry)
 
 	paramsSubspace := typesparams.NewSubspace(cdc, types.Amino, storeKey, memStoreKey, "DepinParams")
-	k := keeper.NewKeeper(cdc, storeKey, memStoreKey, paramsSubspace, bank, nil)
+	k := keeper.NewKeeper(cdc, storeKey, memStoreKey, paramsSubspace, bank, nil, &mockReferralKeeper{})
 	ctx := sdk.NewContext(stateStore, tmproto.Header{}, false, log.NewNopLogger())
 	return k, ctx
 }

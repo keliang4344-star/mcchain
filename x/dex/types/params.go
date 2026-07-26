@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
-	"gopkg.in/yaml.v2"
 )
 
 var _ paramtypes.ParamSet = (*Params)(nil)
@@ -89,11 +88,6 @@ func (p Params) Validate() error {
 		return err
 	}
 	return validateLpLockBlocks(p.LpLockBlocks)
-}
-
-func (p Params) String() string {
-	out, _ := yaml.Marshal(p)
-	return string(out)
 }
 
 func validateFeeRateBps(i interface{}) error {

@@ -12,3 +12,11 @@ message Pool {
   uint32 fee_rate_bps = 7;
   string owner = 8;
 }
+
+message LiquidityLock {
+  string lp_address = 1;
+  uint64 pool_id = 2;
+  uint64 lock_height = 3;
+  uint64 unlock_height = 4;
+  string lp_amount = 5;
+}

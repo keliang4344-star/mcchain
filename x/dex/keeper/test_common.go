@@ -164,14 +164,20 @@ func (m *mockDexAccountKeeper) GetAccount(ctx sdk.Context, addr sdk.AccAddress) 
 // setupDex creates a DEX keeper with in-memory store and a mock bank.
 func setupDex(t *testing.T) (*Keeper, sdk.Context, *mockDexBank) {
 	storeKey := sdk.NewKVStoreKey(types.StoreKey)
+	// The params subspace needs a SEPARATE transient store key. Reusing storeKey
+	// for both key and tkey causes Subspace.Set to write the transient marker
+	// (empty bytes) into the same underlying KVStore, clobbering the real param
+	// value and making GetParamSet read empty bytes.
+	tkey := sdk.NewTransientStoreKey("transient_dex_params")
 	db := tmdb.NewMemDB()
 	cs := store.NewCommitMultiStore(db)
 	cs.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
+	cs.MountStoreWithDB(tkey, storetypes.StoreTypeTransient, db)
 	require.NoError(t, cs.LoadLatestVersion())
 
 	registry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(registry)
-	ps := typesparams.NewSubspace(cdc, types.Amino, storeKey, storeKey, "DexParams")
+	ps := typesparams.NewSubspace(cdc, types.Amino, storeKey, tkey, "DexParams")
 
 	bk := newMockDexBank()
 	acct := &mockDexAccountKeeper{}

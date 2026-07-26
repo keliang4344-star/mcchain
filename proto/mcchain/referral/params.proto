@@ -6,10 +6,12 @@ import "gogoproto/gogo.proto";
 
 // Params defines the parameters for the referral module.
 message Params {
-  uint32 reward_rate_bps        = 1; // referral reward rate in basis points, default 500 (=5%)
-  string min_payout             = 2; // minimum claimable amount, default "100000000" (=100 MC)
-  uint64 max_referrals_per_user = 3; // max referrals per inviter, default 100
-  uint64 cooldown_blocks        = 4; // cooldown blocks between referrals, default 100
-  uint64 daily_per_user_cap     = 5; // daily per-user reward cap in umc, default 500000000 (=500 MC)
-  uint64 daily_network_cap      = 6; // daily network-wide reward cap in umc, default 20600000000 (=20,600 MC)
+  uint32 level1_reward_rate_bps = 1; // L1 referral reward rate in basis points
+  uint32 level2_reward_rate_bps = 2; // L2 referral reward rate in basis points
+  uint32 level3_reward_rate_bps = 3; // L3 referral reward rate in basis points
+  string min_payout             = 4; // minimum claimable amount, default "100000000" (=100 MC)
+  uint64 max_referrals_per_user = 5; // max referrals per inviter, default 100
+  uint64 cooldown_blocks        = 6; // cooldown blocks between referrals, default 100
+  uint64 daily_per_user_cap     = 7; // daily per-user reward cap in umc
+  uint64 daily_network_cap      = 8; // daily network-wide reward cap in umc
 }

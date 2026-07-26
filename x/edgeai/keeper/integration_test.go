@@ -59,8 +59,10 @@ func TestTaskExpiry_TaskWithPendingResultStaysOpen(t *testing.T) {
 	quickCreateTask(t, k, ctx, "1", creator, 500000000, types.TaskStatusOpen, 1)
 	quickCreateResult(t, k, ctx, "1", node, "hash_abc", types.ResultStatusPending, 5)
 
-	// 推进超过 TaskExpireBlocks，但远小于争议窗口（BeginBlock 尚未处理）
-	ctx = ctx.WithBlockHeight(int64(types.TaskExpireBlocks) - 10)
+	// 推进到争议窗口（DisputePeriodBlocks=100）之前，结果仍 pending 且任务未过期：
+	// Phase1 结算依赖争议窗口（100 块），Phase2 过期依赖 TaskExpireBlocks（10000 块），
+	// 高度 50 二者均未触发 → 任务保持 open，结果保持 pending。
+	ctx = ctx.WithBlockHeight(50)
 	k.BeginBlock(ctx)
 
 	// 任务不应过期（仍 open，结果 pending）

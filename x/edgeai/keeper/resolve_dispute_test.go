@@ -43,7 +43,7 @@ func setupEdgeai(t *testing.T) (*Keeper, sdk.Context, *mockPhonenode) {
 	cdc := codec.NewProtoCodec(registry)
 	ps := typesparams.NewSubspace(cdc, types.Amino, storeKey, memKey, "EdgeaiParams")
 	m := &mockPhonenode{}
-	k := NewKeeper(cdc, storeKey, memKey, ps, m, mockBank{}, nil)
+	k := NewKeeper(cdc, storeKey, memKey, ps, m, mockBank{}, nil, &mockReferralKeeper{})
 	ctx := sdk.NewContext(cs, tmproto.Header{}, false, log.NewNopLogger())
 	k.SetParams(ctx, types.DefaultParams())
 	return k, ctx, m
