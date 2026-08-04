@@ -84,7 +84,7 @@ mcchaind start
 
 | 文档 | 说明 |
 |------|------|
-| [白皮书](./docs/WHITEPAPER.md) | MC 公链完整技术与理念 |
+| [Whitepaper (English, final)](./docs/WHITEPAPER.md) | MC Chain — full technical & philosophy whitepaper (de-AI, de-trace, MC Chain Team) |
 | [通证分配](./docs/TOKEN_ALLOCATION.md) | 总量、分配池、解锁规则 |
 | [模块白皮书](./docs/MODULE_WHITEPAPER.md) | 各模块完成度与改进路线 |
 | [系统设计](./docs/system_design.md) | 架构、数据流、接口 |
