@@ -167,8 +167,8 @@ func (am AppModule) BeginBlock(ctx sdk.Context, _ abci.RequestBeginBlock) {
 		am.keeper.Logger(ctx).Error("tokenomics: gas rebate failed in BeginBlock", "err", err.Error())
 	}
 
-	// 安全池滴灌：staking_security → distribution (5%)
-	if err := am.keeper.DripStakingSecurity(ctx); err != nil {
+	// 安全池滴灌：staking_security → distribution (5%, 12-year floor + A→B renewal)
+	if err := am.keeper.DripWithRenewal(ctx); err != nil {
 		am.keeper.Logger(ctx).Error("tokenomics: drip failed in BeginBlock", "err", err.Error())
 	}
 }

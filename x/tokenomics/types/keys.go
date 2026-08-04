@@ -90,6 +90,40 @@ const (
 	// DexInitialLiquidityMC DEX 初始流动性池的 MC 部分（umc），从基金会 T0 解锁额中划拨。
 	// 计入 1B 总量上限（白皮书 §24），由 tokenomics 创世转账至 dex 模块账户，链上不新铸。
 	DexInitialLiquidityMC = uint64(5_000_000_000_000) // 5,000,000 MC
+
+	// ---- Protocol Treasury: the 6th independent on-chain address (finalized 2026-08) ----
+	// Physically separated from the staking-security drip pool and logically linked:
+	//   - genesis starts at ZERO (no pre-mint, no allocation);
+	//   - funded only by (a) enterprise settlement fee inflow and (b) drip-pool A
+	//     exhaustion renewal (see RenewalFloorAPR* below).
+	// The staking-security pool (StakingSecurityPoolName) is code-unspendable;
+	// the protocol treasury (ProtocolTreasuryPoolName) is governed (multisig + timelock).
+	ProtocolTreasuryPoolName = "protocol_treasury"
+
+	// ---- Staking-security drip: 12-year floor and A→B renewal (finalized 2026-08) ----
+	// DripFloorYears is the guaranteed minimum drip duration (years).
+	DripFloorYears = 12
+	// RenewalFloorAPRBps is the lower bound of the treasury renewal APR (1.00%).
+	RenewalFloorAPRBps = uint32(100)
+	// RenewalFloorAPRCeilBps is the upper bound of the treasury renewal APR (2.00%).
+	RenewalFloorAPRCeilBps = uint32(200)
+
+	// ---- Slash split (finalized 2026-08): 40% burned / 60% to protocol treasury ----
+	SlashBurnRatioBps     = uint32(4000) // 40.00% burned
+	SlashTreasuryRatioBps = uint32(6000) // 60.00% to protocol treasury
+
+	// ---- Enterprise settlement fee (finalized 2026-08): 1.5% of settlement,
+	//      40% burned / 60% to protocol treasury ----
+	// Charged on oracle data, device settlement, and EdgeAI inference settlements.
+	EnterpriseSettlementFeeBps     = uint32(150) // 1.50%
+	EnterpriseFeeBurnRatioBps      = uint32(4000) // 40.00% burned
+	EnterpriseFeeTreasuryRatioBps  = uint32(6000) // 60.00% to protocol treasury
+
+	// ---- Double-sign permanent tombstone (finalized 2026-08) ----
+	// Equivocation (signing two different blocks at the same height) is permanently
+	// tombstoned: the validator can never re-enter the active set, even after
+	// re-bonding. This is a hard on-chain rule and is non-negotiable.
+	DoubleSignPermanentTombstone = true
 )
 
 // ---------------------------------------------------------------------------
@@ -202,6 +236,12 @@ func DeviceIncentivePoolAddress() sdk.AccAddress {
 // StakingSecurityPoolAddress 返回质押安全池模块账户地址。
 func StakingSecurityPoolAddress() sdk.AccAddress {
 	return authtypes.NewModuleAddress(StakingSecurityPoolName)
+}
+
+// ProtocolTreasuryAddress returns the protocol treasury module account address,
+// i.e. the 6th independent on-chain address. Genesis starts at zero.
+func ProtocolTreasuryAddress() sdk.AccAddress {
+	return authtypes.NewModuleAddress(ProtocolTreasuryPoolName)
 }
 
 // 注：基金会池与早期开发池在创世时即拨付到可支出地址（见 EarlyDevAddress /

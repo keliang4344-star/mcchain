@@ -84,12 +84,15 @@ func (k Keeper) SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint
 	}
 	consAddr := sdk.GetConsAddress(pubKey)
 
-	// === 罚没金路由（B2）：不再销毁，改路由至质押安全池 ===
-	// 原 staking.Slash 会销毁这部分代币（破坏 B1 供应上限与通缩模型）。
-	// 此处改为：按 penaltyBps 计算罚没额（bond denom），先从质押池转入本模块账户，
-	// 再 SendCoinsFromModuleToModule 路由至质押安全池（staking_security 模块账户），
-	// 作为安全基金/保险，而非销毁（与 owner 指令一致：发往 security pool）。
-	// 保留 Jail 以吊销其出块资格。
+	// === Slashed-funds routing (finalized 2026-08): 40% burned / 60% protocol treasury ===
+	// Native staking.Slash would burn 100% of the slashed stake, which breaks the
+	// deflation accounting of the fixed 1B supply cap. Instead the slashed amount
+	// (penaltyBps of the validator's bonded tokens, in bond denom) is moved out of
+	// the bonded pool into this module account and then split:
+	//   - SlashBurnRatioBps     (40%) is burned  -> permanent supply reduction;
+	//   - SlashTreasuryRatioBps (60%) is sent to the protocol treasury (6th address).
+	// This supersedes the earlier "route 100% to staking_security" behaviour.
+	// Jail is still applied to revoke block-producing rights.
 	fraction := sdk.NewDecWithPrec(int64(penaltyBps), 4)
 	tokens := val.GetTokens() // 质押代币数量（bond denom）
 	slashedAmt := fraction.MulInt(tokens).TruncateInt()
@@ -97,7 +100,7 @@ func (k Keeper) SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint
 	slashedCoins := sdk.NewCoins(sdk.NewCoin(bondDenom, slashedAmt))
 
 	if !slashedCoins.IsZero() {
-		// 1) 质押池 → 本模块账户（中转）
+		// 1) bonded pool -> this module account (staging)
 		if err := k.bankKeeper.SendCoinsFromModuleToModule(
 			ctx,
 			stakingtypes.BondedPoolName,
@@ -106,14 +109,9 @@ func (k Keeper) SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint
 		); err != nil {
 			return fmt.Errorf("phonenode: move slash from bonded pool: %w", err)
 		}
-		// 2) 本模块账户 → 质押安全池（staking_security），owner 指定去向
-		if err := k.bankKeeper.SendCoinsFromModuleToModule(
-			ctx,
-			types.ModuleName,
-			tokenomicsmoduletypes.StakingSecurityPoolName,
-			slashedCoins,
-		); err != nil {
-			return fmt.Errorf("phonenode: route slash to security pool: %w", err)
+		// 2) apply the finalized 40% burn / 60% treasury split
+		if err := k.splitSlashed(ctx, bondDenom, slashedAmt); err != nil {
+			return err
 		}
 	}
 
@@ -134,4 +132,42 @@ func (k Keeper) emitSlashEvent(ctx sdk.Context, addr, reason string, penaltyBps 
 	)
 	// O1 业务指标：移动节点 slash 计数（经 app telemetry 在 /metrics 暴露）。
 	telemetry.IncrCounter(1, "phonenode", "slash_count")
+}
+
+// splitSlashed applies the finalized 2026-08 slash split to coins already held
+// by this module account: SlashBurnRatioBps (40%) is burned, the remainder
+// (60%) is routed to the protocol treasury, the 6th independent address.
+// Burning here is a real supply reduction and is accounted against the fixed
+// 1B cap; no coin is ever minted on this path.
+func (k Keeper) splitSlashed(ctx sdk.Context, denom string, amt sdk.Int) error {
+	if !amt.IsPositive() {
+		return nil
+	}
+	burnAmt := amt.MulRaw(int64(tokenomicsmoduletypes.SlashBurnRatioBps)).QuoRaw(10000)
+	treasuryAmt := amt.Sub(burnAmt)
+
+	if burnAmt.IsPositive() {
+		if err := k.bankKeeper.BurnCoins(
+			ctx, types.ModuleName,
+			sdk.NewCoins(sdk.NewCoin(denom, burnAmt)),
+		); err != nil {
+			return fmt.Errorf("phonenode: burn slashed share: %w", err)
+		}
+	}
+	if treasuryAmt.IsPositive() {
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(
+			ctx, types.ModuleName, tokenomicsmoduletypes.ProtocolTreasuryAddress(),
+			sdk.NewCoins(sdk.NewCoin(denom, treasuryAmt)),
+		); err != nil {
+			return fmt.Errorf("phonenode: route slashed share to treasury: %w", err)
+		}
+	}
+
+	ctx.EventManager().EmitEvent(sdk.NewEvent(
+		"phonenode.SlashSplit",
+		sdk.NewAttribute("burned", burnAmt.String()),
+		sdk.NewAttribute("treasury", treasuryAmt.String()),
+		sdk.NewAttribute("denom", denom),
+	))
+	return nil
 }

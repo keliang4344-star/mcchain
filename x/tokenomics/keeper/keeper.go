@@ -67,3 +67,42 @@ func (k Keeper) BurnMC(ctx sdk.Context, amt sdk.Coin) error {
 	coins := sdk.NewCoins(amt)
 	return k.bankKeeper.BurnCoins(ctx, types.ModuleName, coins)
 }
+
+// ProcessEnterpriseSettlementFee applies the enterprise settlement fee policy
+// (finalized 2026-08): a settlement `amount` (denom = DefaultDenom) is split as
+//   40% burned (deflation) and 60%回流 to the protocol treasury (6th address).
+// The caller MUST first transfer `amount` into the tokenomics module account.
+// Called by settlement modules (oracle data / device settlement / EdgeAI inference).
+func (k Keeper) ProcessEnterpriseSettlementFee(ctx sdk.Context, amount sdk.Int) error {
+	if amount.IsZero() {
+		return nil
+	}
+	burnAmt := amount.MulRaw(int64(types.EnterpriseFeeBurnRatioBps)).QuoRaw(10000)
+	treasuryAmt := amount.MulRaw(int64(types.EnterpriseFeeTreasuryRatioBps)).QuoRaw(10000)
+
+	if burnAmt.IsPositive() {
+		if err := k.bankKeeper.BurnCoins(
+			ctx, types.ModuleName, sdk.NewCoins(sdk.NewCoin(types.DefaultDenom, burnAmt)),
+		); err != nil {
+			return err
+		}
+	}
+	if treasuryAmt.IsPositive() {
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(
+			ctx, types.ModuleName, types.ProtocolTreasuryAddress(),
+			sdk.NewCoins(sdk.NewCoin(types.DefaultDenom, treasuryAmt)),
+		); err != nil {
+			return err
+		}
+	}
+
+	ctx.EventManager().EmitEvent(
+		sdk.NewEvent("tokenomics.EnterpriseSettlementFee",
+			sdk.NewAttribute("burned", burnAmt.String()),
+			sdk.NewAttribute("to_treasury", treasuryAmt.String()),
+		),
+	)
+	k.Logger(ctx).Info("tokenomics: enterprise settlement fee settled",
+		"burned_umc", burnAmt.String(), "to_treasury_umc", treasuryAmt.String())
+	return nil
+}

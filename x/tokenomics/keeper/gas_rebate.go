@@ -14,6 +14,10 @@ import (
 // 剩余 90% 走标准 Cosmos 分发路径（社区池 + 验证者）。
 const GasRebateRatioBps uint32 = 1000
 
+// GasBurnRatioBps defines the fraction of each block's gas fees burned to the
+// blackhole (deflation, finalized 2026-08). 700 bps = 7%.
+const GasBurnRatioBps uint32 = 700
+
 // RebateGasFeesToSecurity transfers a portion of accumulated gas fees from
 // fee_collector to the staking_security pool module account.
 //
@@ -33,27 +37,49 @@ func (k Keeper) RebateGasFeesToSecurity(ctx sdk.Context) error {
 	}
 
 	rebateAmount := balance.Amount.Uint64() * uint64(GasRebateRatioBps) / 10000
-	if rebateAmount == 0 {
+	burnAmount := balance.Amount.Uint64() * uint64(GasBurnRatioBps) / 10000
+	if rebateAmount == 0 && burnAmount == 0 {
 		return nil
 	}
 
-	coins := sdk.NewCoins(sdk.NewInt64Coin(types.DefaultDenom, int64(rebateAmount)))
-	if err := k.bankKeeper.SendCoinsFromModuleToModule(
-		ctx, authtypes.FeeCollectorName, types.StakingSecurityPoolName, coins,
-	); err != nil {
-		k.Logger(ctx).Error("tokenomics: gas rebate to security pool failed",
-			"rebate_amount", rebateAmount, "err", err.Error())
-		return fmt.Errorf("gas rebate to security: %w", err)
+	// 7% of gas fees burned to the blackhole (deflation, finalized 2026-08).
+	if burnAmount > 0 {
+		burnCoins := sdk.NewCoins(sdk.NewInt64Coin(types.DefaultDenom, int64(burnAmount)))
+		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoins); err != nil {
+			k.Logger(ctx).Error("tokenomics: gas burn failed",
+				"burn_amount", burnAmount, "err", err.Error())
+			return fmt.Errorf("gas burn: %w", err)
+		}
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent("tokenomics.GasBurned",
+				sdk.NewAttribute("amount", fmt.Sprintf("%d", burnAmount)),
+				sdk.NewAttribute("ratio_bps", fmt.Sprintf("%d", GasBurnRatioBps)),
+			),
+		)
+		k.Logger(ctx).Info("tokenomics: gas fees burned to blackhole",
+			"amount_umc", burnAmount, "ratio_bps", GasBurnRatioBps)
 	}
 
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent("tokenomics.GasRebated",
-			sdk.NewAttribute("amount", fmt.Sprintf("%d", rebateAmount)),
-			sdk.NewAttribute("ratio_bps", fmt.Sprintf("%d", GasRebateRatioBps)),
-			sdk.NewAttribute("destination", types.StakingSecurityPoolName),
-		),
-	)
-	k.Logger(ctx).Info("tokenomics: gas fees rebated to security pool",
-		"amount_umc", rebateAmount, "ratio_bps", GasRebateRatioBps)
+	// 10% of gas fees rebated to the staking-security pool (B3.1 安全池闭环).
+	if rebateAmount > 0 {
+		coins := sdk.NewCoins(sdk.NewInt64Coin(types.DefaultDenom, int64(rebateAmount)))
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(
+			ctx, authtypes.FeeCollectorName, types.StakingSecurityPoolName, coins,
+		); err != nil {
+			k.Logger(ctx).Error("tokenomics: gas rebate to security pool failed",
+				"rebate_amount", rebateAmount, "err", err.Error())
+			return fmt.Errorf("gas rebate to security: %w", err)
+		}
+
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent("tokenomics.GasRebated",
+				sdk.NewAttribute("amount", fmt.Sprintf("%d", rebateAmount)),
+				sdk.NewAttribute("ratio_bps", fmt.Sprintf("%d", GasRebateRatioBps)),
+				sdk.NewAttribute("destination", types.StakingSecurityPoolName),
+			),
+		)
+		k.Logger(ctx).Info("tokenomics: gas fees rebated to security pool",
+			"amount_umc", rebateAmount, "ratio_bps", GasRebateRatioBps)
+	}
 	return nil
 }

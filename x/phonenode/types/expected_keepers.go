@@ -13,12 +13,17 @@ type AccountKeeper interface {
 }
 
 // BankKeeper defines the expected interface needed to retrieve account balances
-// and route slashed funds to the security pool.
+// and to apply the slash burn / treasury split (finalized 2026-08).
 type BankKeeper interface {
 	SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
 	// SendCoinsFromModuleToModule moves coins from one module account to another.
 	// Used to route slashed funds to the security pool instead of burning them.
 	SendCoinsFromModuleToModule(ctx sdk.Context, senderModule, recipientModule string, amt sdk.Coins) error
+	// BurnCoins burns coins from a module account (used for the 40% slash burn).
+	BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
+	// SendCoinsFromModuleToAccount sends coins from a module account to an address
+	// (used to route the 60% slash share into the protocol treasury).
+	SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 }
 
 // StakingKeeper B2 slashing 所需的 staking 接口子集（仅取方法签名，避免 x/phonenode 依赖具体实现）。

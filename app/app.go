@@ -221,6 +221,10 @@ var (
 		tokenomicsmoduletypes.StakingSecurityPoolName: nil,
 		tokenomicsmoduletypes.FoundationPoolName:      nil,
 		tokenomicsmoduletypes.EarlyDevPoolName:        nil,
+		// Protocol treasury (6th address): genesis starts at zero; funded only by
+		// enterprise settlement fee回流 and drip-pool A exhaustion renewal.
+		// Spent via governance multisig + timelock.
+		tokenomicsmoduletypes.ProtocolTreasuryPoolName: nil,
 		// 需求方付费（escrow）：edgeai 模块账户托管 creator 托管的 reward，
 		// 结算时经 bank 向其拨付 submitter；仅需注册为模块账户，无 Minter/Burner 权限。
 		edgeaimoduletypes.ModuleName: nil,
