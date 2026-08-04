@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"mcchain/x/mcchain/types"
@@ -129,6 +130,7 @@ func (k Keeper) CompleteHandover(ctx sdk.Context) error {
 	// 移交生效：新治理主体正式接管，后续链上治理消息以其地址为准。
 	cfg.CurrentGovernor = cfg.NewGovernor
 	k.SetGovernanceHandoverConfig(ctx, cfg)
+	telemetry.IncrCounter(1, "mcchain", "governance_handover_completed")
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
 		"mcchain.GovernanceHandoverCompleted",

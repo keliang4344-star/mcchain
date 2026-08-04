@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"mcchain/x/dex/types"
@@ -60,6 +61,7 @@ func (k Keeper) AddLiquidity(
 	pool.ReserveB = reserveB.Add(actualB).String()
 	pool.TotalLp = totalLP.Add(lpMinted).String()
 	k.SetPool(ctx, pool)
+	telemetry.IncrCounter(float32(lpMinted.Int64()), "dex", "lp_minted")
 
 	// Mint LP tokens to creator
 	lpDenom := types.PoolDenom(poolID)
@@ -148,6 +150,7 @@ func (k Keeper) RemoveLiquidity(
 	pool.ReserveB = reserveB.Sub(amountB).String()
 	pool.TotalLp = totalLP.Sub(lpAmount).String()
 	k.SetPool(ctx, pool)
+	telemetry.IncrCounter(float32(lpAmount.Int64()), "dex", "lp_burned")
 
 	// Send assets to creator
 	coinsA := sdk.NewCoins(sdk.NewCoin(pool.DenomA, amountA))

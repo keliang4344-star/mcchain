@@ -6,6 +6,7 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/store/prefix"
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"mcchain/x/referral/types"
@@ -256,6 +257,7 @@ func (k Keeper) ClaimRewards(ctx sdk.Context, claimer string) (sdk.Coin, error) 
 	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.EcosystemModuleAccount, claimerAddr, payout); err != nil {
 		return sdk.Coin{}, err
 	}
+	telemetry.IncrCounter(float32(payoutAmt.Int64()), "referral", "rewards_claimed")
 
 	// Reset pending rewards
 	k.setPendingRewards(ctx, claimer, sdkmath.ZeroInt())

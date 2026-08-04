@@ -2,7 +2,14 @@ package types
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
+
+// AccountKeeper defines the expected auth keeper surface needed by the
+// referral module and its simulation layer.
+type AccountKeeper interface {
+	GetAccount(ctx sdk.Context, addr sdk.AccAddress) authtypes.AccountI
+}
 
 // BankKeeper defines the expected bank keeper interface for the referral module.
 // The referral module needs:
@@ -10,6 +17,7 @@ import (
 //   - BurnCoins: to burn the 1% referral reward burn on each payout
 //   - GetBalance: to check ecosystem pool balance
 type BankKeeper interface {
+	SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
 	SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 	BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
 	GetBalance(ctx sdk.Context, addr sdk.AccAddress, denom string) sdk.Coin

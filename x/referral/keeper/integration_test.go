@@ -36,6 +36,9 @@ func (m *mockRefBank) mint(addr string, amt sdk.Coins) {
 func (m *mockRefBank) GetBalance(_ sdk.Context, addr sdk.AccAddress, denom string) sdk.Coin {
 	return sdk.NewCoin(denom, m.balances[addr.String()].AmountOf(denom))
 }
+func (m *mockRefBank) SpendableCoins(_ sdk.Context, addr sdk.AccAddress) sdk.Coins {
+	return m.balances[addr.String()]
+}
 func (m *mockRefBank) SendCoinsFromModuleToAccount(_ sdk.Context, senderModule string, to sdk.AccAddress, amt sdk.Coins) error {
 	from := authtypes.NewModuleAddress(senderModule).String()
 	have := m.balances[from]

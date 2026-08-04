@@ -1,7 +1,7 @@
 # MC 公链（MobileChain）技术白皮书 · 模块系统梳理与完成度评估
 
 > 生成日期：2026-07-15
-> 最后更新：2026-08-04（模块计数与完成度已同步至当前代码状态：自定义业务模块 8 个，legacy-blueprint 死代码已删除，dex/referral/liquidstaking 已纳入）
+> 最后更新：2026-08-04（模块计数与完成度已同步至当前代码状态：自定义业务模块 8 个，legacy-blueprint 死代码已删除，dex/referral/liquidstaking 已纳入；monitoring/telemetry 已补齐至 8 模块；simulation 已补齐至 8 模块——tokenomics/dex/referral/liquidstaking 新增 `AppModuleSimulation` 与随机消息操作）
 > 评估范围：`$HOME/mcchain` 全量源码（深度逐文件读取 + 编译验证）
 > 评估方法：遍历目录结构 → 逐模块读取核心源码（app/keeper/msg_server/types/proto/cmd）→ 运行 `go build ./...` 确认可编译 → 统计测试覆盖 → 给出完成度与改进建议
 

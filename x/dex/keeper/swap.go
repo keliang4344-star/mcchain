@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"mcchain/x/dex/types"
@@ -57,6 +58,9 @@ func (k Keeper) SwapExactIn(
 	k.updateReservesByDenom(&pool, denomIn, newReserveIn)
 	k.updateReservesByDenom(&pool, denomOut, newReserveOut)
 	k.SetPool(ctx, pool)
+
+	telemetry.IncrCounter(1, "dex", "swap_count")
+	telemetry.IncrCounter(float32(amountIn.Int64()), "dex", "swap_volume_in")
 
 	// Transfer input from trader to module
 	traderAddr, err := sdk.AccAddressFromBech32(creator)

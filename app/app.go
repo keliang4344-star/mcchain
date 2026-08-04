@@ -672,7 +672,7 @@ func New(
 		app.BankKeeper,
 		app.PhonenodeKeeper,
 	)
-	referralModule := referralmodule.NewAppModule(appCodec, app.ReferralKeeper, app.BankKeeper)
+	referralModule := referralmodule.NewAppModule(appCodec, app.ReferralKeeper, app.AccountKeeper, app.BankKeeper)
 
 	// x/liquidstaking: 流动性质押。质押的 MC 由模块账户代为委托给验证人，
 	// 用户拿到可转让的 ulmc 凭证；赎回时销毁凭证、走 staking 解绑期后提取。
@@ -686,7 +686,7 @@ func New(
 		app.StakingKeeper,
 		app.DistrKeeper,
 	)
-	liquidStakingModule := liquidstakingmodule.NewAppModule(appCodec, app.LiquidStakingKeeper)
+	liquidStakingModule := liquidstakingmodule.NewAppModule(appCodec, app.LiquidStakingKeeper, app.AccountKeeper, app.BankKeeper)
 
 	// 后接线：referral 创建在 depin / edgeai 之后，通过 Setter 完成跨模块 hook。
 	app.DepinKeeper.SetReferralKeeper(app.ReferralKeeper)

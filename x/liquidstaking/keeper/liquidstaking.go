@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"cosmossdk.io/math"
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
@@ -116,6 +117,7 @@ func (k Keeper) LiquidStake(ctx sdk.Context, delegator sdk.AccAddress, valAddr s
 	ps.TotalBondedUmc += amountUmc
 	ps.TotalSharesUlmc += shares
 	k.SetPoolState(ctx, ps)
+	telemetry.IncrCounter(float32(amountUmc), "liquidstaking", "staked_umc")
 	k.setValidatorBond(ctx, valAddr.String(), k.GetValidatorBond(ctx, valAddr.String())+amountUmc)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(

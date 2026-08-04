@@ -130,6 +130,15 @@ func (m *mockLSBank) GetBalance(_ sdk.Context, addr sdk.AccAddress, denom string
 	return sdk.NewCoin(denom, m.amountOf(addr.String(), denom))
 }
 
+func (m *mockLSBank) SpendableCoins(_ sdk.Context, addr sdk.AccAddress) sdk.Coins {
+	denoms := m.balances[addr.String()]
+	coins := make([]sdk.Coin, 0, len(denoms))
+	for d, amt := range denoms {
+		coins = append(coins, sdk.NewCoin(d, amt))
+	}
+	return sdk.NewCoins(coins...)
+}
+
 func (m *mockLSBank) HasBalance(_ sdk.Context, addr sdk.AccAddress, amt sdk.Coin) bool {
 	return m.amountOf(addr.String(), amt.Denom).GTE(amt.Amount)
 }
@@ -145,6 +154,10 @@ func (mockLSAccount) GetModuleAddress(name string) sdk.AccAddress { return sdk.A
 func (mockLSAccount) GetModuleAccount(_ sdk.Context, name string) authtypes.ModuleAccountI {
 	base := authtypes.NewBaseAccount(sdk.AccAddress([]byte(name)), nil, 0, 0)
 	return authtypes.NewModuleAccount(base, name)
+}
+
+func (mockLSAccount) GetAccount(_ sdk.Context, addr sdk.AccAddress) authtypes.AccountI {
+	return authtypes.NewBaseAccount(addr, nil, 0, 0)
 }
 
 // ---------------------------------------------------------------------------

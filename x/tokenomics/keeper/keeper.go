@@ -5,6 +5,7 @@ import (
 
 	"github.com/cometbft/cometbft/libs/log"
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -58,6 +59,7 @@ func (k Keeper) MintCoins(ctx sdk.Context, amt sdk.Coins) error {
 		))
 	}
 	k.SetMintedSupply(ctx, newMinted)
+	telemetry.IncrCounter(float32(amt.AmountOf(types.DefaultDenom).Int64()), "tokenomics", "minted_amount")
 	return nil
 }
 
@@ -65,6 +67,7 @@ func (k Keeper) MintCoins(ctx sdk.Context, amt sdk.Coins) error {
 // 通常由 DEX 的 ProcessSwapFee 调用，实现 swap 手续费的 50% 销毁机制。
 func (k Keeper) BurnMC(ctx sdk.Context, amt sdk.Coin) error {
 	coins := sdk.NewCoins(amt)
+	telemetry.IncrCounter(float32(amt.Amount.Int64()), "tokenomics", "burned_amount")
 	return k.bankKeeper.BurnCoins(ctx, types.ModuleName, coins)
 }
 
@@ -79,6 +82,9 @@ func (k Keeper) ProcessEnterpriseSettlementFee(ctx sdk.Context, amount sdk.Int) 
 	}
 	burnAmt := amount.MulRaw(int64(types.EnterpriseFeeBurnRatioBps)).QuoRaw(10000)
 	treasuryAmt := amount.Sub(burnAmt) // remainder == EnterpriseFeeTreasuryRatioBps, dust-free
+
+	telemetry.IncrCounter(float32(burnAmt.Int64()), "tokenomics", "enterprise_fee_burned")
+	telemetry.IncrCounter(float32(treasuryAmt.Int64()), "tokenomics", "enterprise_fee_treasury")
 
 	if burnAmt.IsPositive() {
 		if err := k.bankKeeper.BurnCoins(
