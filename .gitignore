@@ -16,6 +16,10 @@ _*.log
 diag*.ps1
 unsigned.json
 signed*.json
+# CosmWasm wasmvm 预编译库：WSL/Linux 构建时由 wasmvm 模块自带（internal/api/），
+# 项目根出现的是误放的临时文件，绝不入库。
+libwasmvm*.so
+libwasmvm*.dylib
 
 # 主网启动验证临时产物（含演示 keyring 副本，绝不入库）
 mainnetboot/

@@ -328,9 +328,9 @@ The intended trajectory is a progressive handover: the team holds fewer operatio
 
 ## 17. Programmability
 
-CosmWasm smart-contract support is committed and scheduled as a post-mainnet upgrade. Once the WebAssembly module is integrated, developers deploy composable contracts directly on MobileChain and compose with the native modules described here. Until then, programmability is what the native modules provide.
+CosmWasm smart-contract support is integrated via the `x/wasm` module (wasmd v0.45, wasmvm 1.5): developers deploy composable contracts directly on MobileChain and compose with the native modules described here. The module is wired into the application on CGO-enabled (Linux) builds, where the WebAssembly runtime is linked; contract execution is not available on non-CGO builds. Governance can adjust wasm parameters through the module's parameter space.
 
-*Status: Planned. The WebAssembly module is scheduled as a post-mainnet upgrade; native modules provide programmability at launch.*
+*Status: Live. The WebAssembly module is integrated and enabled on CGO-enabled builds; native modules provide programmability on all builds.*
 
 ---
 
@@ -338,11 +338,11 @@ CosmWasm smart-contract support is committed and scheduled as a post-mainnet upg
 
 The roadmap is stated as milestones, not dates. Progress is measured against on-chain state and the public repository.
 
-**Delivered.** Eight native modules; five-pool genesis with end-to-end verification; zero-inflation enforcement; mobile node security including attestation, Sybil binding, offline grace, tiered slashing, and cooldown; liquid staking with delegated bonding; phone-cloud co-signing; the EdgeAI economic loop from posting through optimistic settlement and arbitration with on-chain recomputation as a second verification layer; the native AMM with its burn; the referral module with dual circuit breakers; the 30,000 MC validator floor; oracle hardening with fail-closed device verification; the twelve-year drip with treasury renewal; gas burn and rebate; the slash split; the enterprise settlement fee; the Protocol Treasury as the sixth address; progressive governance handover with timelock; off-chain settlement batching for high-frequency micro-payouts; and IBC interoperability through interchain accounts and IBC transfer.
+**Delivered.** Eight native modules; five-pool genesis with end-to-end verification; zero-inflation enforcement; mobile node security including attestation, Sybil binding, offline grace, tiered slashing, and cooldown; liquid staking with delegated bonding; phone-cloud co-signing; the EdgeAI economic loop from posting through optimistic settlement and arbitration with on-chain recomputation as a second verification layer; the native AMM with its burn; the referral module with dual circuit breakers; the 30,000 MC validator floor; oracle hardening with fail-closed device verification; the twelve-year drip with treasury renewal; gas burn and rebate; the slash split; the enterprise settlement fee; the Protocol Treasury as the sixth address; progressive governance handover with timelock; off-chain settlement batching for high-frequency micro-payouts; IBC interoperability through interchain accounts and IBC transfer; and CosmWasm smart contracts via `x/wasm` (enabled on CGO-enabled builds).
 
 **In progress.** Mainnet launch preparation: genesis ceremony, validator recruitment, final audit. Mobile SDK refinement. Dashboard and RPC configuration.
 
-**Planned.** CosmWasm smart contracts. The WebAssembly module is committed and scheduled as a post-mainnet upgrade; native modules supply the launch-time programmability surface.
+**Planned.** None outstanding at the protocol layer: CosmWasm was the final planned capability and is now delivered with the `x/wasm` integration (WebAssembly runtime active on CGO-enabled builds).
 
 ---
 

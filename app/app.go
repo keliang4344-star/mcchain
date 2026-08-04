@@ -111,6 +111,9 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/spf13/cast"
 
+	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+
 	depinmodule "mcchain/x/depin"
 	depinmodulekeeper "mcchain/x/depin/keeper"
 	depinmoduletypes "mcchain/x/depin/types"
@@ -244,6 +247,8 @@ var (
 		// never MC itself, and never counts toward the 1B umc hard cap. Staking is
 		// required so the module account can delegate and undelegate.
 		liquidstakingmoduletypes.ModuleName: {authtypes.Minter, authtypes.Burner, authtypes.Staking},
+		// CosmWasm 合约层：模块账户仅需 Burner（合约存入/销毁；不参与 MC 铸造）。
+		wasmtypes.ModuleName: {authtypes.Burner},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 )
@@ -305,6 +310,9 @@ type App struct {
 	ScopedIBCKeeper      capabilitykeeper.ScopedKeeper
 	ScopedTransferKeeper capabilitykeeper.ScopedKeeper
 	ScopedICAHostKeeper  capabilitykeeper.ScopedKeeper
+	ScopedWasmKeeper     capabilitykeeper.ScopedKeeper
+
+	WasmKeeper wasmkeeper.Keeper
 
 	McchainKeeper mcchainmodulekeeper.Keeper
 
@@ -373,6 +381,7 @@ func New(
 		dexmoduletypes.StoreKey,
 		referralmoduletypes.StoreKey,
 		liquidstakingmoduletypes.StoreKey,
+		wasmtypes.StoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	)
 	tkeys := sdk.NewTransientStoreKeys(paramstypes.TStoreKey)
@@ -413,6 +422,7 @@ func New(
 	scopedICAControllerKeeper := app.CapabilityKeeper.ScopeToModule(icacontrollertypes.SubModuleName)
 	scopedTransferKeeper := app.CapabilityKeeper.ScopeToModule(ibctransfertypes.ModuleName)
 	scopedICAHostKeeper := app.CapabilityKeeper.ScopeToModule(icahosttypes.SubModuleName)
+	scopedWasmKeeper := app.CapabilityKeeper.ScopeToModule(wasmtypes.ModuleName)
 	// this line is used by starport scaffolding # stargate/app/scopedKeeper
 
 	// add keepers
@@ -558,6 +568,13 @@ func New(
 	)
 	icaModule := ica.NewAppModule(&icaControllerKeeper, &app.ICAHostKeeper)
 	icaHostIBCModule := icahost.NewIBCModule(app.ICAHostKeeper)
+
+	// CosmWasm keeper: smart-contract layer (x/wasm). The keeper and module are
+	// only wired on CGO builds (wasmvm linked); on non-CGO builds the wasm module
+	// is skipped entirely (see wasm_setup_{cgo,nocgo}.go).
+	if err := setupWasmKeeper(app, homePath, appOpts, keys, scopedWasmKeeper); err != nil {
+		panic(fmt.Sprintf("error setting up wasm keeper: %v", err))
+	}
 
 	// Create evidence Keeper for to register the IBC light client misbehaviour evidence route
 	evidenceKeeper := evidencekeeper.NewKeeper(
@@ -765,6 +782,11 @@ func New(
 
 		crisis.NewAppModule(app.CrisisKeeper, skipGenesisInvariants, app.GetSubspace(crisistypes.ModuleName)), // always be last to make sure that it checks for all invariants and not only part of them
 	)
+	// CosmWasm 模块仅在 CGO 构建注册（wasmvm 可链接）；非 CGO 构建跳过，
+	// ModuleManager 的顺序表中对应条目会被存在性检查安全忽略。
+	if wm := wasmAppModule(app); wm != nil {
+		app.mm.Modules[wm.Name()] = wm
+	}
 
 	// During begin block slashing happens after distr.BeginBlocker so that
 	// there is nothing left over in the validator fee pool, so as to keep the
@@ -787,6 +809,7 @@ func New(
 		ibctransfertypes.ModuleName,
 		ibcexported.ModuleName,
 		icatypes.ModuleName,
+		wasmtypes.ModuleName,
 		genutiltypes.ModuleName,
 		authz.ModuleName,
 		feegrant.ModuleName,
@@ -811,6 +834,7 @@ func New(
 		ibctransfertypes.ModuleName,
 		ibcexported.ModuleName,
 		icatypes.ModuleName,
+		wasmtypes.ModuleName,
 		capabilitytypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
@@ -862,6 +886,7 @@ func New(
 		ibctransfertypes.ModuleName,
 		ibcexported.ModuleName,
 		icatypes.ModuleName,
+		wasmtypes.ModuleName,
 		evidencetypes.ModuleName,
 		authz.ModuleName,
 		feegrant.ModuleName,
@@ -1204,6 +1229,8 @@ func initParamsKeeper(appCodec codec.BinaryCodec, legacyAmino *codec.LegacyAmino
 	paramsKeeper.Subspace(edgeaimoduletypes.ModuleName)
 	paramsKeeper.Subspace(dexmoduletypes.ModuleName)
 	paramsKeeper.Subspace(referralmoduletypes.ModuleName)
+	paramsKeeper.Subspace(liquidstakingmoduletypes.ModuleName)
+	paramsKeeper.Subspace(wasmtypes.ModuleName)
 	// this line is used by starport scaffolding # stargate/app/paramSubspace
 
 	return paramsKeeper
