@@ -35,6 +35,20 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) error 
 	if err := k.SetParams(ctx, types.DefaultParams()); err != nil {
 		return fmt.Errorf("tokenomics: set default params: %w", err)
 	}
+
+	// 恢复模式（幂等保护，R1 总量固化的必要条件）：
+	// minted_supply 非零的创世文件来自 `export` 导出的既有链状态（链升级、
+	// 分叉、重启、状态迁移都走这条路径），而非全新启动。此时代币早已在源链
+	// 铸造并拨付完毕，余额随 auth/bank 创世原样带入；若在这里重放①~④的
+	// 一次性铸造与拨付，总量会翻倍、vesting 账户会被二次创建，固定总量铁律
+	// 当场破裂。恢复模式下只重建本模块自己的账本元数据。
+	if genState.MintedSupply > 0 {
+		k.SetMintedSupply(ctx, sdk.NewIntFromUint64(genState.MintedSupply))
+		k.SetAllocations(ctx, genState.Allocations)
+		k.SetReleaseSchedule(ctx, genState.Release)
+		return nil
+	}
+
 	denom := genState.Denom
 
 	// ① 一次性铸造总量上限到 tokenomics 模块账户（R1：总量固化）。

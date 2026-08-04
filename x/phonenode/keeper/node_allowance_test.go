@@ -52,6 +52,14 @@ func (m *mockBankAllowance) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) erro
 	return nil
 }
 
+// MintCoins credits a module account. The slashing path re-mints the treasury
+// share of a native slash, so the keeper requires this capability.
+func (m *mockBankAllowance) MintCoins(_ sdk.Context, moduleName string, amt sdk.Coins) error {
+	addr := authtypes.NewModuleAddress(moduleName).String()
+	m.balances[addr] = m.balances[addr].Add(amt...)
+	return nil
+}
+
 func (m *mockBankAllowance) SendCoinsFromModuleToAccount(_ sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error {
 	from := authtypes.NewModuleAddress(senderModule).String()
 	have := m.balances[from]

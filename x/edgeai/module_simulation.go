@@ -11,55 +11,38 @@ import (
 	"mcchain/x/edgeai/types"
 )
 
-var (
-	_ = simtypes.Account{}
-	_ = rand.Rand{}
-)
+var _ module.AppModuleSimulation = AppModule{}
 
 const (
-	opWeightMsgCreateTask  = "op_weight_msg_create_task"
-	defaultWeightMsgCreateTask int = 100
+	opWeightMsgCreateTask     = "op_weight_msg_create_task"
+	defaultWeightMsgCreateTask = 100
 
-	opWeightMsgSubmitResult  = "op_weight_msg_submit_result"
-	defaultWeightMsgSubmitResult int = 100
+	opWeightMsgSubmitResult     = "op_weight_msg_submit_result"
+	defaultWeightMsgSubmitResult = 100
 
-	opWeightMsgOpenDispute  = "op_weight_msg_open_dispute"
-	defaultWeightMsgOpenDispute int = 50
+	opWeightMsgOpenDispute     = "op_weight_msg_open_dispute"
+	defaultWeightMsgOpenDispute = 100
 
-	opWeightMsgResolveDispute  = "op_weight_msg_resolve_dispute"
-	defaultWeightMsgResolveDispute int = 50
+	opWeightMsgResolveDispute     = "op_weight_msg_resolve_dispute"
+	defaultWeightMsgResolveDispute = 100
 )
 
 // GenerateGenesisState creates a randomized GenState of the module.
 func (AppModule) GenerateGenesisState(simState *module.SimulationState) {
-	accs := make([]string, len(simState.Accounts))
-	for i, acc := range simState.Accounts {
-		accs[i] = acc.Address.String()
-	}
-	edgeaiGenesis := types.GenesisState{
-		Params: types.DefaultParams(),
-	}
-	simState.GenState[types.ModuleName] = simState.Cdc.MustMarshalJSON(&edgeaiGenesis)
+	edgeaiGenesis := types.DefaultGenesis()
+	simState.GenState[types.ModuleName] = simState.Cdc.MustMarshalJSON(edgeaiGenesis)
 }
 
 // RegisterStoreDecoder registers a decoder.
 func (am AppModule) RegisterStoreDecoder(_ sdk.StoreDecoderRegistry) {}
 
-// ProposalContents doesn't return any content functions for governance proposals.
-func (AppModule) ProposalContents(_ module.SimulationState) []simtypes.WeightedProposalContent {
-	return nil
-}
-
-// WeightedOperations returns the all the gov module operations with their respective weights.
+// WeightedOperations returns the edgeai module operations with their weights.
 func (am AppModule) WeightedOperations(simState module.SimulationState) []simtypes.WeightedOperation {
 	operations := make([]simtypes.WeightedOperation, 0)
 
 	var weightMsgCreateTask int
 	simState.AppParams.GetOrGenerate(simState.Cdc, opWeightMsgCreateTask, &weightMsgCreateTask, nil,
-		func(_ *rand.Rand) {
-			weightMsgCreateTask = defaultWeightMsgCreateTask
-		},
-	)
+		func(_ *rand.Rand) { weightMsgCreateTask = defaultWeightMsgCreateTask })
 	operations = append(operations, simulation.NewWeightedOperation(
 		weightMsgCreateTask,
 		edgeaisimulation.SimulateMsgCreateTask(am.accountKeeper, am.bankKeeper, am.keeper),
@@ -67,10 +50,7 @@ func (am AppModule) WeightedOperations(simState module.SimulationState) []simtyp
 
 	var weightMsgSubmitResult int
 	simState.AppParams.GetOrGenerate(simState.Cdc, opWeightMsgSubmitResult, &weightMsgSubmitResult, nil,
-		func(_ *rand.Rand) {
-			weightMsgSubmitResult = defaultWeightMsgSubmitResult
-		},
-	)
+		func(_ *rand.Rand) { weightMsgSubmitResult = defaultWeightMsgSubmitResult })
 	operations = append(operations, simulation.NewWeightedOperation(
 		weightMsgSubmitResult,
 		edgeaisimulation.SimulateMsgSubmitResult(am.accountKeeper, am.bankKeeper, am.keeper),
@@ -78,10 +58,7 @@ func (am AppModule) WeightedOperations(simState module.SimulationState) []simtyp
 
 	var weightMsgOpenDispute int
 	simState.AppParams.GetOrGenerate(simState.Cdc, opWeightMsgOpenDispute, &weightMsgOpenDispute, nil,
-		func(_ *rand.Rand) {
-			weightMsgOpenDispute = defaultWeightMsgOpenDispute
-		},
-	)
+		func(_ *rand.Rand) { weightMsgOpenDispute = defaultWeightMsgOpenDispute })
 	operations = append(operations, simulation.NewWeightedOperation(
 		weightMsgOpenDispute,
 		edgeaisimulation.SimulateMsgOpenDispute(am.accountKeeper, am.bankKeeper, am.keeper),
@@ -89,14 +66,16 @@ func (am AppModule) WeightedOperations(simState module.SimulationState) []simtyp
 
 	var weightMsgResolveDispute int
 	simState.AppParams.GetOrGenerate(simState.Cdc, opWeightMsgResolveDispute, &weightMsgResolveDispute, nil,
-		func(_ *rand.Rand) {
-			weightMsgResolveDispute = defaultWeightMsgResolveDispute
-		},
-	)
+		func(_ *rand.Rand) { weightMsgResolveDispute = defaultWeightMsgResolveDispute })
 	operations = append(operations, simulation.NewWeightedOperation(
 		weightMsgResolveDispute,
 		edgeaisimulation.SimulateMsgResolveDispute(am.accountKeeper, am.bankKeeper, am.keeper),
 	))
 
 	return operations
+}
+
+// ProposalMsgs returns msgs used for governance proposals for simulations.
+func (am AppModule) ProposalMsgs(_ module.SimulationState) []simtypes.WeightedProposalMsg {
+	return nil
 }

@@ -21,6 +21,11 @@ type BankKeeper interface {
 	SendCoinsFromModuleToModule(ctx sdk.Context, senderModule, recipientModule string, amt sdk.Coins) error
 	// BurnCoins burns coins from a module account (used for the 40% slash burn).
 	BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
+	// MintCoins mints new coins from the bank module into a module account.
+	// Used to re-create the 60% slash treasury share (the native slash burns the
+	// full slashed amount; the treasury portion is re-minted so the documented
+	// 40% burn / 60% treasury split is honored without breaking staking accounting).
+	MintCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
 	// SendCoinsFromModuleToAccount sends coins from a module account to an address
 	// (used to route the 60% slash share into the protocol treasury).
 	SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error

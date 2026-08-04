@@ -903,6 +903,17 @@ func New(
 		liquidstakingmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
+	// On non-CGO builds the wasm module is never registered (wasmvm cannot be
+	// linked), so it must be dropped from every ordering table as well.
+	// ExportGenesisForModules performs a hard existence check against the
+	// export order and panics on an unknown module, which would make state
+	// export impossible on non-CGO binaries.
+	if _, ok := app.mm.Modules[wasmtypes.ModuleName]; !ok {
+		genesisModuleOrder = withoutModule(genesisModuleOrder, wasmtypes.ModuleName)
+		app.mm.OrderBeginBlockers = withoutModule(app.mm.OrderBeginBlockers, wasmtypes.ModuleName)
+		app.mm.OrderEndBlockers = withoutModule(app.mm.OrderEndBlockers, wasmtypes.ModuleName)
+	}
+
 	app.mm.SetOrderInitGenesis(genesisModuleOrder...)
 	app.mm.SetOrderExportGenesis(genesisModuleOrder...)
 
@@ -952,6 +963,16 @@ func New(
 	// create the simulation manager and define the order of the modules for deterministic simulations
 	overrideModules := map[string]module.AppModuleSimulation{
 		authtypes.ModuleName: auth.NewAppModule(app.appCodec, app.AccountKeeper, authsims.RandomGenesisAccounts, app.GetSubspace(authtypes.ModuleName)),
+		// Validator admission on MobileChain enforces a 30k MC minimum
+		// self-delegation (see MinSelfDelegationDecorator). The stock SDK
+		// simulation always proposes a self-delegation floor of 1, which the
+		// ante handler rejects, so staking would never be exercised.
+		stakingtypes.ModuleName: newMCStakingSimModule(
+			staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(stakingtypes.ModuleName)),
+			app.AccountKeeper,
+			app.BankKeeper,
+			app.StakingKeeper,
+		),
 	}
 	app.sm = module.NewSimulationManagerFromAppModules(app.mm.Modules, overrideModules)
 	app.sm.RegisterStoreDecoders()
@@ -1019,6 +1040,20 @@ func New(
 	}
 
 	return app
+}
+
+// withoutModule returns a copy of order with every occurrence of name removed.
+// It is used to strip conditionally compiled modules (currently x/wasm) from
+// the module manager ordering tables.
+func withoutModule(order []string, name string) []string {
+	filtered := make([]string, 0, len(order))
+	for _, moduleName := range order {
+		if moduleName == name {
+			continue
+		}
+		filtered = append(filtered, moduleName)
+	}
+	return filtered
 }
 
 // Name returns the name of the App

@@ -130,11 +130,12 @@ func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {
 }
 
 // InitGenesis 执行模块创世初始化。
-func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, gs json.RawMessage) []abci.ValidatorUpdate {
+// 使用 proto JSON 编解码器（与全链仿真 / 其他模块一致）：uint64 字段以字符串形式
+// 序列化，故必须用 cdc.MustUnmarshalJSON 而非标准库 json.Unmarshal，否则仿真生成的
+// 创世状态会因类型不匹配而无法解析。
+func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, gs json.RawMessage) []abci.ValidatorUpdate {
 	var genState types.GenesisState
-	if err := json.Unmarshal(gs, &genState); err != nil {
-		panic(fmt.Errorf("failed to unmarshal %s genesis state: %w", types.ModuleName, err))
-	}
+	cdc.MustUnmarshalJSON(gs, &genState)
 
 	InitGenesis(ctx, am.keeper, genState)
 
@@ -142,12 +143,10 @@ func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, gs json.RawM
 }
 
 // ExportGenesis 导出模块创世状态（json.RawMessage）。
-func (am AppModule) ExportGenesis(ctx sdk.Context, _ codec.JSONCodec) json.RawMessage {
+// 使用 proto JSON 编解码器，与 InitGenesis 保持一致（uint64 以字符串形式序列化）。
+func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.RawMessage {
 	genState := ExportGenesis(ctx, am.keeper)
-	bz, err := json.Marshal(genState)
-	if err != nil {
-		panic(fmt.Errorf("tokenomics: failed to marshal export genesis: %w", err))
-	}
+	bz := cdc.MustMarshalJSON(genState)
 	return bz
 }
 

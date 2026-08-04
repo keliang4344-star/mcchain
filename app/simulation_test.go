@@ -1,10 +1,12 @@
 package app_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -16,10 +18,12 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/server"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
 	simulationtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
@@ -54,6 +58,57 @@ func init() {
 // an IAVLStore for faster simulation speed.
 func fauxMerkleModeOpt(bapp *baseapp.BaseApp) {
 	bapp.SetFauxMerkleMode()
+}
+
+// The SDK simulation helpers hard-code sdk.DefaultBondDenom ("stake") when they
+// build the randomised bank balances, the module supply and the staking pools.
+// MobileChain pins staking.Params.BondDenom to "umc" inside InitChainer, so a
+// verbatim SDK genesis would leave the bonded / not-bonded pool accounts funded
+// in "stake" while every staking counter is denominated in "umc". The crisis
+// module then trips the "bonded and not bonded module account coins" invariant
+// on the very first block. Rewriting the denom in the generated genesis keeps
+// the simulated chain self-consistent without weakening the production
+// InitChainer guarantee.
+const (
+	simSDKDenom = "stake"
+	simMCDenom  = "umc"
+)
+
+var (
+	quotedSimSDKDenom  = []byte(`"` + simSDKDenom + `"`)
+	quotedSimMCDenom   = []byte(`"` + simMCDenom + `"`)
+	escapedSimSDKDenom = []byte(`\"` + simSDKDenom + `\"`)
+	escapedSimMCDenom  = []byte(`\"` + simMCDenom + `\"`)
+	// Matches coin strings embedded in a JSON value, e.g. "1000000stake".
+	inlineSimSDKDenom = regexp.MustCompile(`([0-9])` + simSDKDenom)
+)
+
+// normaliseSimBondDenom rewrites every occurrence of the SDK default bond denom
+// in a raw genesis fragment to the chain bond denom.
+func normaliseSimBondDenom(raw json.RawMessage) json.RawMessage {
+	out := bytes.ReplaceAll(raw, quotedSimSDKDenom, quotedSimMCDenom)
+	out = bytes.ReplaceAll(out, escapedSimSDKDenom, escapedSimMCDenom)
+	out = inlineSimSDKDenom.ReplaceAll(out, []byte("${1}"+simMCDenom))
+	return out
+}
+
+// mcAppStateFn wraps the SDK randomised genesis generator and normalises the
+// bond denomination across every module state before the simulation starts.
+func mcAppStateFn(
+	cdc codec.JSONCodec,
+	simManager *module.SimulationManager,
+	genesisState map[string]json.RawMessage,
+) simulationtypes.AppStateFn {
+	return simtestutil.AppStateFnWithExtendedCb(
+		cdc,
+		simManager,
+		genesisState,
+		func(rawState map[string]json.RawMessage) {
+			for name, raw := range rawState {
+				rawState[name] = normaliseSimBondDenom(raw)
+			}
+		},
+	)
 }
 
 // BenchmarkSimulation run the chain simulation
@@ -106,7 +161,7 @@ func BenchmarkSimulation(b *testing.B) {
 		b,
 		os.Stdout,
 		bApp.BaseApp,
-		simtestutil.AppStateFn(
+		mcAppStateFn(
 			bApp.AppCodec(),
 			bApp.SimulationManager(),
 			app.NewDefaultGenesisState(bApp.AppCodec()),
@@ -186,7 +241,7 @@ func TestAppStateDeterminism(t *testing.T) {
 				t,
 				os.Stdout,
 				bApp.BaseApp,
-				simtestutil.AppStateFn(
+				mcAppStateFn(
 					bApp.AppCodec(),
 					bApp.SimulationManager(),
 					app.NewDefaultGenesisState(bApp.AppCodec()),
@@ -260,7 +315,7 @@ func TestAppImportExport(t *testing.T) {
 		t,
 		os.Stdout,
 		bApp.BaseApp,
-		simtestutil.AppStateFn(
+		mcAppStateFn(
 			bApp.AppCodec(),
 			bApp.SimulationManager(),
 			app.NewDefaultGenesisState(bApp.AppCodec()),
@@ -415,7 +470,7 @@ func TestAppSimulationAfterImport(t *testing.T) {
 		t,
 		os.Stdout,
 		bApp.BaseApp,
-		simtestutil.AppStateFn(
+		mcAppStateFn(
 			bApp.AppCodec(),
 			bApp.SimulationManager(),
 			app.NewDefaultGenesisState(bApp.AppCodec()),
@@ -486,7 +541,7 @@ func TestAppSimulationAfterImport(t *testing.T) {
 		t,
 		os.Stdout,
 		newApp.BaseApp,
-		simtestutil.AppStateFn(
+		mcAppStateFn(
 			bApp.AppCodec(),
 			bApp.SimulationManager(),
 			app.NewDefaultGenesisState(bApp.AppCodec()),
