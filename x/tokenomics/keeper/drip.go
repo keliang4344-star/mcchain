@@ -14,9 +14,6 @@ import (
 // A drip is executed every 100 blocks (~6.7 min @ 4s block time).
 const DripIntervalBlocks int64 = 100
 
-// DripRatioBps is the annualized drip rate as a fraction of total staked MC (5%).
-const DripRatioBps uint32 = 500
-
 // BlocksPerYear assumes a 4s block time (see phonenode params: ~12h @ 4s).
 const BlocksPerYear int64 = 7_884_000
 
@@ -37,27 +34,28 @@ const IntervalsPerYear int64 = BlocksPerYear / DripIntervalBlocks
 //   - If A is exhausted before the 12-year floor, the protocol treasury
 //     (B, the 6th address) continues the drip at the renewal floor APR (1–2%).
 func (k Keeper) DripWithRenewal(ctx sdk.Context) error {
+	params := k.GetParams(ctx)
 	staked := k.totalStaked(ctx)
-	// Target per-interval drip = 5% of staked, amortized over intervals/year.
-	target := staked.MulRaw(int64(DripRatioBps)).QuoRaw(10000).QuoRaw(IntervalsPerYear)
+	// Target per-interval drip = DripRatioBps of staked, amortized over intervals/year.
+	target := staked.MulRaw(int64(params.DripRatioBps)).QuoRaw(10000).QuoRaw(IntervalsPerYear)
 
 	// Pool A (staking_security) first.
 	aAddr := types.StakingSecurityPoolAddress()
 	aBal := k.bankKeeper.GetBalance(ctx, aAddr, types.DefaultDenom).Amount
 	if aBal.IsPositive() {
-		return k.dripFrom(ctx, aBal, target, types.StakingSecurityPoolName)
+		return k.dripFrom(ctx, aBal, target, uint64(params.DripFloorYears), types.StakingSecurityPoolName)
 	}
 
 	// Pool A exhausted → renew from protocol treasury (B) at renewal floor APR.
 	bAddr := types.ProtocolTreasuryAddress()
 	bBal := k.bankKeeper.GetBalance(ctx, bAddr, types.DefaultDenom).Amount
 	if bBal.IsPositive() {
-		renewal := staked.MulRaw(int64(types.RenewalFloorAPRBps)).
+		renewal := staked.MulRaw(int64(params.RenewalFloorAPRBps)).
 			QuoRaw(10000).QuoRaw(IntervalsPerYear)
 		if renewal.GT(target) {
 			target = renewal
 		}
-		return k.dripFrom(ctx, bBal, target, types.ProtocolTreasuryPoolName)
+		return k.dripFrom(ctx, bBal, target, uint64(params.DripFloorYears), types.ProtocolTreasuryPoolName)
 	}
 	return nil
 }
@@ -71,11 +69,11 @@ func (k Keeper) totalStaked(ctx sdk.Context) sdk.Int {
 
 // dripFrom releases `drip` from source pool `srcName` to the fee_collector,
 // where the distribution module allocates it to validators/delegators by stake.
-// The drip is capped so the source cannot be exhausted before the 12-year floor.
-func (k Keeper) dripFrom(ctx sdk.Context, bal, target sdk.Int, srcName string) error {
-	// Floor cap: at most balance / (intervals-per-year × 12 years), guaranteeing
-	// the 12-year drip floor regardless of staked amount.
-	floorCap := bal.QuoRaw(IntervalsPerYear * int64(types.DripFloorYears))
+// The drip is capped so the source cannot be exhausted before the `floorYears` floor.
+func (k Keeper) dripFrom(ctx sdk.Context, bal, target sdk.Int, floorYears uint64, srcName string) error {
+	// Floor cap: at most balance / (intervals-per-year × floorYears), guaranteeing
+	// the drip floor regardless of staked amount.
+	floorCap := bal.QuoRaw(IntervalsPerYear * int64(floorYears))
 	drip := target
 	if drip.GT(floorCap) {
 		drip = floorCap
@@ -93,10 +91,11 @@ func (k Keeper) dripFrom(ctx sdk.Context, bal, target sdk.Int, srcName string) e
 		return fmt.Errorf("tokenomics drip from %s: %w", srcName, err)
 	}
 
+	params := k.GetParams(ctx)
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("tokenomics.SecurityDripped",
 			sdk.NewAttribute("amount", drip.String()),
-			sdk.NewAttribute("ratio_bps", fmt.Sprintf("%d", DripRatioBps)),
+			sdk.NewAttribute("ratio_bps", fmt.Sprintf("%d", params.DripRatioBps)),
 			sdk.NewAttribute("source", srcName),
 			sdk.NewAttribute("destination", "fee_collector"),
 		),

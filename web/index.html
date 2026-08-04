@@ -245,6 +245,18 @@
       <button class="alt" onclick="qMod('tokenomics/release','Tokenomics Release')">释放进度</button>
       <button class="ghost" onclick="copy($('queryOut').textContent)">复制</button>
     </div>
+    <div class="row" style="margin-bottom:8px">
+      <button class="alt" onclick="qMod('dex/v1/pools','DEX Pools')">DEX 池列表</button>
+      <button class="alt" onclick="qMod('dex/v1/pool?pool_id=1','DEX Pool #1')">DEX 池 #1</button>
+      <button class="alt" onclick="qMod('dex/v1/price?pool_id=1&denom=umc','DEX Price')">DEX 价格</button>
+      <button class="alt" onclick="qMod('liquidstaking/v1/pool','LiquidStaking 池')">流动质押池</button>
+      <button class="alt" onclick="qMod('liquidstaking/v1/params','LS 参数')">LS 参数</button>
+    </div>
+    <div class="row" style="margin-bottom:8px">
+      <input id="qRefAddr" class="mn" placeholder="推荐查询地址 mc1..." />
+      <button class="alt" onclick="qMod('referral/v1/referrals_by_inviter?inviter='+encodeURIComponent($('qRefAddr').value.trim()),'Referral ByInviter')">推荐网络</button>
+      <button class="alt" onclick="qMod('referral/v1/pending_rewards?claimer='+encodeURIComponent($('qRefAddr').value.trim()),'Referral Pending')">推荐待领</button>
+    </div>
     <div class="explore" id="queryOut">连接节点（需开启 API/REST 端口 1317）后点击查询。</div>
     <div class="hint">查询走节点 gRPC-gateway（默认 LCD = RPC 端口换 1317）。若返回空/404，请确认节点已启用 api server（<code>app.toml</code> 中 <code>enable = true</code>）。EdgeAI 的 tasks/results/disputes 为 JSON 字符串列表，页面已自动解析。</div>
   </div>

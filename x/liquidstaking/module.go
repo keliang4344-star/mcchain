@@ -3,6 +3,8 @@ package liquidstaking
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
@@ -74,7 +76,55 @@ func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConf
 	return gs.Validate()
 }
 
-func (AppModuleBasic) RegisterGRPCGatewayRoutes(client.Context, *runtime.ServeMux) {}
+func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
+	// liquidstaking 的 query.proto 未带 google.api.http 注解、无 .pb.gw.go；这里手动
+	// 注册等价 REST 路由，经 abci_query（baseapp gRPC router）转发到 grpc Query service。
+	// 路由前缀 /mcchain/liquidstaking/v1/...，供 web 仪表盘与第三方工具查询。
+	handleQuery := func(w http.ResponseWriter, grpcPath string, req codec.ProtoMarshaler, resp codec.ProtoMarshaler) error {
+		reqBz, err := clientCtx.Codec.Marshal(req)
+		if err != nil {
+			return fmt.Errorf("marshal request: %w", err)
+		}
+		respBz, _, err := clientCtx.QueryWithData(grpcPath, reqBz)
+		if err != nil {
+			return err
+		}
+		if err := clientCtx.Codec.Unmarshal(respBz, resp); err != nil {
+			return fmt.Errorf("unmarshal response: %w", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		return json.NewEncoder(w).Encode(resp)
+	}
+	addRest := func(path string, h runtime.HandlerFunc) {
+		segs := strings.Split(strings.Trim(path, "/"), "/")
+		ops := make([]int, 0, len(segs)*2)
+		for i := range segs {
+			ops = append(ops, 2, i)
+		}
+		pat := runtime.MustPattern(runtime.NewPattern(1, ops, segs, "", runtime.AssumeColonVerbOpt(true)))
+		mux.Handle(http.MethodGet, pat, h)
+	}
+
+	addRest("/mcchain/liquidstaking/v1/params", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+		if err := handleQuery(w, "/mcchain.liquidstaking.Query/Params",
+			&types.QueryParamsRequest{}, &types.QueryParamsResponse{}); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+		}
+	})
+	addRest("/mcchain/liquidstaking/v1/pool", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+		if err := handleQuery(w, "/mcchain.liquidstaking.Query/Pool",
+			&types.QueryPoolRequest{}, &types.QueryPoolResponse{}); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+		}
+	})
+	addRest("/mcchain/liquidstaking/v1/unbondings", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+		if err := handleQuery(w, "/mcchain.liquidstaking.Query/Unbondings",
+			&types.QueryUnbondingsRequest{Delegator: r.URL.Query().Get("delegator")},
+			&types.QueryUnbondingsResponse{}); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+		}
+	})
+}
 
 func (AppModuleBasic) GetTxCmd() *cobra.Command { return cli.GetTxCmd() }
 

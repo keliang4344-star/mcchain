@@ -3,6 +3,9 @@ package dex
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
@@ -63,9 +66,67 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, config client.TxEncod
 }
 
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
-	// dex query service has no google.api.http annotations, so no grpc-gateway
-	// .pb.gw.go is generated; REST routes are not registered (consistent with referral).
-	// types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx))
+	// dex 的 query.proto 未带 google.api.http 注解、无 .pb.gw.go；这里手动注册等价
+	// REST 路由：经 abci_query（baseapp gRPC router）转发到 grpc Query service。
+	// 路由前缀 /mcchain/dex/v1/...，供 web 仪表盘与第三方工具查询。
+	handleQuery := func(w http.ResponseWriter, grpcPath string, req codec.ProtoMarshaler, resp codec.ProtoMarshaler) error {
+		reqBz, err := clientCtx.Codec.Marshal(req)
+		if err != nil {
+			return fmt.Errorf("marshal request: %w", err)
+		}
+		respBz, _, err := clientCtx.QueryWithData(grpcPath, reqBz)
+		if err != nil {
+			return err
+		}
+		if err := clientCtx.Codec.Unmarshal(respBz, resp); err != nil {
+			return fmt.Errorf("unmarshal response: %w", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		return json.NewEncoder(w).Encode(resp)
+	}
+	// addRest 把 "/a/b/c" 转为 grpc-gateway v1 的 Pattern 并注册 GET 路由。
+	addRest := func(path string, h runtime.HandlerFunc) {
+		segs := strings.Split(strings.Trim(path, "/"), "/")
+		ops := make([]int, 0, len(segs)*2)
+		for i := range segs {
+			ops = append(ops, 2, i)
+		}
+		pat := runtime.MustPattern(runtime.NewPattern(1, ops, segs, "", runtime.AssumeColonVerbOpt(true)))
+		mux.Handle(http.MethodGet, pat, h)
+	}
+
+	addRest("/mcchain/dex/v1/pools", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+		if err := handleQuery(w, "/mcchain.dex.Query/Pools", &types.QueryPoolsRequest{}, &types.QueryPoolsResponse{}); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+		}
+	})
+	addRest("/mcchain/dex/v1/pool", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+		poolID, _ := strconv.ParseUint(r.URL.Query().Get("pool_id"), 10, 64)
+		if err := handleQuery(w, "/mcchain.dex.Query/Pool", &types.QueryPoolRequest{PoolId: poolID}, &types.QueryPoolResponse{}); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+		}
+	})
+	addRest("/mcchain/dex/v1/price", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+		poolID, _ := strconv.ParseUint(r.URL.Query().Get("pool_id"), 10, 64)
+		if err := handleQuery(w, "/mcchain.dex.Query/Price",
+			&types.QueryPriceRequest{PoolId: poolID, Denom: r.URL.Query().Get("denom")},
+			&types.QueryPriceResponse{}); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+		}
+	})
+	addRest("/mcchain/dex/v1/estimate_swap", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+		poolID, _ := strconv.ParseUint(r.URL.Query().Get("pool_id"), 10, 64)
+		if err := handleQuery(w, "/mcchain.dex.Query/EstimateSwap",
+			&types.QueryEstimateSwapRequest{
+				PoolId:   poolID,
+				DenomIn:  r.URL.Query().Get("denom_in"),
+				DenomOut: r.URL.Query().Get("denom_out"),
+				AmountIn: r.URL.Query().Get("amount_in"),
+			},
+			&types.QueryEstimateSwapResponse{}); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+		}
+	})
 }
 
 func (a AppModuleBasic) GetTxCmd() *cobra.Command {

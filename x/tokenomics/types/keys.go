@@ -103,9 +103,14 @@ const (
 	// ---- Staking-security drip: 12-year floor and A→B renewal (finalized 2026-08) ----
 	// DripFloorYears is the guaranteed minimum drip duration (years).
 	DripFloorYears = 12
+	// DripRatioBps is the annualized drip rate as a fraction of total staked MC (5%).
+	// Default value of the governable Params.DripRatioBps.
+	DripRatioBps = uint32(500)
 	// RenewalFloorAPRBps is the lower bound of the treasury renewal APR (1.00%).
+	// Default value of the governable Params.RenewalFloorAPRBps.
 	RenewalFloorAPRBps = uint32(100)
 	// RenewalFloorAPRCeilBps is the upper bound of the treasury renewal APR (2.00%).
+	// Default value of the governable Params.RenewalFloorAPRCeilBps.
 	RenewalFloorAPRCeilBps = uint32(200)
 
 	// ---- Slash split (finalized 2026-08): 40% burned / 60% to protocol treasury ----

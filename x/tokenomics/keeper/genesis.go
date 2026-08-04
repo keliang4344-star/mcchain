@@ -31,6 +31,10 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) error 
 	if err := genState.Validate(); err != nil {
 		return err
 	}
+	// 初始化运行期经济参数（默认值与创世常量一致；后续可治理更新）。
+	if err := k.SetParams(ctx, types.DefaultParams()); err != nil {
+		return fmt.Errorf("tokenomics: set default params: %w", err)
+	}
 	denom := genState.Denom
 
 	// ① 一次性铸造总量上限到 tokenomics 模块账户（R1：总量固化）。
