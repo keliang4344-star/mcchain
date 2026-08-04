@@ -78,7 +78,7 @@ func (k Keeper) ProcessEnterpriseSettlementFee(ctx sdk.Context, amount sdk.Int) 
 		return nil
 	}
 	burnAmt := amount.MulRaw(int64(types.EnterpriseFeeBurnRatioBps)).QuoRaw(10000)
-	treasuryAmt := amount.MulRaw(int64(types.EnterpriseFeeTreasuryRatioBps)).QuoRaw(10000)
+	treasuryAmt := amount.Sub(burnAmt) // remainder == EnterpriseFeeTreasuryRatioBps, dust-free
 
 	if burnAmt.IsPositive() {
 		if err := k.bankKeeper.BurnCoins(
@@ -88,8 +88,8 @@ func (k Keeper) ProcessEnterpriseSettlementFee(ctx sdk.Context, amount sdk.Int) 
 		}
 	}
 	if treasuryAmt.IsPositive() {
-		if err := k.bankKeeper.SendCoinsFromModuleToAccount(
-			ctx, types.ModuleName, types.ProtocolTreasuryAddress(),
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(
+			ctx, types.ModuleName, types.ProtocolTreasuryPoolName,
 			sdk.NewCoins(sdk.NewCoin(types.DefaultDenom, treasuryAmt)),
 		); err != nil {
 			return err

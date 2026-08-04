@@ -25,6 +25,9 @@ func (m *mockBankBurnCap) SendCoinsFromModuleToAccount(_ sdk.Context, module str
 	m.modToAcct = append(m.modToAcct, bankSend{module: module, to: to.String(), amount: amt.AmountOf("umc").Uint64()})
 	return nil
 }
+func (m *mockBankBurnCap) SendCoinsFromModuleToModule(_ sdk.Context, _, _ string, _ sdk.Coins) error {
+	return nil
+}
 func (m *mockBankBurnCap) BurnCoins(_ sdk.Context, _ string, amt sdk.Coins) error {
 	m.burned = append(m.burned, amt.AmountOf("umc").Uint64())
 	return nil

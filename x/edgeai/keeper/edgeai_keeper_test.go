@@ -57,6 +57,9 @@ func (mockBankZero) SendCoinsFromAccountToModule(_ sdk.Context, _ sdk.AccAddress
 func (mockBankZero) SendCoinsFromModuleToAccount(_ sdk.Context, _ string, _ sdk.AccAddress, _ sdk.Coins) error {
 	return nil
 }
+func (mockBankZero) SendCoinsFromModuleToModule(_ sdk.Context, _, _ string, _ sdk.Coins) error {
+	return nil
+}
 func (mockBankZero) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) error { return nil }
 
 // mockBank：满足 BankKeeper 接口的最小实现（托管/拨付均 no-op，余额充足）。
@@ -69,6 +72,9 @@ func (mockBank) SendCoinsFromAccountToModule(_ sdk.Context, _ sdk.AccAddress, _ 
 	return nil
 }
 func (mockBank) SendCoinsFromModuleToAccount(_ sdk.Context, _ string, _ sdk.AccAddress, _ sdk.Coins) error {
+	return nil
+}
+func (mockBank) SendCoinsFromModuleToModule(_ sdk.Context, _, _ string, _ sdk.Coins) error {
 	return nil
 }
 func (mockBank) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) error { return nil }
@@ -91,6 +97,9 @@ func (m *mockBankCap) SendCoinsFromAccountToModule(_ sdk.Context, _ sdk.AccAddre
 }
 func (m *mockBankCap) SendCoinsFromModuleToAccount(_ sdk.Context, module string, to sdk.AccAddress, amt sdk.Coins) error {
 	m.modToAcct = append(m.modToAcct, bankSend{module: module, to: to.String(), amount: amt.AmountOf("umc").Uint64()})
+	return nil
+}
+func (m *mockBankCap) SendCoinsFromModuleToModule(_ sdk.Context, _, _ string, _ sdk.Coins) error {
 	return nil
 }
 func (m *mockBankCap) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) error { return nil }

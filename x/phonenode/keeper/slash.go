@@ -155,8 +155,8 @@ func (k Keeper) splitSlashed(ctx sdk.Context, denom string, amt sdk.Int) error {
 		}
 	}
 	if treasuryAmt.IsPositive() {
-		if err := k.bankKeeper.SendCoinsFromModuleToAccount(
-			ctx, types.ModuleName, tokenomicsmoduletypes.ProtocolTreasuryAddress(),
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(
+			ctx, types.ModuleName, tokenomicsmoduletypes.ProtocolTreasuryPoolName,
 			sdk.NewCoins(sdk.NewCoin(denom, treasuryAmt)),
 		); err != nil {
 			return fmt.Errorf("phonenode: route slashed share to treasury: %w", err)

@@ -7,6 +7,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"mcchain/x/edgeai/types"
+	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
 func (k msgServer) CreateTask(goCtx context.Context, msg *types.MsgCreateTask) (*types.MsgCreateTaskResponse, error) {
@@ -26,6 +27,15 @@ func (k msgServer) CreateTask(goCtx context.Context, msg *types.MsgCreateTask) (
 		}
 		if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, creatorAddr, types.ModuleName, rewardCoins); err != nil {
 			return nil, fmt.Errorf("edgeai: escrow reward failed: %w", err)
+		}
+		// Enterprise settlement fee (finalized 2026-08): the demand side pays
+		// EnterpriseSettlementFeeBps (1.50%) on top of the escrowed reward.
+		// The fee is split 40% burned / 60% to the protocol treasury.
+		// Charging the demand side keeps the 80/15/5 payout split for the supply
+		// side untouched. A creator without the fee balance is not blocked from
+		// posting the task; the fee is skipped and recorded as waived.
+		if err := k.chargeEnterpriseSettlementFee(ctx, creatorAddr, msg.Reward); err != nil {
+			return nil, err
 		}
 	}
 
@@ -56,4 +66,60 @@ func (k msgServer) CreateTask(goCtx context.Context, msg *types.MsgCreateTask) (
 		),
 	)
 	return &types.MsgCreateTaskResponse{}, nil
+}
+
+// chargeEnterpriseSettlementFee applies the enterprise settlement fee policy to
+// an EdgeAI task escrow. Fee = reward * EnterpriseSettlementFeeBps / 10000.
+// Split: EnterpriseFeeBurnRatioBps burned (permanent supply reduction) and the
+// remainder routed to the protocol treasury, the 6th independent address.
+// No coin is minted on this path.
+func (k msgServer) chargeEnterpriseSettlementFee(ctx sdk.Context, payer sdk.AccAddress, reward uint64) error {
+	feeAmt := sdk.NewIntFromUint64(reward).
+		MulRaw(int64(tokenomicstypes.EnterpriseSettlementFeeBps)).
+		QuoRaw(10000)
+	if !feeAmt.IsPositive() {
+		return nil
+	}
+	feeCoins := sdk.NewCoins(sdk.NewCoin(types.EdgeAIDenom, feeAmt))
+
+	// The fee is best-effort: an underfunded creator still gets the task posted.
+	if k.bankKeeper.SpendableCoins(ctx, payer).AmountOf(types.EdgeAIDenom).LT(feeAmt) {
+		ctx.EventManager().EmitEvent(sdk.NewEvent(
+			"edgeai.EnterpriseFeeWaived",
+			sdk.NewAttribute("payer", payer.String()),
+			sdk.NewAttribute("amount", feeAmt.String()),
+		))
+		return nil
+	}
+	if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, payer, types.ModuleName, feeCoins); err != nil {
+		return fmt.Errorf("edgeai: collect enterprise settlement fee: %w", err)
+	}
+
+	burnAmt := feeAmt.MulRaw(int64(tokenomicstypes.EnterpriseFeeBurnRatioBps)).QuoRaw(10000)
+	treasuryAmt := feeAmt.Sub(burnAmt)
+
+	if burnAmt.IsPositive() {
+		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName,
+			sdk.NewCoins(sdk.NewCoin(types.EdgeAIDenom, burnAmt)),
+		); err != nil {
+			return fmt.Errorf("edgeai: burn enterprise fee share: %w", err)
+		}
+	}
+	if treasuryAmt.IsPositive() {
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(
+			ctx, types.ModuleName, tokenomicstypes.ProtocolTreasuryPoolName,
+			sdk.NewCoins(sdk.NewCoin(types.EdgeAIDenom, treasuryAmt)),
+		); err != nil {
+			return fmt.Errorf("edgeai: route enterprise fee to treasury: %w", err)
+		}
+	}
+
+	ctx.EventManager().EmitEvent(sdk.NewEvent(
+		"edgeai.EnterpriseSettlementFee",
+		sdk.NewAttribute("payer", payer.String()),
+		sdk.NewAttribute("fee", feeAmt.String()),
+		sdk.NewAttribute("burned", burnAmt.String()),
+		sdk.NewAttribute("treasury", treasuryAmt.String()),
+	))
+	return nil
 }
