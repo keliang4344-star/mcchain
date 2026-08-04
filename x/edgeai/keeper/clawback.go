@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"mcchain/x/edgeai/types"
+	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
 // clawbackSubmitterReward reclaims the submitter's escrowed 80% reward when a
@@ -12,14 +13,17 @@ import (
 //
 // 经济模型（需求方付费 / escrow）：任务创建时需求方将全额 reward 托管进
 // edgeai 模块账户。结算前，本应拨付给提交者的 80% 仍留在模块账户（处于托管状态）。
-// 当仲裁裁定作弊时，这部分"提交者奖励"被销毁（退出流通 / 回退到模块奖励池），
-// 因此作弊提交者无法领取，同时由 phonenode 模块另行 slash。
+// 当仲裁裁定作弊时，作弊提交者无法领取这份托管款。
+//
+// 去向（2026-08 定稿）：回收款转入质押安全池，而非销毁。
+// 作恶属于罚没范畴，不属于通缩销毁的四类来源；按既定原则，
+// 「作恶者的损失，变成诚实者的收益」——回收款经安全池滴灌补贴诚实节点与验证人。
 //
 // 80/15/5 分账比例保持不变（提交者 80% / 验证者预留 15% / 销毁 5%）；本函数只
 // 在作弊裁定这一非正常路径上回收提交者那份，正常结算路径仍由 BeginBlock 发放。
 //
 // 边界：若任务在作弊裁定前已被结算（80% 已拨付给提交者），模块账户不再持有该
-// 份额，BurnCoins 会失败，此时仅记录日志（提交者仍会被独立 slash）。
+// 份额，转账会失败，此时仅记录日志（提交者仍会被独立 slash）。
 func (k Keeper) clawbackSubmitterReward(ctx sdk.Context, taskID string) {
 	task, err := k.GetTask(ctx, taskID)
 	if err != nil || task == nil || task.Reward == 0 {
@@ -31,9 +35,11 @@ func (k Keeper) clawbackSubmitterReward(ctx sdk.Context, taskID string) {
 		return
 	}
 
-	burnCoin := sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(submitterAmount)))
-	if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoin); err != nil {
-		k.Logger(ctx).Error("edgeai: clawback submitter reward failed",
+	clawCoin := sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(submitterAmount)))
+	if err := k.bankKeeper.SendCoinsFromModuleToModule(
+		ctx, types.ModuleName, tokenomicstypes.StakingSecurityPoolName, clawCoin,
+	); err != nil {
+		k.Logger(ctx).Error("edgeai: clawback submitter reward to security pool failed",
 			"task_id", taskID, "amount", submitterAmount, "err", err.Error())
 		return
 	}
@@ -43,6 +49,7 @@ func (k Keeper) clawbackSubmitterReward(ctx sdk.Context, taskID string) {
 			sdk.NewAttribute("task_id", taskID),
 			sdk.NewAttribute("amount", fmt.Sprintf("%d", submitterAmount)),
 			sdk.NewAttribute("reason", "dispute_cheat"),
+			sdk.NewAttribute("destination", tokenomicstypes.StakingSecurityPoolName),
 		),
 	)
 }

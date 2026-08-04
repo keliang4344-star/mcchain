@@ -6,6 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"mcchain/x/edgeai/types"
 	tokenomicstypes "mcchain/x/tokenomics/types"
 )
@@ -95,14 +96,18 @@ func (k msgServer) chargeEnterpriseSettlementFee(ctx sdk.Context, payer sdk.AccA
 		return fmt.Errorf("edgeai: collect enterprise settlement fee: %w", err)
 	}
 
-	burnAmt := feeAmt.MulRaw(int64(tokenomicstypes.EnterpriseFeeBurnRatioBps)).QuoRaw(10000)
-	treasuryAmt := feeAmt.Sub(burnAmt)
+	// 企业付费分账（2026-08 定稿）：40% 分给节点（fee_collector，随出块奖励分配给
+	// 验证人与委托人），60% 进国库（protocol_treasury，储备用于社区与生态建设）。
+	// 国库不由任何模块凭空生成，只能由这类真实业务收入转入（零新印铁律）。
+	nodeAmt := feeAmt.MulRaw(int64(tokenomicstypes.EnterpriseFeeNodeRatioBps)).QuoRaw(10000)
+	treasuryAmt := feeAmt.Sub(nodeAmt)
 
-	if burnAmt.IsPositive() {
-		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName,
-			sdk.NewCoins(sdk.NewCoin(types.EdgeAIDenom, burnAmt)),
+	if nodeAmt.IsPositive() {
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(
+			ctx, types.ModuleName, authtypes.FeeCollectorName,
+			sdk.NewCoins(sdk.NewCoin(types.EdgeAIDenom, nodeAmt)),
 		); err != nil {
-			return fmt.Errorf("edgeai: burn enterprise fee share: %w", err)
+			return fmt.Errorf("edgeai: route enterprise fee to nodes: %w", err)
 		}
 	}
 	if treasuryAmt.IsPositive() {
@@ -118,7 +123,7 @@ func (k msgServer) chargeEnterpriseSettlementFee(ctx sdk.Context, payer sdk.AccA
 		"edgeai.EnterpriseSettlementFee",
 		sdk.NewAttribute("payer", payer.String()),
 		sdk.NewAttribute("fee", feeAmt.String()),
-		sdk.NewAttribute("burned", burnAmt.String()),
+		sdk.NewAttribute("to_nodes", nodeAmt.String()),
 		sdk.NewAttribute("treasury", treasuryAmt.String()),
 	))
 	return nil

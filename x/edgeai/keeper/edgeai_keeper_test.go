@@ -14,6 +14,7 @@ import (
 	typesparams "github.com/cosmos/cosmos-sdk/x/params/types"
 	"github.com/stretchr/testify/require"
 	"mcchain/x/edgeai/types"
+	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
 // ---------------------------------------------------------------------------
@@ -80,8 +81,12 @@ func (mockBank) SendCoinsFromModuleToModule(_ sdk.Context, _, _ string, _ sdk.Co
 func (mockBank) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) error { return nil }
 
 // mockBankCap：记录「模块账户→账户」拨付，用于断言需求方付费（escrow）经济闭环。
+// 注意：5% 任务结算销毁份额现在打入全链唯一黑洞地址（永久销毁、不可支出），
+// 不再走 bank 内部 BurnCoins。为避免黑洞拨付污染「对节点/需求方的真实拨付」断言，
+// 这里把发往黑洞地址的 send 单独归入 burned，modToAcct 仅记录真实拨付。
 type mockBankCap struct {
 	modToAcct []bankSend
+	burned    []bankSend // 发往黑洞地址的销毁份额
 }
 type bankSend struct {
 	module string
@@ -96,7 +101,13 @@ func (m *mockBankCap) SendCoinsFromAccountToModule(_ sdk.Context, _ sdk.AccAddre
 	return nil
 }
 func (m *mockBankCap) SendCoinsFromModuleToAccount(_ sdk.Context, module string, to sdk.AccAddress, amt sdk.Coins) error {
-	m.modToAcct = append(m.modToAcct, bankSend{module: module, to: to.String(), amount: amt.AmountOf("umc").Uint64()})
+	rec := bankSend{module: module, to: to.String(), amount: amt.AmountOf("umc").Uint64()}
+	// 发往黑洞地址的份额属于「通缩销毁」，与「对参与方的经济拨付」语义不同，单独归集。
+	if to.String() == tokenomicstypes.BlackHoleAddress().String() {
+		m.burned = append(m.burned, rec)
+	} else {
+		m.modToAcct = append(m.modToAcct, rec)
+	}
 	return nil
 }
 func (m *mockBankCap) SendCoinsFromModuleToModule(_ sdk.Context, _, _ string, _ sdk.Coins) error {
@@ -611,8 +622,14 @@ func TestFullLifecycle_CreateSubmitSettle(t *testing.T) {
 	// Step 4: 验证拨付
 	require.Len(t, bk.modToAcct, 1)
 	require.Equal(t, node, bk.modToAcct[0].to)
-	// submitter 分得 80%（EdgeAISubmitterRatioBps），verifier 预留 15% + 销毁 5% 走其他路径
+	// submitter 分得 80%（EdgeAISubmitterRatioBps）
 	require.Equal(t, uint64(400), bk.modToAcct[0].amount)
+
+	// 5% 任务结算销毁份额应打入全链唯一黑洞地址（永久通缩、链上可查、不可支出），
+	// 而非 bank 内部销毁。锁定此路由以确保通缩销毁始终可审计。
+	require.Len(t, bk.burned, 1, "应有一笔销毁份额打入黑洞地址")
+	require.Equal(t, tokenomicstypes.BlackHoleAddress().String(), bk.burned[0].to, "销毁份额目的地必须是黑洞地址")
+	require.Equal(t, uint64(25), bk.burned[0].amount, "5% 结算销毁应为 25 (5% of 500)")
 
 	// Step 5: 验证状态
 	task, _ := k.GetTask(ctx, "1")

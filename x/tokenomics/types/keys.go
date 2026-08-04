@@ -113,16 +113,23 @@ const (
 	// Default value of the governable Params.RenewalFloorAPRCeilBps.
 	RenewalFloorAPRCeilBps = uint32(200)
 
-	// ---- Slash split (finalized 2026-08): 40% burned / 60% to protocol treasury ----
-	SlashBurnRatioBps     = uint32(4000) // 40.00% burned
-	SlashTreasuryRatioBps = uint32(6000) // 60.00% to protocol treasury
+	// ---- Black hole: the chain's canonical burn address (genesis-existent) ----
+	// 全链唯一的销毁去向。所有通缩销毁一律打入该地址，不再调用 bank.BurnCoins：
+	//   - 地址由模块名经 sha256 确定性派生，不存在对应私钥，数学上永不可花费；
+	//   - 创世即存在，无需部署、无需治理开关，任何人可用标准 bank 查询实时核对余额；
+	//   - 该地址余额即「累计已销毁量」的权威口径，链上可审计、不可伪造。
+	// 销毁来源共 4 类（白皮书通缩表）：DePIN 任务赏金每笔 5% / DEX 手续费每笔 0.05% /
+	// 推荐加成每笔 1% / 治理押金 10%。
+	// 罚没（slashing）不属于销毁来源——罚没 100% 回流质押安全池，补贴诚实节点与验证人。
+	BlackHolePoolName = "black_hole"
 
 	// ---- Enterprise settlement fee (finalized 2026-08): 1.5% of settlement,
-	//      40% burned / 60% to protocol treasury ----
+	//      40% to nodes (fee_collector) / 60% to protocol treasury ----
 	// Charged on oracle data, device settlement, and EdgeAI inference settlements.
-	EnterpriseSettlementFeeBps     = uint32(150) // 1.50%
-	EnterpriseFeeBurnRatioBps      = uint32(4000) // 40.00% burned
-	EnterpriseFeeTreasuryRatioBps  = uint32(6000) // 60.00% to protocol treasury
+	// 企业侧付费是国库的主要活水来源：不新铸一分钱，全部来自真实业务收入的再分配。
+	EnterpriseSettlementFeeBps    = uint32(150)  // 1.50%
+	EnterpriseFeeNodeRatioBps     = uint32(4000) // 40.00% 分给节点（经 fee_collector 随出块分配）
+	EnterpriseFeeTreasuryRatioBps = uint32(6000) // 60.00% 进国库（protocol_treasury，储备待建设）
 
 	// ---- Double-sign permanent tombstone (finalized 2026-08) ----
 	// Equivocation (signing two different blocks at the same height) is permanently
@@ -247,6 +254,13 @@ func StakingSecurityPoolAddress() sdk.AccAddress {
 // i.e. the 6th independent on-chain address. Genesis starts at zero.
 func ProtocolTreasuryAddress() sdk.AccAddress {
 	return authtypes.NewModuleAddress(ProtocolTreasuryPoolName)
+}
+
+// BlackHoleAddress 返回全链唯一的黑洞（销毁）地址。
+// 由 BlackHolePoolName 经 sha256 确定性派生：任何人都无法构造出对应私钥，
+// 打入的代币永久不可支出。创世即存在，无需初始化。
+func BlackHoleAddress() sdk.AccAddress {
+	return authtypes.NewModuleAddress(BlackHolePoolName)
 }
 
 // 注：基金会池与早期开发池在创世时即拨付到可支出地址（见 EarlyDevAddress /

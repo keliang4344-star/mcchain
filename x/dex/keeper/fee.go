@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"mcchain/x/dex/types"
+	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
 // Fee distribution ratios (in bps of the total fee, 10000 = 100%).
@@ -55,10 +56,12 @@ func (k Keeper) ProcessSwapFee(
 	treasuryAmt := feeTotal.MulRaw(FeeTreasuryBps).QuoRaw(10000)
 	lpAmt := feeTotal.Sub(burnAmt).Sub(treasuryAmt) // remainder ≈ 50% (LP share)
 
-	// Burn 16.67% of the fee (0.05% of trade) from the dex module account
+	// 手续费销毁份额打入全链唯一黑洞地址（永久不可支出），而非 bank 内部销毁。
 	if burnAmt.IsPositive() {
 		burnCoin := sdk.NewCoins(sdk.NewCoin(denomIn, burnAmt))
-		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoin); err != nil {
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(
+			ctx, types.ModuleName, tokenomicstypes.BlackHoleAddress(), burnCoin,
+		); err != nil {
 			return err
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"mcchain/x/dex/types"
+	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
 // ============================================================================
@@ -79,11 +80,21 @@ func TestDEX_CreatePoolAndSwap_FullFlow(t *testing.T) {
 	require.Equal(t, reserveA.Add(effectiveIn), newRA, "reserveA should increase by effective input")
 	require.Equal(t, reserveB.Sub(amountOut), newRB, "reserveB should decrease by amountOut")
 
-	// Verify fee distribution: burn + treasury + LP events
-	// Burn (50%) + Treasury (30%)
-	require.True(t, len(bk.burned) >= 1, "burn should have been called")
-	// Treasury transfer
-	require.True(t, len(bk.sentFromMod) >= 1, "treasury transfer should have been called")
+	// Verify fee distribution: burn (routed to the chain-wide black hole) + LP events
+	// The 50% burn share is now sent to the black hole address (permanent,
+	// mathematically-unspendable deflation sink) instead of being bank-internally
+	// burned. Confirm the send landed there rather than into a generic burn ledger.
+	blackHole := tokenomicstypes.BlackHoleAddress().String()
+	burnRoutedToBlackHole := false
+	for _, rec := range bk.sentFromMod {
+		if rec.to == blackHole && rec.amount.IsAllGT(sdk.NewCoins()) {
+			burnRoutedToBlackHole = true
+			break
+		}
+	}
+	require.True(t, burnRoutedToBlackHole, "the burn share should have been sent to the black hole address")
+	// Treasury transfer (no-op at 0% for swap fees, but the send path must be reachable)
+	require.True(t, len(bk.sentFromMod) >= 1, "fee routing should have been invoked")
 }
 
 // TestDEX_CreatePool_SwapMultipleDenomDirection

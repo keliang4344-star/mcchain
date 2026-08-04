@@ -10,6 +10,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"mcchain/x/referral/types"
+	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
 // ---------------------------------------------------------------------------
@@ -246,8 +247,11 @@ func (k Keeper) ClaimRewards(ctx sdk.Context, claimer string) (sdk.Coin, error) 
 	// the ecosystem module account and pay the remaining 99% to the referrer.
 	burnAmt := pending.Quo(sdkmath.NewInt(100)) // integer: amount / 100
 	if !burnAmt.IsZero() {
+		// 打入全链唯一黑洞地址（永久不可支出），而非 bank 内部销毁。
 		burnCoins := sdk.NewCoins(sdk.NewCoin("umc", burnAmt))
-		if err := k.bankKeeper.BurnCoins(ctx, types.EcosystemModuleAccount, burnCoins); err != nil {
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(
+			ctx, types.EcosystemModuleAccount, tokenomicstypes.BlackHoleAddress(), burnCoins,
+		); err != nil {
 			return sdk.Coin{}, err
 		}
 	}

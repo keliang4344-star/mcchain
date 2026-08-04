@@ -6,12 +6,15 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 	"mcchain/x/edgeai/types"
+	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
-// mockBankBurnCap records both module->account sends and burns, so we can
-// assert the clawback path burns exactly the submitter's 80% escrow.
+// mockBankBurnCap records module->account sends, module->module sends and burns,
+// so we can assert the clawback path routes the submitter's 80% escrow to the
+// staking security pool (NOT burned) — per the "作恶者损失=诚实者收益" policy.
 type mockBankBurnCap struct {
 	modToAcct []bankSend
+	modToMod  []bankSend
 	burned    []uint64
 }
 
@@ -25,7 +28,8 @@ func (m *mockBankBurnCap) SendCoinsFromModuleToAccount(_ sdk.Context, module str
 	m.modToAcct = append(m.modToAcct, bankSend{module: module, to: to.String(), amount: amt.AmountOf("umc").Uint64()})
 	return nil
 }
-func (m *mockBankBurnCap) SendCoinsFromModuleToModule(_ sdk.Context, _, _ string, _ sdk.Coins) error {
+func (m *mockBankBurnCap) SendCoinsFromModuleToModule(_ sdk.Context, from, to string, amt sdk.Coins) error {
+	m.modToMod = append(m.modToMod, bankSend{module: from, to: to, amount: amt.AmountOf("umc").Uint64()})
 	return nil
 }
 func (m *mockBankBurnCap) BurnCoins(_ sdk.Context, _ string, amt sdk.Coins) error {
@@ -54,8 +58,17 @@ func TestClawbackOnCheatResolution(t *testing.T) {
 	_, err := ms.ResolveDispute(sdk.WrapSDKContext(ctx), &types.MsgResolveDispute{Creator: arb, TaskId: "1", Resolution: "cheat"})
 	require.NoError(t, err)
 
-	// 80% of 500 = 400 must be burned (clawed back from escrow).
-	require.Contains(t, bk.burned, uint64(400), "cheat 裁定应销毁提交者 80% 托管奖励")
+	// 80% of 500 = 400 must be routed to the staking security pool (clawed back
+	// from escrow) — per the "作恶者的损失，变成诚实者的收益" policy. It is a 罚没
+	// (slash), NOT a 通缩销毁, so it must NOT be burned.
+	require.Empty(t, bk.burned, "作弊罚没不应销毁，应回流质押安全池")
+	var routedToSecurity uint64
+	for _, s := range bk.modToMod {
+		if s.to == tokenomicstypes.StakingSecurityPoolName {
+			routedToSecurity += s.amount
+		}
+	}
+	require.Equal(t, uint64(400), routedToSecurity, "cheat 裁定应将提交者 80% 托管奖励(400)回流质押安全池")
 	// 提交者不应收到任何拨付。
 	require.Empty(t, bk.modToAcct, "cheat 裁定不应拨付提交者")
 	// 提交者被 slash。

@@ -9,6 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"mcchain/x/depin/types"
+	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
 // SubmitContribution records a verified contribution from a device and, when the
@@ -144,10 +145,14 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 			return nil, sdkerrors.Wrapf(types.ErrInvalidScore, "daily release cap exceeded: need %d, cap %d, remaining %d", payoutAmount, dailyCap, remaining)
 		}
 
+		// 任务赏金 5% 销毁：打入全链唯一黑洞地址（永久不可支出），而非 bank 内部销毁。
+		// 总量 10 亿恒定不变，销毁体现为有效流通量下降，黑洞余额链上永久可查。
 		if burnAmount > 0 {
 			burnCoin := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewInt(int64(burnAmount))))
-			if burnErr := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoin); burnErr != nil {
-				k.Logger(ctx).Error("depin: burn 5% failed",
+			if burnErr := k.bankKeeper.SendCoinsFromModuleToAccount(
+				ctx, types.ModuleName, tokenomicstypes.BlackHoleAddress(), burnCoin,
+			); burnErr != nil {
+				k.Logger(ctx).Error("depin: burn 5% to black hole failed",
 					"task_id", msg.TaskId, "burn_amount", burnAmount, "err", burnErr.Error())
 			} else {
 				ctx.EventManager().EmitEvent(
@@ -155,6 +160,7 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 						sdk.NewAttribute("task_id", msg.TaskId),
 						sdk.NewAttribute("amount", strconv.FormatUint(burnAmount, 10)),
 						sdk.NewAttribute("ratio", "5%"),
+						sdk.NewAttribute("black_hole", tokenomicstypes.BlackHoleAddress().String()),
 					),
 				)
 				telemetry.IncrCounter(float32(burnAmount), "depin", "burn_amount")

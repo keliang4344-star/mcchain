@@ -42,22 +42,30 @@ func (k Keeper) RebateGasFeesToSecurity(ctx sdk.Context) error {
 		return nil
 	}
 
-	// 7% of gas fees burned to the blackhole (deflation, finalized 2026-08).
+	// 7% of gas fees sent to the black hole (deflation, finalized 2026-08).
+	//
+	// 修正（2026-08）：销毁额按 fee_collector 余额计算，扣款账户必须同为 fee_collector。
+	// 旧实现从 tokenomics 模块账户扣款（余额恒为 0），必然失败且 return 阻断了后续
+	// 10% 安全池回流；现改为从 fee_collector 直接转入黑洞地址，且失败只记日志不阻断
+	// ——与本函数「gas 回流是增值行为，不应成为链安全瓶颈」的既定语义一致。
 	if burnAmount > 0 {
 		burnCoins := sdk.NewCoins(sdk.NewInt64Coin(types.DefaultDenom, int64(burnAmount)))
-		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoins); err != nil {
-			k.Logger(ctx).Error("tokenomics: gas burn failed",
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(
+			ctx, authtypes.FeeCollectorName, types.BlackHoleAddress(), burnCoins,
+		); err != nil {
+			k.Logger(ctx).Error("tokenomics: gas burn to black hole failed",
 				"burn_amount", burnAmount, "err", err.Error())
-			return fmt.Errorf("gas burn: %w", err)
+		} else {
+			ctx.EventManager().EmitEvent(
+				sdk.NewEvent("tokenomics.GasBurned",
+					sdk.NewAttribute("amount", fmt.Sprintf("%d", burnAmount)),
+					sdk.NewAttribute("ratio_bps", fmt.Sprintf("%d", GasBurnRatioBps)),
+					sdk.NewAttribute("black_hole", types.BlackHoleAddress().String()),
+				),
+			)
+			k.Logger(ctx).Info("tokenomics: gas fees sent to black hole",
+				"amount_umc", burnAmount, "ratio_bps", GasBurnRatioBps)
 		}
-		ctx.EventManager().EmitEvent(
-			sdk.NewEvent("tokenomics.GasBurned",
-				sdk.NewAttribute("amount", fmt.Sprintf("%d", burnAmount)),
-				sdk.NewAttribute("ratio_bps", fmt.Sprintf("%d", GasBurnRatioBps)),
-			),
-		)
-		k.Logger(ctx).Info("tokenomics: gas fees burned to blackhole",
-			"amount_umc", burnAmount, "ratio_bps", GasBurnRatioBps)
 	}
 
 	// 10% of gas fees rebated to the staking-security pool (B3.1 安全池闭环).

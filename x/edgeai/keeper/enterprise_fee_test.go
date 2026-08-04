@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
 
 	"mcchain/x/edgeai/types"
@@ -51,7 +52,9 @@ func (m *mockBankFeeCap) BurnCoins(_ sdk.Context, _ string, amt sdk.Coins) error
 
 // TestEnterpriseSettlementFeeSplit locks the finalized 2026-08 policy:
 // the demand side pays 1.50% of the escrowed reward on top of the escrow, and
-// that fee is split 40% burned / 60% routed to the protocol treasury.
+// that fee is split 40% to nodes (fee_collector) / 60% to the protocol treasury.
+// Nothing is burned: enterprise revenue is redistributed, never destroyed, and
+// never minted — the treasury is funded exclusively by real business inflow.
 func TestEnterpriseSettlementFeeSplit(t *testing.T) {
 	bk := &mockBankFeeCap{balance: 1e15}
 	k, ctx := setupEdgeaiWith(t, &mockPhonenode{}, nil, bk)
@@ -65,28 +68,34 @@ func TestEnterpriseSettlementFeeSplit(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedFee := reward * uint64(tokenomicstypes.EnterpriseSettlementFeeBps) / 10000
-	expectedBurn := expectedFee * uint64(tokenomicstypes.EnterpriseFeeBurnRatioBps) / 10000
-	expectedTreasury := expectedFee - expectedBurn
+	expectedNodes := expectedFee * uint64(tokenomicstypes.EnterpriseFeeNodeRatioBps) / 10000
+	expectedTreasury := expectedFee - expectedNodes
 
 	require.Equal(t, uint64(15_000), expectedFee, "1.50% of 1 MC")
+	require.Equal(t, uint64(6_000), expectedNodes, "40% of the fee goes to nodes")
+	require.Equal(t, uint64(9_000), expectedTreasury, "60% of the fee goes to the treasury")
 
 	// Leg 1: escrow of the reward, then collection of the fee.
 	require.Len(t, bk.acctToModule, 2)
 	require.Equal(t, reward, bk.acctToModule[0])
 	require.Equal(t, expectedFee, bk.acctToModule[1])
 
-	// Leg 2: 40% burned.
-	require.Len(t, bk.burned, 1)
-	require.Equal(t, expectedBurn, bk.burned[0])
+	// Nothing may be burned on this path.
+	require.Empty(t, bk.burned, "enterprise fee must never be burned")
+
+	// Leg 2: 40% to nodes via the fee collector.
+	require.Len(t, bk.modToMod, 2)
+	require.Equal(t, types.ModuleName, bk.modToMod[0].from)
+	require.Equal(t, authtypes.FeeCollectorName, bk.modToMod[0].to)
+	require.Equal(t, expectedNodes, bk.modToMod[0].amount)
 
 	// Leg 3: 60% to the protocol treasury module account.
-	require.Len(t, bk.modToMod, 1)
-	require.Equal(t, types.ModuleName, bk.modToMod[0].from)
-	require.Equal(t, tokenomicstypes.ProtocolTreasuryPoolName, bk.modToMod[0].to)
-	require.Equal(t, expectedTreasury, bk.modToMod[0].amount)
+	require.Equal(t, types.ModuleName, bk.modToMod[1].from)
+	require.Equal(t, tokenomicstypes.ProtocolTreasuryPoolName, bk.modToMod[1].to)
+	require.Equal(t, expectedTreasury, bk.modToMod[1].amount)
 
-	// Burn + treasury must reconstruct the fee exactly (no dust left behind).
-	require.Equal(t, expectedFee, bk.burned[0]+bk.modToMod[0].amount)
+	// Nodes + treasury must reconstruct the fee exactly (no dust left behind).
+	require.Equal(t, expectedFee, bk.modToMod[0].amount+bk.modToMod[1].amount)
 }
 
 // TestEnterpriseSettlementFeeWaivedWhenUnderfunded verifies that a creator who

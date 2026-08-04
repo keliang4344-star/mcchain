@@ -9,6 +9,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"mcchain/x/edgeai/types"
+	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
 // detectCheatByConsensus 实现 B3.1 链上作弊自动检测：对同一任务的多节点 pending 结果做 ResultHash 一致性投票。
@@ -247,11 +248,13 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 			continue
 		}
 
-		// 销毁 5% — 通缩飞轮，永久退出流通
+		// 销毁 5% — 通缩飞轮，打入全链唯一黑洞地址，永久退出流通、链上可查
 		if burnAmount > 0 {
 			burnCoin := sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(burnAmount)))
-			if burnErr := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoin); burnErr != nil {
-				k.Logger(ctx).Error("edgeai: burn 5% failed", "task_id", r.TaskId,
+			if burnErr := k.bankKeeper.SendCoinsFromModuleToAccount(
+				ctx, types.ModuleName, tokenomicstypes.BlackHoleAddress(), burnCoin,
+			); burnErr != nil {
+				k.Logger(ctx).Error("edgeai: burn 5% to black hole failed", "task_id", r.TaskId,
 					"burn_amount", burnAmount, "err", burnErr.Error())
 			} else {
 				ctx.EventManager().EmitEvent(
@@ -259,6 +262,7 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 						sdk.NewAttribute("task_id", r.TaskId),
 						sdk.NewAttribute("amount", strconv.FormatUint(burnAmount, 10)),
 						sdk.NewAttribute("ratio", "5%"),
+						sdk.NewAttribute("black_hole", tokenomicstypes.BlackHoleAddress().String()),
 					),
 				)
 				telemetry.IncrCounter(float32(burnAmount), "edgeai", "burn_amount")
