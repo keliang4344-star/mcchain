@@ -112,3 +112,38 @@ func (m msgServer) SwapExactIn(goCtx context.Context, msg *types.MsgSwapExactIn)
 
 	return &types.MsgSwapExactInResponse{AmountOut: amountOut.String()}, nil
 }
+
+// SubmitSettlementBatch 提交离链聚合的微结算批次（Merkle 根 + 条目），进入 pending。
+func (m msgServer) SubmitSettlementBatch(goCtx context.Context, msg *types.MsgSubmitSettlementBatch) (*types.MsgSubmitSettlementBatchResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	entries := make([]BatchEntry, 0, len(msg.Entries))
+	var total uint64
+	for _, e := range msg.Entries {
+		if e == nil {
+			continue
+		}
+		entries = append(entries, BatchEntry{Recipient: e.Recipient, Amount: e.AmountUmc})
+		total += e.AmountUmc
+	}
+
+	if err := m.Keeper.SubmitBatch(ctx, msg.BatchId, msg.MerkleRoot, msg.Creator, entries); err != nil {
+		return nil, err
+	}
+
+	return &types.MsgSubmitSettlementBatchResponse{
+		TotalUmc:   total,
+		EntryCount: uint64(len(entries)),
+	}, nil
+}
+
+// FinalizeSettlementBatch 清算一个 pending 批次：从结算源模块账户一次性拨付给各接收方。
+func (m msgServer) FinalizeSettlementBatch(goCtx context.Context, msg *types.MsgFinalizeSettlementBatch) (*types.MsgFinalizeSettlementBatchResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	if err := m.Keeper.FinalizeBatch(ctx, msg.BatchId); err != nil {
+		return nil, err
+	}
+
+	return &types.MsgFinalizeSettlementBatchResponse{}, nil
+}

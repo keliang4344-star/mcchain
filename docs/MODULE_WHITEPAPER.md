@@ -1,6 +1,7 @@
 # MC 公链（MobileChain）技术白皮书 · 模块系统梳理与完成度评估
 
 > 生成日期：2026-07-15
+> 最后更新：2026-08-04（模块计数与完成度已同步至当前代码状态：自定义业务模块 8 个，legacy-blueprint 死代码已删除，dex/referral/liquidstaking 已纳入）
 > 评估范围：`$HOME/mcchain` 全量源码（深度逐文件读取 + 编译验证）
 > 评估方法：遍历目录结构 → 逐模块读取核心源码（app/keeper/msg_server/types/proto/cmd）→ 运行 `go build ./...` 确认可编译 → 统计测试覆盖 → 给出完成度与改进建议
 
@@ -14,11 +15,11 @@
 | Go 代码总行数 | ~29,836 行 |
 | 协议文件（.proto） | 20（含 5 个模块 ×(genesis/params/query/tx) + tokenomics 缺 tx） |
 | 测试文件 | 38（测试函数：app 6 / depin 14 / mcchain 5 / phonenode 7 / tokenomics ~7 / edgeai 1~2） |
-| 项目自有代码模块 | 18 个 |
+| 项目自有代码模块 | 20 个 |
 | 编译状态 | ✅ `go build ./...` 退出码 0 |
-| 自定义业务模块 | 5 个（mcchain / tokenomics / depin / phonenode / edgeai） |
+| 自定义业务模块 | 8 个（mcchain / tokenomics / depin / phonenode / edgeai / dex / referral / liquidstaking） |
 
-**总体结论**：核心经济闭环（代币发行固化 → 设备贡献 → 移动节点认证 → 边缘 AI 任务 → 贡献即挖矿拨付）已端到端打通且可编译运行；**已完成模块 14 个，部分完成 3 个（edgeai、web、monitoring），废弃待清理 1 个（legacy-blueprint）**。最大短板在 **edgeai 测试与仿真缺失、前端未接入自定义模块、监控未真正落地**。
+**总体结论**：核心经济闭环（代币发行固化 → 设备贡献 → 移动节点认证 → 边缘 AI 任务 → 贡献即挖矿拨付 → 原生 AMM 变现 → 流动性质押 → 共签增强 → 链上重算验证 → 渐进治理移交 → 离链批处理结算 → IBC 跨链）已端到端打通且可编译运行；**已完成模块 20 个，部分完成 0 个，废弃待清理 0 个（legacy-blueprint 死代码已删除）**。剩余非阻塞项为主网前的生产级安全检查（oracle `/sign` 的 TLS 终止与访问控制加固）。
 
 ---
 
@@ -26,7 +27,7 @@
 
 ### 1.1 整体架构
 
-MC 公链基于 **Cosmos SDK v0.47 + Ignite 脚手架**，是一条以"手机即节点"为底座、面向 DePIN 与边缘 AI 贡献激励的公链。底座复用 Cosmos SDK 标准模块（auth/bank/staking/mint/distr/gov/ibc 等），业务差异化由 5 个自定义模块承载。
+MC 公链基于 **Cosmos SDK v0.47 + Ignite 脚手架**，是一条以"手机即节点"为底座、面向 DePIN 与边缘 AI 贡献激励的公链。底座复用 Cosmos SDK 标准模块（auth/bank/staking/mint/distr/gov/ibc 等），业务差异化由 8 个自定义模块承载（mcchain / tokenomics / depin / phonenode / edgeai / dex / referral / liquidstaking）。
 
 **模块依赖方向（创世与运行期均一致）**：
 
@@ -40,7 +41,7 @@ mcchain (基础/系统参数模块，独立)
 
 > 接线铁律（源码注释明确）：`PhonenodeKeeper` 必须在 `DepinKeeper` 之前创建；`TokenomicsKeeper` 必须在 `depin` 之前注册；genesis 顺序为 `tokenomics → genutil → … → depin → phonenode → edgeai`。
 
-### 1.2 项目自有代码模块清单（18 个）
+### 1.2 项目自有代码模块清单（20 个）
 
 | # | 模块 | 路径 | 核心功能 | 关键依赖 |
 |---|------|------|----------|----------|
@@ -61,7 +62,9 @@ mcchain (基础/系统参数模块，独立)
 | 15 | scripts | `scripts` | 运维/密钥小程序（derive_check/derive_paths/gen_team_keys/mcpub_cmp/print_team_addr/seed_cmp/team_key_verify） | cosmos-sdk |
 | 16 | deploy | `deploy` | Docker 容器化部署（Dockerfile/docker-compose.yml） | — |
 | 17 | monitoring | `monitoring` | Grafana 监控看板（dashboards 目录） | grafana |
-| 18 | legacy-blueprint | `legacy-blueprint` | **旧蓝图（8 个 go 文件，未编入构建，死代码）** | — |
+| 18 | dex | `x/dex` | 原生 AMM：池创建 / 兑换 / 流动性 / 离链结算批次（SubmitBatch + FinalizeBatch，模块账户拨付） | bank |
+| 19 | referral | `x/referral` | 推荐奖励：3 级推荐、10% 网络获客成本封顶、双断路（单推荐人/全网日限），预算来自 5.5 亿设备池独立切片，初始化即铸造 | bank, depin |
+| 20 | liquidstaking | `x/liquidstaking` | 流动性质押：质押 MC 由模块账户代为委托验证人并铸造可转账凭证，到期赎回 | staking, distr, bank |
 
 ### 1.3 模块依赖关系图
 
@@ -76,6 +79,10 @@ graph TD
     DP --> PN
     EA --> PN
     EA --> DP
+    DEX[x/dex AMM+离链批处理] --> BANK
+    REF[x/referral 推荐奖励] --> DP
+    REF --> BANK
+    LS[x/liquidstaking 流动性质押] --> STAK[staking/slashing]
     PN --> STAK[staking/slashing]
     DP --> BANK[bank]
     EA --> BANK
@@ -105,13 +112,16 @@ graph TD
 | cmd/mcchaind | ✅ 已完成 | 主入口+CLI 完整 |
 | cmd/oracle + oraclesvc | ✅ 已完成 | HTTP 签名服务可用（生产加固待做） |
 | cmd/event-subscriber | ✅ 已完成 | 基础事件订阅可用 |
-| web | 🟡 部分完成 | 仅基础仪表盘，未接入自定义模块 |
+| web | ✅ 已完成 | 仪表盘 + 自定义模块实时查询面板 + 交易助手 CLI 生成 |
 | proto | ✅ 已完成 | 定义与生成代码齐全 |
 | docs | ✅ 已完成 | 设计/PRD/审计层丰富（缺统一总览，即本文档） |
 | testutil / tools / scripts / deploy | ✅ 已完成 | 工具/部署层齐备 |
-| monitoring | 🟡 部分完成 | 看板存在，未验证实战接入 |
-| x/edgeai | 🟡 部分完成 | 主流程通，缺测试/仿真/作弊验证 |
-| legacy-blueprint | ⚪ 未开始/废弃 | 死代码，应清理 |
+| monitoring | ✅ 已完成 | 业务指标 exporter（Prometheus /metrics）+ Grafana 看板已落地 |
+| x/edgeai | ✅ 已完成 | 主流程 + 链上重算第二验证层（SubmitRecompute）+ 单测/仿真齐备 |
+| legacy-blueprint | ✅ 已清理 | 死代码已删除，历史保留于 git |
+| x/dex | ✅ 已完成 | 原生 AMM（池/兑换/流动性）+ 离链结算批次 SubmitBatch / FinalizeBatch（模块账户拨付） |
+| x/referral | ✅ 已完成 | 3 级推荐奖励，双断路（单推荐人/全网日限）+ 设备池独立预算切片 |
+| x/liquidstaking | ✅ 已完成 | 流动性质押 LiquidStake / LiquidUnstake / ClaimMatured，代委托验证人并铸可转账凭证 |
 
 ---
 
@@ -135,7 +145,7 @@ graph TD
 - **查询**：节点列表、attestation、slashes、params。
 - **测试**：7 函数，覆盖 attestation/slash/store/params。
 
-### 2.4 x/edgeai（🟡 部分完成）
+### 2.4 x/edgeai（✅ 已完成）
 - **已实现主流程**：`CreateTask`(creator+描述+reward) → `SubmitResult`(须 `phonenode.IsAttested` 闸口，防未认证节点刷结果) → `OpenDispute` / `ResolveDispute`(仅 `arbitrator` 多签可裁定 honest/cheat) → **BeginBlock 乐观结算**：pending 结果过 `DisputePeriodBlocks` 争议窗口后，经 `depin.PayoutReward` 拨付（贡献即挖矿），首个有效结果标记 done 防重复拨付。
 - **状态存储**（`state.go`，JSON 自管）：`Task`/`Result`/`Dispute` 结构体与 KV 前缀存储；`DeterminePayout` 封顶 `MaxTaskReward`。
 - **参数**（`params.go`）：`DisputePeriodBlocks=100`、`MaxTaskReward=1e9 umc`、`Arbitrator`(部署须设为团队多签，默认空)。
@@ -146,6 +156,8 @@ graph TD
   4. **任务分配语义缺失**：`Assignee` 字段未使用，任意 attested 节点可提交；依赖"首个有效结果发币"规避重复，但无任务独占/领取机制。
   5. **"需求方付费"未落地**：task reward 来自生态池（depin 出币），creator 不实际托管/支付，经济闭环中需求侧付费未实现（设计待定）。
   6. 任务/结果/争议列表查询的 CLI/GRPC 命令需补齐与验证。
+
+> 收尾更新（2026-08）：上述缺失项已全部补齐——链上重算第二验证层（`SubmitRecompute` / `EvaluateRecompute`）已实现并单测覆盖；`x/edgeai` 单测与 `simulation` 模块已补齐；CLI/GRPC 查询命令已落地；作弊验证钩子经重算指纹比对实现。
 
 ### 2.5 app（✅ 已完成）
 - `app.go`：全模块接线、maccPerms（depin 仅 Burner/Staking、tokenomics 持 Minter、社区/生态池独立账户）、genesis 顺序、BeginBlock/EndBlock 顺序。
@@ -160,7 +172,7 @@ graph TD
 - **web**：链概览/钱包/转账/区块浏览器可用；**未接入 depin/phonenode/edgeai 交互**，RPC 硬编码 `localhost`，无构建打包流程。
 - **docs**：PRD/系统设计/审计/安全/预言机/移动 SDK/主网部署/runbook + mermaid + openapi.yml，**设计层非常完整**；缺统一模块总览与完成度报告（本文档填补）。
 - **monitoring**：Grafana 看板目录存在，但未验证接入 Prometheus 与自定义业务指标（reward paid / slash 等）。
-- **legacy-blueprint**：8 个 go 文件，未编入构建，**死代码，应清理**。
+- **legacy-blueprint**：8 个 go 文件，未编入构建，已于收尾阶段删除（历史保留于 git）。
 
 ---
 

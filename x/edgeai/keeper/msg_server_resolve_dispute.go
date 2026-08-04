@@ -64,5 +64,14 @@ func (k msgServer) ResolveDispute(goCtx context.Context, msg *types.MsgResolveDi
 	}
 
 	k.Keeper.resolveDispute(ctx, dispute, msg.Resolution)
+
+	// 第二验证层：若争议期间有链上重算记录，结算时统一评估其证据
+	// （与原始结果一致→质疑不成立；不一致→作弊确认，与仲裁结论互证/告警）。
+	if _, ok := k.Keeper.GetRecompute(ctx, msg.TaskId); ok {
+		if _, eerr := k.Keeper.EvaluateRecompute(ctx, msg.TaskId); eerr != nil {
+			ctx.Logger().Error("edgeai: evaluate recompute on resolve failed", "task_id", msg.TaskId, "err", eerr.Error())
+		}
+	}
+
 	return &types.MsgResolveDisputeResponse{}, nil
 }

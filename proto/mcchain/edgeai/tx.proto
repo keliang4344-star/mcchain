@@ -11,6 +11,7 @@ service Msg {
   rpc SubmitResult(MsgSubmitResult) returns (MsgSubmitResultResponse);
   rpc OpenDispute (MsgOpenDispute ) returns (MsgOpenDisputeResponse );
   rpc ResolveDispute (MsgResolveDispute) returns (MsgResolveDisputeResponse);
+  rpc SubmitRecompute (MsgSubmitRecompute) returns (MsgSubmitRecomputeResponse);
 }
 
 message MsgCreateTask {
@@ -48,3 +49,20 @@ message MsgResolveDispute {
 }
 
 message MsgResolveDisputeResponse {}
+
+// MsgSubmitRecompute is the second verification layer. While a task is under
+// dispute, an independent party recomputes the inference and submits the
+// fingerprint of its own result. A mismatch against the original submission is
+// treated as fraud evidence; a match weakens the challenge.
+message MsgSubmitRecompute {
+  string creator        = 1;
+  string task_id        = 2;
+  string recompute_hash = 3;
+}
+
+// MsgSubmitRecomputeResponse reports the verdict reached on submission.
+message MsgSubmitRecomputeResponse {
+  // cheat_detected is true when the recomputed fingerprint disagrees with the
+  // original submission.
+  bool cheat_detected = 1;
+}

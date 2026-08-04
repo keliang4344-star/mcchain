@@ -1,0 +1,59 @@
+syntax = "proto3";
+package mcchain.liquidstaking;
+option go_package = "mcchain/x/liquidstaking/types";
+
+// Msg is the liquid staking transaction service.
+service Msg {
+  // LiquidStake bonds native MC through the module account and mints the
+  // transferable receipt denom in return.
+  rpc LiquidStake   (MsgLiquidStake  ) returns (MsgLiquidStakeResponse  );
+  // LiquidUnstake burns receipt shares and starts the staking unbonding period.
+  rpc LiquidUnstake (MsgLiquidUnstake) returns (MsgLiquidUnstakeResponse);
+  // ClaimMatured pays out every unbonding entry whose completion time passed.
+  rpc ClaimMatured  (MsgClaimMatured ) returns (MsgClaimMaturedResponse );
+}
+
+message MsgLiquidStake {
+  // delegator is the account bonding MC and receiving the receipt denom.
+  string delegator = 1;
+  // validator is the target validator operator address.
+  string validator = 2;
+  // amount_umc is the amount to bond, in umc.
+  uint64 amount_umc = 3;
+}
+
+message MsgLiquidStakeResponse {
+  // shares_minted_ulmc is the receipt amount credited to the delegator.
+  uint64 shares_minted_ulmc = 1;
+}
+
+message MsgLiquidUnstake {
+  // delegator is the account burning receipt shares.
+  string delegator = 1;
+  // validator is the validator to unbond from. Empty selects the validator
+  // holding the largest bond on behalf of the pool.
+  string validator = 2;
+  // shares_ulmc is the receipt amount to redeem.
+  uint64 shares_ulmc = 3;
+}
+
+message MsgLiquidUnstakeResponse {
+  // unbonding_id identifies the receipt to present when claiming.
+  uint64 unbonding_id = 1;
+  // amount_umc is the MC amount that will be released.
+  uint64 amount_umc = 2;
+  // completion_unix_time is when the entry becomes claimable.
+  int64 completion_unix_time = 3;
+}
+
+message MsgClaimMatured {
+  // delegator is the account collecting matured unbondings.
+  string delegator = 1;
+}
+
+message MsgClaimMaturedResponse {
+  // amount_umc is the total MC paid out.
+  uint64 amount_umc = 1;
+  // entries_claimed is how many unbonding entries were settled.
+  uint64 entries_claimed = 2;
+}

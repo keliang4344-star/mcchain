@@ -33,6 +33,8 @@ func GetTxCmd() *cobra.Command {
 	cmd.AddCommand(CmdSubmitStateProof())
 	cmd.AddCommand(CmdRegisterNode())
 	cmd.AddCommand(CmdSubmitAttestation())
+	cmd.AddCommand(CmdRegisterCloudSigner())
+	cmd.AddCommand(CmdSubmitCosign())
 	// this line is used by starport scaffolding # 1
 
 	return cmd

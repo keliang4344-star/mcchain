@@ -4,4 +4,32 @@ package mcchain.mcchain;
 option go_package = "mcchain/x/mcchain/types";
 
 // Msg defines the Msg service.
-service Msg {}
+service Msg {
+  // InitiateHandover registers the incoming governor and starts the timelock.
+  rpc InitiateHandover (MsgInitiateHandover) returns (MsgInitiateHandoverResponse);
+  // CompleteHandover executes the transfer once the timelock has elapsed.
+  rpc CompleteHandover (MsgCompleteHandover) returns (MsgCompleteHandoverResponse);
+}
+
+// MsgInitiateHandover opens a progressive governance handover. The signer must
+// be the current governance authority.
+message MsgInitiateHandover {
+  string authority = 1;
+  // new_governor is the address that holds governance after the timelock.
+  string new_governor = 2;
+}
+
+message MsgInitiateHandoverResponse {
+  // activation_height is the first height at which the transfer may execute.
+  int64 activation_height = 1;
+}
+
+// MsgCompleteHandover finalises a pending handover. It succeeds only after the
+// activation height, and only once.
+message MsgCompleteHandover {
+  string authority = 1;
+}
+
+message MsgCompleteHandoverResponse {
+  string new_governor = 1;
+}

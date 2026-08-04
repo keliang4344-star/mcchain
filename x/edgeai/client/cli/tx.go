@@ -19,6 +19,7 @@ func GetTxCmd() *cobra.Command {
 	cmd.AddCommand(CmdCreateTask())
 	cmd.AddCommand(CmdSubmitResult())
 	cmd.AddCommand(CmdOpenDispute())
+	cmd.AddCommand(CmdSubmitRecompute())
 	return cmd
 }
 

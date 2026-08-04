@@ -38,6 +38,8 @@ teamkeyring_gen/
 
 # === 构建产物 / 测试输出 / 本地运行态（绝不入库） ===
 *.exe
+# buf 临时生成目录（真实生成代码在 x/*/types/*.pb.go，绝不入库）
+_gen/
 event-subscriber.exe
 keeper.test.exe
 testout*.txt

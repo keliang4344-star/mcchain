@@ -132,6 +132,9 @@ import (
 	referralmodule "mcchain/x/referral"
 	referralmodulekeeper "mcchain/x/referral/keeper"
 	referralmoduletypes "mcchain/x/referral/types"
+	liquidstakingmodule "mcchain/x/liquidstaking"
+	liquidstakingmodulekeeper "mcchain/x/liquidstaking/keeper"
+	liquidstakingmoduletypes "mcchain/x/liquidstaking/types"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
 	appparams "mcchain/app/params"
@@ -199,6 +202,7 @@ var (
 		edgeaimodule.AppModuleBasic{},
 		dexmodule.AppModuleBasic{},
 		referralmodule.AppModuleBasic{},
+		liquidstakingmodule.AppModuleBasic{},
 		// this line is used by starport scaffolding # stargate/app/moduleBasic
 	)
 
@@ -234,6 +238,12 @@ var (
 		dexmoduletypes.ModuleName: {authtypes.Minter, authtypes.Burner},
 		referralmoduletypes.ModuleName: nil, // ecosystem pool rewards are paid via bank
 		referralmoduletypes.EcosystemModuleAccount: nil, // ecosystem pool for referral rewards
+		// x/liquidstaking holds pooled MC, delegates it to validators and mints the
+		// ulmc receipt token. Minter/Burner are scoped to ulmc only: ulmc is a
+		// derivative claim on already-bonded MC (same precedent as DEX LP shares),
+		// never MC itself, and never counts toward the 1B umc hard cap. Staking is
+		// required so the module account can delegate and undelegate.
+		liquidstakingmoduletypes.ModuleName: {authtypes.Minter, authtypes.Burner, authtypes.Staking},
 		// this line is used by starport scaffolding # stargate/app/maccPerms
 	}
 )
@@ -307,6 +317,8 @@ type App struct {
 	EdgeaiKeeper edgeaimodulekeeper.Keeper
 	DexKeeper    dexmodulekeeper.Keeper
 	ReferralKeeper referralmodulekeeper.Keeper
+
+	LiquidStakingKeeper liquidstakingmodulekeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
 
 	// mm is the module manager
@@ -360,6 +372,7 @@ func New(
 		edgeaimoduletypes.StoreKey,
 		dexmoduletypes.StoreKey,
 		referralmoduletypes.StoreKey,
+		liquidstakingmoduletypes.StoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	)
 	tkeys := sdk.NewTransientStoreKeys(paramstypes.TStoreKey)
@@ -661,6 +674,20 @@ func New(
 	)
 	referralModule := referralmodule.NewAppModule(appCodec, app.ReferralKeeper, app.BankKeeper)
 
+	// x/liquidstaking: 流动性质押。质押的 MC 由模块账户代为委托给验证人，
+	// 用户拿到可转让的 ulmc 凭证；赎回时销毁凭证、走 staking 解绑期后提取。
+	// 质押奖励由 BeginBlock 周期性复投，体现为 ulmc/umc 兑换率上升，不增发 MC。
+	app.LiquidStakingKeeper = *liquidstakingmodulekeeper.NewKeeper(
+		appCodec,
+		keys[liquidstakingmoduletypes.StoreKey],
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.StakingKeeper,
+		app.DistrKeeper,
+	)
+	liquidStakingModule := liquidstakingmodule.NewAppModule(appCodec, app.LiquidStakingKeeper)
+
 	// 后接线：referral 创建在 depin / edgeai 之后，通过 Setter 完成跨模块 hook。
 	app.DepinKeeper.SetReferralKeeper(app.ReferralKeeper)
 	app.EdgeaiKeeper.SetReferralKeeper(app.ReferralKeeper)
@@ -733,6 +760,7 @@ func New(
 		edgeaiModule,
 		dexModule,
 		referralModule,
+		liquidStakingModule,
 		// this line is used by starport scaffolding # stargate/app/appModule
 
 		crisis.NewAppModule(app.CrisisKeeper, skipGenesisInvariants, app.GetSubspace(crisistypes.ModuleName)), // always be last to make sure that it checks for all invariants and not only part of them
@@ -772,6 +800,7 @@ func New(
 		phonenodemoduletypes.ModuleName,
 		edgeaimoduletypes.ModuleName,
 		referralmoduletypes.ModuleName,
+		liquidstakingmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/beginBlockers
 	)
 
@@ -804,6 +833,7 @@ func New(
 		edgeaimoduletypes.ModuleName,
 		dexmoduletypes.ModuleName,
 		referralmoduletypes.ModuleName,
+		liquidstakingmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/endBlockers
 	)
 
@@ -845,6 +875,7 @@ func New(
 		phonenodemoduletypes.ModuleName,
 		edgeaimoduletypes.ModuleName,
 		dexmoduletypes.ModuleName,
+		liquidstakingmoduletypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	}
 	app.mm.SetOrderInitGenesis(genesisModuleOrder...)
@@ -1050,6 +1081,10 @@ func (app *App) ModuleAccountAddrs() map[string]bool {
 func (app *App) BlockedModuleAccountAddrs() map[string]bool {
 	modAccAddrs := app.ModuleAccountAddrs()
 	delete(modAccAddrs, authtypes.NewModuleAddress(govtypes.ModuleName).String())
+	// x/liquidstaking delegates on behalf of users, so x/distribution must be able
+	// to pay its staking rewards to the module account. Keeping it in the blocked
+	// set would make reward withdrawal fail.
+	delete(modAccAddrs, authtypes.NewModuleAddress(liquidstakingmoduletypes.ModuleName).String())
 
 	return modAccAddrs
 }

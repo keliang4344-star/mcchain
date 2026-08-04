@@ -1,0 +1,59 @@
+syntax = "proto3";
+package mcchain.liquidstaking;
+option go_package = "mcchain/x/liquidstaking/types";
+
+import "google/api/annotations.proto";
+
+// Query is the liquid staking read service.
+service Query {
+  // Params returns the module configuration.
+  rpc Params (QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/mcchain/liquidstaking/params";
+  }
+  // Pool returns pool accounting and the current receipt exchange rate.
+  rpc Pool (QueryPoolRequest) returns (QueryPoolResponse) {
+    option (google.api.http).get = "/mcchain/liquidstaking/pool";
+  }
+  // Unbondings returns the unbonding entries of one delegator.
+  rpc Unbondings (QueryUnbondingsRequest) returns (QueryUnbondingsResponse) {
+    option (google.api.http).get = "/mcchain/liquidstaking/unbondings/{delegator}";
+  }
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  bool   enabled = 1;
+  uint64 min_stake_umc = 2;
+  uint32 max_validator_share_bps = 3;
+  int64  unbonding_claim_grace_seconds = 4;
+}
+
+message QueryPoolRequest {}
+
+message QueryPoolResponse {
+  uint64 total_bonded_umc = 1;
+  uint64 total_shares_ulmc = 2;
+  uint64 total_unbonding_umc = 3;
+  uint64 cumulative_rewards_umc = 4;
+  // exchange_rate is bonded MC per receipt share, as a decimal string.
+  string exchange_rate = 5;
+}
+
+message QueryUnbondingsRequest {
+  string delegator = 1;
+}
+
+message UnbondingEntryView {
+  uint64 id = 1;
+  string delegator = 2;
+  string validator = 3;
+  uint64 amount_umc = 4;
+  uint64 shares_burned_ulmc = 5;
+  int64  completion_unix_time = 6;
+  bool   claimed = 7;
+}
+
+message QueryUnbondingsResponse {
+  repeated UnbondingEntryView entries = 1;
+}

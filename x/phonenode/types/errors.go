@@ -19,4 +19,7 @@ var (
 	ErrSlashCooldown        = sdkerrors.Register(ModuleName, 1108, "node is in slash cooldown; re-attestation blocked until cooldown passes")
 	ErrInvalidVerifierStatus = sdkerrors.Register(ModuleName, 1109, "invalid verifier status; must be 'active' or 'suspended'")
 	ErrInsufficientStake     = sdkerrors.Register(ModuleName, 1110, "insufficient stake for verifier role")
+	ErrInvalidNode           = sdkerrors.Register(ModuleName, 1111, "invalid node address")
+	ErrInvalidPubKey         = sdkerrors.Register(ModuleName, 1112, "invalid cloud signer public key")
+	ErrNoCloudSigner         = sdkerrors.Register(ModuleName, 1113, "cloud co-signer not registered for node (Path C optional)")
 )

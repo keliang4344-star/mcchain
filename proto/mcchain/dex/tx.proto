@@ -7,7 +7,40 @@ service Msg {
   rpc AddLiquidity     (MsgAddLiquidity     ) returns (MsgAddLiquidityResponse     );
   rpc RemoveLiquidity  (MsgRemoveLiquidity  ) returns (MsgRemoveLiquidityResponse  );
   rpc SwapExactIn      (MsgSwapExactIn      ) returns (MsgSwapExactInResponse      );
+  rpc SubmitSettlementBatch   (MsgSubmitSettlementBatch  ) returns (MsgSubmitSettlementBatchResponse  );
+  rpc FinalizeSettlementBatch (MsgFinalizeSettlementBatch) returns (MsgFinalizeSettlementBatchResponse);
 }
+
+// SettlementEntry is one net payout inside an aggregated batch.
+message SettlementEntry {
+  string recipient = 1;
+  uint64 amount_umc = 2;
+}
+
+// MsgSubmitSettlementBatch records an off-chain aggregation on chain. High
+// frequency micro-payments are netted off-chain into a Merkle tree; only the
+// root and the net entries are posted, so one transaction settles many
+// payments.
+message MsgSubmitSettlementBatch {
+  string creator = 1;
+  string batch_id = 2;
+  // merkle_root is the hex encoded root of the aggregated payment tree.
+  string merkle_root = 3;
+  repeated SettlementEntry entries = 4;
+}
+
+message MsgSubmitSettlementBatchResponse {
+  uint64 total_umc = 1;
+  uint64 entry_count = 2;
+}
+
+// MsgFinalizeSettlementBatch pays out a previously submitted batch.
+message MsgFinalizeSettlementBatch {
+  string creator = 1;
+  string batch_id = 2;
+}
+
+message MsgFinalizeSettlementBatchResponse {}
 
 message MsgCreatePool {
   string creator = 1;

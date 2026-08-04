@@ -88,3 +88,64 @@ func (m *MsgSwapExactIn) ValidateBasic() error {
 	}
 	return nil
 }
+
+// ---------------------------------------------------------------------------
+// 离链高频微结算批处理消息（白皮书 §18）
+// ---------------------------------------------------------------------------
+
+var (
+	_ sdk.Msg = &MsgSubmitSettlementBatch{}
+	_ sdk.Msg = &MsgFinalizeSettlementBatch{}
+)
+
+func (m *MsgSubmitSettlementBatch) Route() string { return RouterKey }
+func (m *MsgSubmitSettlementBatch) Type() string  { return "submit_settlement_batch" }
+func (m *MsgSubmitSettlementBatch) GetSigners() []sdk.AccAddress {
+	addr, _ := sdk.AccAddressFromBech32(m.Creator)
+	return []sdk.AccAddress{addr}
+}
+func (m *MsgSubmitSettlementBatch) GetSignBytes() []byte {
+	return sdk.MustSortJSON(ModuleCdc.MustMarshalJSON(m))
+}
+func (m *MsgSubmitSettlementBatch) ValidateBasic() error {
+	if _, err := sdk.AccAddressFromBech32(m.Creator); err != nil {
+		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid creator: %s", err)
+	}
+	if m.BatchId == "" || m.MerkleRoot == "" {
+		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "batch_id and merkle_root are required")
+	}
+	if len(m.Entries) == 0 {
+		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "batch must contain at least one entry")
+	}
+	for _, e := range m.Entries {
+		if e == nil {
+			return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "nil settlement entry")
+		}
+		if _, err := sdk.AccAddressFromBech32(e.Recipient); err != nil {
+			return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid recipient %s: %s", e.Recipient, err)
+		}
+		if e.AmountUmc == 0 {
+			return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "entry amount must be positive")
+		}
+	}
+	return nil
+}
+
+func (m *MsgFinalizeSettlementBatch) Route() string { return RouterKey }
+func (m *MsgFinalizeSettlementBatch) Type() string  { return "finalize_settlement_batch" }
+func (m *MsgFinalizeSettlementBatch) GetSigners() []sdk.AccAddress {
+	addr, _ := sdk.AccAddressFromBech32(m.Creator)
+	return []sdk.AccAddress{addr}
+}
+func (m *MsgFinalizeSettlementBatch) GetSignBytes() []byte {
+	return sdk.MustSortJSON(ModuleCdc.MustMarshalJSON(m))
+}
+func (m *MsgFinalizeSettlementBatch) ValidateBasic() error {
+	if _, err := sdk.AccAddressFromBech32(m.Creator); err != nil {
+		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid creator: %s", err)
+	}
+	if m.BatchId == "" {
+		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "batch_id is required")
+	}
+	return nil
+}

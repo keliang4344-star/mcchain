@@ -17,6 +17,9 @@ const (
 var (
 	// HeartbeatKey stores the latest block height for chain heartbeat
 	HeartbeatKey = KeyPrefix("Heartbeat")
+
+	// GovernanceHandoverConfigKey 渐进治理移交配置（JSON）在模块 KVStore 中的键。
+	GovernanceHandoverConfigKey = []byte("GovHandoverCfg:")
 )
 
 // ChainInfo carries the system anchor information (whitepaper line 590)

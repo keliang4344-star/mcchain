@@ -143,6 +143,10 @@ func (AppModule) ConsensusVersion() uint64 { return 1 }
 func (am AppModule) BeginBlock(ctx sdk.Context, _ abci.RequestBeginBlock) {
 	// B2：离线检测（遍历已 attest 节点，超 OfflineGraceBlocks 未心跳则 slash）。
 	am.keeper.DetectOffline(ctx)
+	// 节点资本津贴（建设溢价）：跨天时对活跃移动节点统一分发一次。
+	if err := am.keeper.DistributeNodeCapitalAllowances(ctx); err != nil {
+		ctx.Logger().Error("phonenode: distribute node capital allowance", "err", err)
+	}
 }
 
 // EndBlock contains the logic that is automatically triggered at the end of each block

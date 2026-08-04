@@ -34,7 +34,20 @@ var (
 	VerifierStatusKeyPrefix = []byte("VerifierStatus:")
 	// DevicePubKeyKeyPrefix 是节点地址 → 设备公钥 的存储前缀（attestation 验签绑定）。
 	DevicePubKeyKeyPrefix = []byte("DevPub:")
+
+	// ---- 节点资本津贴（建设溢价）存储键（2026-08 落地）----
+	// NodeAllowanceConfigKey 节点资本津贴配置（Enabled / PerDay），存储于模块 KVStore。
+	NodeAllowanceConfigKey = []byte("NodeAllowCfg:")
+	// NodeAllowanceDayKeyPrefix 记录各节点最近一次领取津贴的「日序号」：NodeAllowDay:<addr>
+	NodeAllowanceDayKeyPrefix = []byte("NodeAllowDay:")
+	// GlobalLastAllowanceDayKey 全局「当日已分发」标记，避免同日重复遍历。
+	GlobalLastAllowanceDayKey = []byte("NodeAllowGlobalDay:")
 )
+
+// NodeAllowanceDayKey 返回某节点最近领取日序号的存储 key。
+func NodeAllowanceDayKey(addr string) []byte {
+	return append(NodeAllowanceDayKeyPrefix, []byte(addr)...)
+}
 
 // AttestationKey 返回某节点的 attestation 状态 key。
 func AttestationKey(addr string) []byte {

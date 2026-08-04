@@ -423,6 +423,117 @@ func (m *MsgResolveDisputeResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgResolveDisputeResponse proto.InternalMessageInfo
 
+// MsgSubmitRecompute is the second verification layer. While a task is under
+// dispute, an independent party recomputes the inference and submits the
+// fingerprint of its own result. A mismatch against the original submission is
+// treated as fraud evidence; a match weakens the challenge.
+type MsgSubmitRecompute struct {
+	Creator       string `protobuf:"bytes,1,opt,name=creator,proto3" json:"creator,omitempty"`
+	TaskId        string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	RecomputeHash string `protobuf:"bytes,3,opt,name=recompute_hash,json=recomputeHash,proto3" json:"recompute_hash,omitempty"`
+}
+
+func (m *MsgSubmitRecompute) Reset()         { *m = MsgSubmitRecompute{} }
+func (m *MsgSubmitRecompute) String() string { return proto.CompactTextString(m) }
+func (*MsgSubmitRecompute) ProtoMessage()    {}
+func (*MsgSubmitRecompute) Descriptor() ([]byte, []int) {
+	return fileDescriptor_41af628694448f49, []int{8}
+}
+func (m *MsgSubmitRecompute) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgSubmitRecompute) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgSubmitRecompute.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgSubmitRecompute) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgSubmitRecompute.Merge(m, src)
+}
+func (m *MsgSubmitRecompute) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgSubmitRecompute) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgSubmitRecompute.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgSubmitRecompute proto.InternalMessageInfo
+
+func (m *MsgSubmitRecompute) GetCreator() string {
+	if m != nil {
+		return m.Creator
+	}
+	return ""
+}
+
+func (m *MsgSubmitRecompute) GetTaskId() string {
+	if m != nil {
+		return m.TaskId
+	}
+	return ""
+}
+
+func (m *MsgSubmitRecompute) GetRecomputeHash() string {
+	if m != nil {
+		return m.RecomputeHash
+	}
+	return ""
+}
+
+// MsgSubmitRecomputeResponse reports the verdict reached on submission.
+type MsgSubmitRecomputeResponse struct {
+	// cheat_detected is true when the recomputed fingerprint disagrees with the
+	// original submission.
+	CheatDetected bool `protobuf:"varint,1,opt,name=cheat_detected,json=cheatDetected,proto3" json:"cheat_detected,omitempty"`
+}
+
+func (m *MsgSubmitRecomputeResponse) Reset()         { *m = MsgSubmitRecomputeResponse{} }
+func (m *MsgSubmitRecomputeResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgSubmitRecomputeResponse) ProtoMessage()    {}
+func (*MsgSubmitRecomputeResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_41af628694448f49, []int{9}
+}
+func (m *MsgSubmitRecomputeResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgSubmitRecomputeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgSubmitRecomputeResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgSubmitRecomputeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgSubmitRecomputeResponse.Merge(m, src)
+}
+func (m *MsgSubmitRecomputeResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgSubmitRecomputeResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgSubmitRecomputeResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgSubmitRecomputeResponse proto.InternalMessageInfo
+
+func (m *MsgSubmitRecomputeResponse) GetCheatDetected() bool {
+	if m != nil {
+		return m.CheatDetected
+	}
+	return false
+}
+
 func init() {
 	proto.RegisterType((*MsgCreateTask)(nil), "mcchain.edgeai.MsgCreateTask")
 	proto.RegisterType((*MsgCreateTaskResponse)(nil), "mcchain.edgeai.MsgCreateTaskResponse")
@@ -432,40 +543,46 @@ func init() {
 	proto.RegisterType((*MsgOpenDisputeResponse)(nil), "mcchain.edgeai.MsgOpenDisputeResponse")
 	proto.RegisterType((*MsgResolveDispute)(nil), "mcchain.edgeai.MsgResolveDispute")
 	proto.RegisterType((*MsgResolveDisputeResponse)(nil), "mcchain.edgeai.MsgResolveDisputeResponse")
+	proto.RegisterType((*MsgSubmitRecompute)(nil), "mcchain.edgeai.MsgSubmitRecompute")
+	proto.RegisterType((*MsgSubmitRecomputeResponse)(nil), "mcchain.edgeai.MsgSubmitRecomputeResponse")
 }
 
 func init() { proto.RegisterFile("mcchain/edgeai/tx.proto", fileDescriptor_41af628694448f49) }
 
 var fileDescriptor_41af628694448f49 = []byte{
-	// 445 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x53, 0xc1, 0x6e, 0xd3, 0x40,
-	0x10, 0x8d, 0xdb, 0x2a, 0x55, 0x27, 0x10, 0xe8, 0x0a, 0x12, 0xd7, 0x88, 0x6d, 0xb0, 0x04, 0x14,
-	0x21, 0x25, 0x08, 0xfe, 0x00, 0x38, 0xc0, 0xc1, 0x20, 0x19, 0x90, 0x10, 0x48, 0x44, 0x5b, 0x7b,
-	0x58, 0x5b, 0x4d, 0xbd, 0x96, 0x67, 0x0d, 0xe5, 0x2f, 0x10, 0x5f, 0xc5, 0xb1, 0x47, 0x8e, 0x28,
-	0xb9, 0xf1, 0x15, 0xc8, 0x1b, 0xdb, 0xd8, 0x25, 0x4a, 0x24, 0xb8, 0xed, 0xcc, 0x7b, 0x33, 0xef,
-	0x69, 0x67, 0x06, 0x86, 0xa7, 0x41, 0x10, 0x89, 0x38, 0x99, 0x60, 0x28, 0x51, 0xc4, 0x13, 0x7d,
-	0x36, 0x4e, 0x33, 0xa5, 0x15, 0xeb, 0x97, 0xc0, 0x78, 0x09, 0x38, 0xd7, 0xa4, 0x92, 0xca, 0x40,
-	0x93, 0xe2, 0xb5, 0x64, 0xb9, 0x01, 0x5c, 0xf6, 0x48, 0x3e, 0xc9, 0x50, 0x68, 0x7c, 0x2d, 0xe8,
-	0x84, 0xd9, 0xb0, 0x1b, 0x14, 0x91, 0xca, 0x6c, 0x6b, 0x64, 0x1d, 0xed, 0xf9, 0x55, 0xc8, 0x46,
-	0xd0, 0x0b, 0x91, 0x82, 0x2c, 0x4e, 0x75, 0xac, 0x12, 0x7b, 0xcb, 0xa0, 0xcd, 0x14, 0x1b, 0x40,
-	0x37, 0xc3, 0xcf, 0x22, 0x0b, 0xed, 0xed, 0x91, 0x75, 0xb4, 0xe3, 0x97, 0x91, 0x3b, 0x84, 0xeb,
-	0x2d, 0x11, 0x1f, 0x29, 0x55, 0x09, 0xa1, 0xfb, 0xcd, 0x82, 0x2b, 0x1e, 0xc9, 0x57, 0xf9, 0xf1,
-	0x69, 0xac, 0x7d, 0xa4, 0x7c, 0xa6, 0xd7, 0x18, 0x18, 0xc2, 0xae, 0x16, 0x74, 0x32, 0x8d, 0xc3,
-	0x52, 0xbc, 0x5b, 0x84, 0xcf, 0x43, 0x76, 0x08, 0xbd, 0xcc, 0x14, 0x4f, 0x23, 0x41, 0x91, 0x11,
-	0xdf, 0xf3, 0x61, 0x99, 0x7a, 0x26, 0x28, 0x62, 0xf7, 0x61, 0x5f, 0x68, 0x8d, 0xa4, 0x45, 0xe1,
-	0x73, 0x9a, 0xa8, 0x24, 0x40, 0x7b, 0xc7, 0xd0, 0xae, 0x36, 0x80, 0x17, 0x45, 0xde, 0x3d, 0x80,
-	0xe1, 0x05, 0x4f, 0xb5, 0xdf, 0xf7, 0xd0, 0xf7, 0x48, 0xbe, 0x4c, 0x31, 0x79, 0x1a, 0x53, 0x9a,
-	0x6b, 0xfc, 0x17, 0xb7, 0xe6, 0x97, 0x04, 0xa9, 0xa4, 0x34, 0x5a, 0x46, 0xae, 0x0d, 0x83, 0x76,
-	0xf3, 0x5a, 0xf6, 0x23, 0xec, 0x7b, 0x24, 0x7d, 0x24, 0x35, 0xfb, 0x84, 0xff, 0xa1, 0xcc, 0xa1,
-	0xf8, 0x14, 0x35, 0xcb, 0xcd, 0x00, 0xff, 0x7c, 0x53, 0x99, 0x71, 0x6f, 0xc0, 0xc1, 0x5f, 0x3a,
-	0x95, 0x89, 0x87, 0xbf, 0xb6, 0x60, 0xdb, 0x23, 0xc9, 0x7c, 0x80, 0xc6, 0xba, 0xdc, 0x1c, 0xb7,
-	0xd7, 0x6c, 0xdc, 0x1a, 0xb4, 0x73, 0x7b, 0x2d, 0x5c, 0xf5, 0x66, 0x6f, 0xe1, 0x52, 0x6b, 0x07,
-	0x0e, 0x57, 0x94, 0x35, 0x09, 0xce, 0xdd, 0x0d, 0x84, 0xba, 0xf3, 0x1b, 0xe8, 0x35, 0xc7, 0xc5,
-	0x57, 0xd4, 0x35, 0x70, 0xe7, 0xce, 0x7a, 0xbc, 0x6e, 0xfb, 0x01, 0xfa, 0x17, 0xc6, 0x71, 0x6b,
-	0x45, 0x65, 0x9b, 0xe2, 0xdc, 0xdb, 0x48, 0xa9, 0xfa, 0x3f, 0x7e, 0xf0, 0x7d, 0xce, 0xad, 0xf3,
-	0x39, 0xb7, 0x7e, 0xce, 0xb9, 0xf5, 0x75, 0xc1, 0x3b, 0xe7, 0x0b, 0xde, 0xf9, 0xb1, 0xe0, 0x9d,
-	0x77, 0x83, 0xea, 0xde, 0xcf, 0xea, 0x8b, 0xff, 0x92, 0x22, 0x1d, 0x77, 0xcd, 0x3d, 0x3f, 0xfa,
-	0x1d, 0x00, 0x00, 0xff, 0xff, 0x91, 0x43, 0x63, 0x0a, 0x10, 0x04, 0x00, 0x00,
+	// 509 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x54, 0xc1, 0x6e, 0xd3, 0x40,
+	0x10, 0x8d, 0x49, 0x95, 0xd2, 0x09, 0x49, 0xa9, 0x05, 0x89, 0x6b, 0x84, 0x1b, 0x2c, 0x15, 0x0a,
+	0x48, 0x09, 0x82, 0x3f, 0xa0, 0x3d, 0xc0, 0x21, 0x20, 0x19, 0x90, 0x10, 0x48, 0x44, 0xdb, 0xf5,
+	0x60, 0x5b, 0x4d, 0xbc, 0x96, 0x67, 0x03, 0xe5, 0x2f, 0x10, 0x5f, 0xc5, 0x05, 0xa9, 0x47, 0x8e,
+	0x28, 0xf9, 0x11, 0xe4, 0x8d, 0xbd, 0xd8, 0x69, 0x94, 0x48, 0xe5, 0x96, 0x79, 0xef, 0xcd, 0xbc,
+	0x97, 0xdd, 0xf1, 0x42, 0x77, 0xc2, 0x79, 0xc8, 0xa2, 0x78, 0x80, 0x7e, 0x80, 0x2c, 0x1a, 0xc8,
+	0xf3, 0x7e, 0x92, 0x0a, 0x29, 0xcc, 0x76, 0x4e, 0xf4, 0x17, 0x84, 0x7d, 0x2b, 0x10, 0x81, 0x50,
+	0xd4, 0x20, 0xfb, 0xb5, 0x50, 0xb9, 0x1c, 0x5a, 0x43, 0x0a, 0x8e, 0x53, 0x64, 0x12, 0xdf, 0x32,
+	0x3a, 0x33, 0x2d, 0xd8, 0xe6, 0x59, 0x25, 0x52, 0xcb, 0xe8, 0x19, 0x47, 0x3b, 0x5e, 0x51, 0x9a,
+	0x3d, 0x68, 0xfa, 0x48, 0x3c, 0x8d, 0x12, 0x19, 0x89, 0xd8, 0xba, 0xa6, 0xd8, 0x32, 0x64, 0x76,
+	0xa0, 0x91, 0xe2, 0x57, 0x96, 0xfa, 0x56, 0xbd, 0x67, 0x1c, 0x6d, 0x79, 0x79, 0xe5, 0x76, 0xe1,
+	0x76, 0xc5, 0xc4, 0x43, 0x4a, 0x44, 0x4c, 0xe8, 0xfe, 0x30, 0x60, 0x77, 0x48, 0xc1, 0x9b, 0xe9,
+	0xe9, 0x24, 0x92, 0x1e, 0xd2, 0x74, 0x2c, 0xd7, 0x04, 0xe8, 0xc2, 0xb6, 0x64, 0x74, 0x36, 0x8a,
+	0xfc, 0xdc, 0xbc, 0x91, 0x95, 0x2f, 0x7d, 0xf3, 0x00, 0x9a, 0xa9, 0x6a, 0x1e, 0x85, 0x8c, 0x42,
+	0x65, 0xbe, 0xe3, 0xc1, 0x02, 0x7a, 0xc1, 0x28, 0x34, 0x1f, 0xc3, 0x1e, 0x93, 0x12, 0x49, 0xb2,
+	0x2c, 0xe7, 0x28, 0x16, 0x31, 0x47, 0x6b, 0x4b, 0xc9, 0x6e, 0x96, 0x88, 0x57, 0x19, 0xee, 0xee,
+	0x43, 0x77, 0x29, 0x93, 0xce, 0xfb, 0x11, 0xda, 0x43, 0x0a, 0x5e, 0x27, 0x18, 0x9f, 0x44, 0x94,
+	0x4c, 0x25, 0x5e, 0x25, 0xad, 0x3a, 0x25, 0x46, 0x22, 0xce, 0x83, 0xe6, 0x95, 0x6b, 0x41, 0xa7,
+	0x3a, 0x5c, 0xdb, 0x7e, 0x86, 0xbd, 0x21, 0x05, 0x1e, 0x92, 0x18, 0x7f, 0xc1, 0xff, 0x70, 0x76,
+	0x20, 0x3b, 0x14, 0x31, 0x9e, 0xaa, 0x0b, 0xfc, 0x77, 0x4c, 0x39, 0xe2, 0xde, 0x81, 0xfd, 0x4b,
+	0x3e, 0x3a, 0x44, 0x0c, 0x66, 0xe9, 0x58, 0xb8, 0x98, 0x5c, 0x35, 0xc5, 0x21, 0xb4, 0xd3, 0xa2,
+	0xbf, 0x7c, 0x61, 0x2d, 0x8d, 0x66, 0x77, 0xe6, 0x1e, 0x83, 0x7d, 0xd9, 0xaf, 0x48, 0x93, 0x0d,
+	0xe1, 0x21, 0x32, 0x39, 0xf2, 0x51, 0x22, 0x97, 0xe8, 0x2b, 0xfb, 0xeb, 0x5e, 0x4b, 0xa1, 0x27,
+	0x39, 0xf8, 0xf4, 0x57, 0x1d, 0xea, 0x43, 0x0a, 0x4c, 0x0f, 0xa0, 0xb4, 0xe3, 0x77, 0xfb, 0xd5,
+	0x6f, 0xa3, 0x5f, 0xd9, 0x4e, 0xfb, 0x70, 0x2d, 0xad, 0x23, 0xbc, 0x87, 0x1b, 0x95, 0xc5, 0x3d,
+	0x58, 0xd1, 0x56, 0x16, 0xd8, 0x0f, 0x36, 0x08, 0xf4, 0xe4, 0x77, 0xd0, 0x2c, 0xef, 0x98, 0xb3,
+	0xa2, 0xaf, 0xc4, 0xdb, 0xf7, 0xd7, 0xf3, 0x7a, 0xec, 0x27, 0x68, 0x2f, 0xed, 0xd0, 0xbd, 0x15,
+	0x9d, 0x55, 0x89, 0xfd, 0x70, 0xa3, 0x44, 0xcf, 0x67, 0xb0, 0xbb, 0xbc, 0x1e, 0xee, 0x9a, 0xbf,
+	0x9c, 0x6b, 0xec, 0x47, 0x9b, 0x35, 0x85, 0xc5, 0xf3, 0x27, 0x3f, 0x67, 0x8e, 0x71, 0x31, 0x73,
+	0x8c, 0x3f, 0x33, 0xc7, 0xf8, 0x3e, 0x77, 0x6a, 0x17, 0x73, 0xa7, 0xf6, 0x7b, 0xee, 0xd4, 0x3e,
+	0x74, 0x8a, 0x77, 0xf0, 0x5c, 0xbf, 0x84, 0xdf, 0x12, 0xa4, 0xd3, 0x86, 0x7a, 0xe7, 0x9e, 0xfd,
+	0x0d, 0x00, 0x00, 0xff, 0xff, 0xd6, 0xdc, 0x17, 0x59, 0x28, 0x05, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -484,6 +601,7 @@ type MsgClient interface {
 	SubmitResult(ctx context.Context, in *MsgSubmitResult, opts ...grpc.CallOption) (*MsgSubmitResultResponse, error)
 	OpenDispute(ctx context.Context, in *MsgOpenDispute, opts ...grpc.CallOption) (*MsgOpenDisputeResponse, error)
 	ResolveDispute(ctx context.Context, in *MsgResolveDispute, opts ...grpc.CallOption) (*MsgResolveDisputeResponse, error)
+	SubmitRecompute(ctx context.Context, in *MsgSubmitRecompute, opts ...grpc.CallOption) (*MsgSubmitRecomputeResponse, error)
 }
 
 type msgClient struct {
@@ -530,12 +648,22 @@ func (c *msgClient) ResolveDispute(ctx context.Context, in *MsgResolveDispute, o
 	return out, nil
 }
 
+func (c *msgClient) SubmitRecompute(ctx context.Context, in *MsgSubmitRecompute, opts ...grpc.CallOption) (*MsgSubmitRecomputeResponse, error) {
+	out := new(MsgSubmitRecomputeResponse)
+	err := c.cc.Invoke(ctx, "/mcchain.edgeai.Msg/SubmitRecompute", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 type MsgServer interface {
 	CreateTask(context.Context, *MsgCreateTask) (*MsgCreateTaskResponse, error)
 	SubmitResult(context.Context, *MsgSubmitResult) (*MsgSubmitResultResponse, error)
 	OpenDispute(context.Context, *MsgOpenDispute) (*MsgOpenDisputeResponse, error)
 	ResolveDispute(context.Context, *MsgResolveDispute) (*MsgResolveDisputeResponse, error)
+	SubmitRecompute(context.Context, *MsgSubmitRecompute) (*MsgSubmitRecomputeResponse, error)
 }
 
 // UnimplementedMsgServer can be embedded to have forward compatible implementations.
@@ -553,6 +681,9 @@ func (*UnimplementedMsgServer) OpenDispute(ctx context.Context, req *MsgOpenDisp
 }
 func (*UnimplementedMsgServer) ResolveDispute(ctx context.Context, req *MsgResolveDispute) (*MsgResolveDisputeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResolveDispute not implemented")
+}
+func (*UnimplementedMsgServer) SubmitRecompute(ctx context.Context, req *MsgSubmitRecompute) (*MsgSubmitRecomputeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SubmitRecompute not implemented")
 }
 
 func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
@@ -631,7 +762,24 @@ func _Msg_ResolveDispute_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-var Msg_serviceDesc = _Msg_serviceDesc
+func _Msg_SubmitRecompute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgSubmitRecompute)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).SubmitRecompute(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/mcchain.edgeai.Msg/SubmitRecompute",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).SubmitRecompute(ctx, req.(*MsgSubmitRecompute))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Msg_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "mcchain.edgeai.Msg",
 	HandlerType: (*MsgServer)(nil),
@@ -651,6 +799,10 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResolveDispute",
 			Handler:    _Msg_ResolveDispute_Handler,
+		},
+		{
+			MethodName: "SubmitRecompute",
+			Handler:    _Msg_SubmitRecompute_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -930,6 +1082,83 @@ func (m *MsgResolveDisputeResponse) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgSubmitRecompute) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgSubmitRecompute) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgSubmitRecompute) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.RecomputeHash) > 0 {
+		i -= len(m.RecomputeHash)
+		copy(dAtA[i:], m.RecomputeHash)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.RecomputeHash)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.TaskId) > 0 {
+		i -= len(m.TaskId)
+		copy(dAtA[i:], m.TaskId)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.TaskId)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Creator) > 0 {
+		i -= len(m.Creator)
+		copy(dAtA[i:], m.Creator)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Creator)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgSubmitRecomputeResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgSubmitRecomputeResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgSubmitRecomputeResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.CheatDetected {
+		i--
+		if m.CheatDetected {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTx(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTx(v)
 	base := offset
@@ -1061,6 +1290,39 @@ func (m *MsgResolveDisputeResponse) Size() (n int) {
 	}
 	var l int
 	_ = l
+	return n
+}
+
+func (m *MsgSubmitRecompute) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Creator)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.TaskId)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.RecomputeHash)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgSubmitRecomputeResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.CheatDetected {
+		n += 2
+	}
 	return n
 }
 
@@ -1873,6 +2135,222 @@ func (m *MsgResolveDisputeResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *MsgSubmitRecompute) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgSubmitRecompute: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgSubmitRecompute: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Creator", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Creator = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TaskId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TaskId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RecomputeHash", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RecomputeHash = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgSubmitRecomputeResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgSubmitRecomputeResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgSubmitRecomputeResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CheatDetected", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.CheatDetected = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipTx(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1957,3 +2435,5 @@ var (
 	ErrIntOverflowTx          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupTx = fmt.Errorf("proto: unexpected end of group")
 )
+
+var Msg_serviceDesc = _Msg_serviceDesc

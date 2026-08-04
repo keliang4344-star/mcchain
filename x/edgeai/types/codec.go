@@ -11,6 +11,7 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgCreateTask{}, "mcchain/edgeai/CreateTask", nil)
 	cdc.RegisterConcrete(&MsgSubmitResult{}, "mcchain/edgeai/SubmitResult", nil)
 	cdc.RegisterConcrete(&MsgOpenDispute{}, "mcchain/edgeai/OpenDispute", nil)
+	cdc.RegisterConcrete(&MsgSubmitRecompute{}, "mcchain/edgeai/SubmitRecompute", nil)
 }
 
 func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
@@ -18,6 +19,7 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 		&MsgCreateTask{},
 		&MsgSubmitResult{},
 		&MsgOpenDispute{},
+		&MsgSubmitRecompute{},
 	)
 	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)
 }

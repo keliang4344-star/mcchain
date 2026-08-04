@@ -12,6 +12,8 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgAddLiquidity{}, "mcchain/dex/AddLiquidity", nil)
 	cdc.RegisterConcrete(&MsgRemoveLiquidity{}, "mcchain/dex/RemoveLiquidity", nil)
 	cdc.RegisterConcrete(&MsgSwapExactIn{}, "mcchain/dex/SwapExactIn", nil)
+	cdc.RegisterConcrete(&MsgSubmitSettlementBatch{}, "mcchain/dex/SubmitSettlementBatch", nil)
+	cdc.RegisterConcrete(&MsgFinalizeSettlementBatch{}, "mcchain/dex/FinalizeSettlementBatch", nil)
 }
 
 func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
@@ -20,6 +22,8 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgAddLiquidity{},
 		&MsgRemoveLiquidity{},
 		&MsgSwapExactIn{},
+		&MsgSubmitSettlementBatch{},
+		&MsgFinalizeSettlementBatch{},
 	)
 
 	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)

@@ -110,6 +110,10 @@ const (
 	// ReputationCheatDecrease 任务拒绝/作弊时声誉减少量。
 	ReputationCheatDecrease uint32 = 10
 
+	// ReputationFrivolousDecrease 第二验证层重算结果与原始一致（质疑不成立）时，
+	// 对挑战方声誉的轻度扣减量（误告惩戒）。
+	ReputationFrivolousDecrease uint32 = 3
+
 	// ReputationLowPriorityThreshold 声誉低于此值的节点限制接单优先级。
 	ReputationLowPriorityThreshold uint32 = 30
 

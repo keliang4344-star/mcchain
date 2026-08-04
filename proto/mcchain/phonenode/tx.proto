@@ -10,6 +10,8 @@ service Msg {
   rpc RegisterNode          (MsgRegisterNode         ) returns (MsgRegisterNodeResponse         );
   rpc SubmitAttestation     (MsgSubmitAttestation    ) returns (MsgSubmitAttestationResponse    );
   rpc UpdateVerifierStatus  (MsgUpdateVerifierStatus ) returns (MsgUpdateVerifierStatusResponse );
+  rpc RegisterCloudSigner   (MsgRegisterCloudSigner  ) returns (MsgRegisterCloudSignerResponse  );
+  rpc SubmitCosign          (MsgSubmitCosign         ) returns (MsgSubmitCosignResponse         );
 }
 message MsgSubmitStateProof {
   string creator = 1;
@@ -54,4 +56,26 @@ message MsgUpdateVerifierStatus {
 }
 
 message MsgUpdateVerifierStatusResponse {}
+
+// MsgRegisterCloudSigner binds a node to the cloud co-signer that will
+// counter-sign its sensitive operations.
+message MsgRegisterCloudSigner {
+  string creator = 1;
+  // cloud_pub_key is a compressed secp256k1 public key, 33 bytes, hex encoded.
+  string cloud_pub_key = 2;
+}
+
+message MsgRegisterCloudSignerResponse {}
+
+// MsgSubmitCosign submits the cloud signature over a payload the device already
+// signed locally, producing an on-chain two-factor attestation.
+message MsgSubmitCosign {
+  string creator = 1;
+  // payload_hash is the hex encoded hash both parties signed.
+  string payload_hash = 2;
+  // cloud_signature is the cloud co-signer's secp256k1 signature, 64 bytes, hex.
+  string cloud_signature = 3;
+}
+
+message MsgSubmitCosignResponse {}
 

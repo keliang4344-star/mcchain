@@ -188,8 +188,8 @@ func (v *androidKAVerifier) Verify(ctx context.Context, c AttestationClaim) erro
 	leaf := certs[0]
 	// 验证整条链到可信根（中间证书可由 leaf 携带）。
 	if _, err := leaf.Verify(x509.VerifyOptions{
-		Roots:       v.roots,
-		KeyUsages:   []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		Roots:         v.roots,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 		Intermediates: intermediatePool(certs[1:]),
 	}); err != nil {
 		return ErrAttestation
@@ -299,6 +299,21 @@ func NewRegistry(verifiers []AttestationVerifier, allowed []string) *Registry {
 
 // Root 仅用于满足 AttestationVerifier 接口（注册表本身按 root 分发）。
 func (r *Registry) Root() string { return "registry" }
+
+// ConfiguredRoots 返回实际已装载验证器的根列表（按 allRoots 顺序，便于启动日志与
+// 配置校验判断「是否至少配置了一个根」；没有任何根时 /sign 会 fail-closed）。
+func (r *Registry) ConfiguredRoots() []string {
+	if r == nil {
+		return nil
+	}
+	var out []string
+	for _, root := range allRoots {
+		if _, ok := r.verifiers[root]; ok {
+			out = append(out, root)
+		}
+	}
+	return out
+}
 
 // Verify 校验 attestation：未知 root / 未允许 root / 验证失败均拒绝。
 func (r *Registry) Verify(ctx context.Context, c AttestationClaim) error {

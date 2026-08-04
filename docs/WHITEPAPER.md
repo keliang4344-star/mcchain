@@ -268,13 +268,13 @@ MobileChain runs three participation tiers rather than one.
 
 **Device nodes** are phones producing attestation and completing tasks. They earn from the device pool and require no capital.
 
-**Phone-cloud co-signing** binds a cloud validator's consensus identity to an attested physical device, so a single operator earns from both consensus and device contribution. The cloud validator is the requirement; the co-signing binding is an enhancement layered on top. Mainnet launches with the two roles independent and adopts co-signing as an upgrade.
+**Phone-cloud co-signing** binds a cloud validator's consensus identity to an attested physical device, so a single operator earns from both consensus and device contribution. The cloud validator is the requirement; the co-signing binding is an enhancement layered on top. The two roles are independent at launch, with co-signing enabled as a post-launch upgrade.
 
-*Status: co-signing is Planned. Validator threshold, delegation, and the tier structure are Live.*
+*Status: Live. Validator threshold, delegation, the tier structure, and phone-cloud co-signing are Live.*
 
-**Liquid staking** will issue a transferable representation of bonded MC, so stake can secure the network without being immobilized. The module is committed and not yet in the client.
+**Liquid staking** issues a transferable representation of bonded MC, so stake can secure the network without being immobilized. The module is live in the client.
 
-*Status: Planned.*
+*Status: Live.*
 
 ---
 
@@ -288,7 +288,7 @@ A dispute freezes settlement until arbitration resolves it. A ruling of fraud cl
 
 Verifier selection is reputation-weighted and samples completed tasks after the fact, so a provider cannot know in advance which submissions will be checked.
 
-*Status: Live. On-chain recomputation as a second verification layer is Planned.*
+*Status: Live. On-chain recomputation serves as a second verification layer.*
 
 ---
 
@@ -328,9 +328,9 @@ The intended trajectory is a progressive handover: the team holds fewer operatio
 
 ## 17. Programmability
 
-CosmWasm smart-contract support is committed for mainnet launch. Once the WebAssembly module is integrated, developers deploy composable contracts directly on MobileChain and compose with the native modules described here. Until then, programmability is what the native modules provide.
+CosmWasm smart-contract support is committed and scheduled as a post-mainnet upgrade. Once the WebAssembly module is integrated, developers deploy composable contracts directly on MobileChain and compose with the native modules described here. Until then, programmability is what the native modules provide.
 
-*Status: Planned for mainnet launch.*
+*Status: Planned. The WebAssembly module is scheduled as a post-mainnet upgrade; native modules provide programmability at launch.*
 
 ---
 
@@ -338,11 +338,11 @@ CosmWasm smart-contract support is committed for mainnet launch. Once the WebAss
 
 The roadmap is stated as milestones, not dates. Progress is measured against on-chain state and the public repository.
 
-**Delivered.** Six native modules; five-pool genesis with end-to-end verification; zero-inflation enforcement; mobile node security including attestation, Sybil binding, offline grace, tiered slashing, and cooldown; the EdgeAI economic loop from posting through optimistic settlement and arbitration; the native AMM with its burn; the referral module with dual circuit breakers; the 30,000 MC validator floor; oracle hardening with fail-closed device verification; the twelve-year drip with treasury renewal; gas burn and rebate; the slash split; the enterprise settlement fee; the Protocol Treasury as the sixth address.
+**Delivered.** Eight native modules; five-pool genesis with end-to-end verification; zero-inflation enforcement; mobile node security including attestation, Sybil binding, offline grace, tiered slashing, and cooldown; liquid staking with delegated bonding; phone-cloud co-signing; the EdgeAI economic loop from posting through optimistic settlement and arbitration with on-chain recomputation as a second verification layer; the native AMM with its burn; the referral module with dual circuit breakers; the 30,000 MC validator floor; oracle hardening with fail-closed device verification; the twelve-year drip with treasury renewal; gas burn and rebate; the slash split; the enterprise settlement fee; the Protocol Treasury as the sixth address; progressive governance handover with timelock; off-chain settlement batching for high-frequency micro-payouts; and IBC interoperability through interchain accounts and IBC transfer.
 
 **In progress.** Mainnet launch preparation: genesis ceremony, validator recruitment, final audit. Mobile SDK refinement. Dashboard and RPC configuration.
 
-**Planned.** CosmWasm contracts. Liquid staking. Phone-cloud co-signing. EdgeAI on-chain recomputation. Progressive governance handover. Off-chain batching for high-frequency micro-settlement. IBC interoperability.
+**Planned.** CosmWasm smart contracts. The WebAssembly module is committed and scheduled as a post-mainnet upgrade; native modules supply the launch-time programmability surface.
 
 ---
 
