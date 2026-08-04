@@ -44,19 +44,16 @@ func (m *mockBankAllowance) SpendableCoins(_ sdk.Context, addr sdk.AccAddress) s
 	return m.balances[addr.String()]
 }
 
+// GetBalance returns the mock's tracked balance for the given denom.
+func (m *mockBankAllowance) GetBalance(_ sdk.Context, addr sdk.AccAddress, denom string) sdk.Coin {
+	return sdk.NewCoin(denom, m.balances[addr.String()].AmountOf(denom))
+}
+
 func (m *mockBankAllowance) SendCoinsFromModuleToModule(_ sdk.Context, _, _ string, _ sdk.Coins) error {
 	return nil
 }
 
 func (m *mockBankAllowance) BurnCoins(_ sdk.Context, _ string, _ sdk.Coins) error {
-	return nil
-}
-
-// MintCoins credits a module account. The slashing path re-mints the treasury
-// share of a native slash, so the keeper requires this capability.
-func (m *mockBankAllowance) MintCoins(_ sdk.Context, moduleName string, amt sdk.Coins) error {
-	addr := authtypes.NewModuleAddress(moduleName).String()
-	m.balances[addr] = m.balances[addr].Add(amt...)
 	return nil
 }
 

@@ -83,15 +83,11 @@ func (k Keeper) SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint
 	}
 	consAddr := sdk.GetConsAddress(pubKey)
 
-	// === Slashed-funds routing (finalized 2026-08): 40% burned / 60% protocol treasury ===
-	// Native staking.Slash would burn 100% of the slashed stake, which breaks the
-	// deflation accounting of the fixed 1B supply cap. Instead the slashed amount
-	// (penaltyBps of the validator's bonded tokens, in bond denom) is moved out of
-	// the bonded pool into this module account and then split:
-	//   - SlashBurnRatioBps     (40%) is burned  -> permanent supply reduction;
-	//   - SlashTreasuryRatioBps (60%) is sent to the protocol treasury (6th address).
-	// This supersedes the earlier "route 100% to staking_security" behaviour.
-	// Jail is still applied to revoke block-producing rights.
+	// === Slashed-funds routing (R1 铁律：任何模块均不得新印 MC) ===
+	// 原生 staking.Slash 把被罚的自质押（penaltyBps 比例）100% 烧毁，实现通缩；
+	// 被罚币绝不重新生成。国库那 60% 份额不新印，而是由质押安全池（既有储备账户）
+	// 转账进入协议国库（routeTreasuryShare）。净效果：被罚币 100% 通缩 +
+	// 安全池按 60% 划给国库，全链无任何新增 MC。Jail 仍照常执行以吊销出块权。
 	fraction := sdk.NewDecWithPrec(int64(penaltyBps), 4)
 	tokens := val.GetTokens() // 质押代币数量（bond denom）
 	slashedAmt := fraction.MulInt(tokens).TruncateInt()
@@ -108,13 +104,8 @@ func (k Keeper) SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint
 			ctx, consAddr, fraction,
 			val.GetConsensusPower(sdk.DefaultPowerReduction), ctx.BlockHeight()-1,
 		)
-		// Finalized 2026-08 split: 40% burn / 60% protocol treasury.
-		// The 40% burn is realized by the native slash above; the 60% treasury
-		// share is re-created as new supply through the tokenomics module account
-		// and routed to the protocol treasury. Bonded tokens cannot be redirected
-		// to a non-staking account without breaking staking accounting, so the
-		// treasury share must be minted; net effect = 40% deflation (honors the
-		// documented split without halting the chain on the invariant check).
+		// 40% 烧毁由上方原生 staking.Slash 完成（100% 烧毁）。
+		// 国库 60% 份额从安全池转账进入，绝不调用 MintCoins（R1 铁律）。
 		if err := k.routeTreasuryShare(ctx, bondDenom, slashedAmt); err != nil {
 			return err
 		}
@@ -139,36 +130,46 @@ func (k Keeper) emitSlashEvent(ctx sdk.Context, addr, reason string, penaltyBps 
 	telemetry.IncrCounter(1, "phonenode", "slash_count")
 }
 
-// routeTreasuryShare mints the finalized 2026-08 treasury share (60% of the
-// slashed amount) through the tokenomics module account and routes it to the
-// protocol treasury (the 6th independent address). The 40% burn is handled by
-// the native staking slash above; this re-creates the 60% treasury portion as
-// new supply so the documented 40/60 split is honored without breaking staking's
-// bonded-pool accounting. The minted amount is negligible relative to the fixed
-// supply cap, so it does not threaten the deflation ceiling.
+// routeTreasuryShare routes the documented 60% slash treasury share to the
+// protocol treasury (the 6th independent address) WITHOUT minting any new MC.
+// Per the R1 iron rule, the treasury share is drawn as a transfer from the
+// staking-security pool (a pre-funded reserve), not created by MintCoins. The
+// 40% burn portion is already realized by the native staking.Slash call above
+// (which burns the full slashed fraction). If the security pool has less than
+// the full 60% share available, only the available amount is transferred, so a
+// single slash can never exhaust the pool and halt the chain.
 func (k Keeper) routeTreasuryShare(ctx sdk.Context, denom string, amt sdk.Int) error {
 	if !amt.IsPositive() {
 		return nil
 	}
-	burnAmt := amt.MulRaw(int64(tokenomicsmoduletypes.SlashBurnRatioBps)).QuoRaw(10000)
-	treasuryAmt := amt.Sub(burnAmt)
+	treasuryRatio := sdk.NewDecWithPrec(int64(tokenomicsmoduletypes.SlashTreasuryRatioBps), 4) // 0.60
+	treasuryAmt := treasuryRatio.MulInt(amt).TruncateInt()
 	if !treasuryAmt.IsPositive() {
 		return nil
 	}
-	treasuryCoins := sdk.NewCoins(sdk.NewCoin(denom, treasuryAmt))
-	if err := k.bankKeeper.MintCoins(ctx, tokenomicsmoduletypes.ModuleName, treasuryCoins); err != nil {
-		return fmt.Errorf("phonenode: mint treasury slash share: %w", err)
+
+	// R1 铁律：任何模块都不得新印 MC。国库份额由既有安全池转账进入，不调用 MintCoins。
+	srcAddr := tokenomicsmoduletypes.StakingSecurityPoolAddress()
+	avail := k.bankKeeper.GetBalance(ctx, srcAddr, denom).Amount
+	transferAmt := treasuryAmt
+	if transferAmt.GT(avail) {
+		transferAmt = avail
 	}
+	if !transferAmt.IsPositive() {
+		return nil
+	}
+	treasuryCoins := sdk.NewCoins(sdk.NewCoin(denom, transferAmt))
 	if err := k.bankKeeper.SendCoinsFromModuleToModule(
-		ctx, tokenomicsmoduletypes.ModuleName, tokenomicsmoduletypes.ProtocolTreasuryPoolName, treasuryCoins,
+		ctx, tokenomicsmoduletypes.StakingSecurityPoolName, tokenomicsmoduletypes.ProtocolTreasuryPoolName, treasuryCoins,
 	); err != nil {
-		return fmt.Errorf("phonenode: route slashed share to treasury: %w", err)
+		return fmt.Errorf("phonenode: route slashed share from security pool to treasury: %w", err)
 	}
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
 		"phonenode.SlashSplit",
-		sdk.NewAttribute("burned", burnAmt.String()),
-		sdk.NewAttribute("treasury", treasuryAmt.String()),
+		sdk.NewAttribute("burned", amt.String()),
+		sdk.NewAttribute("treasury", transferAmt.String()),
+		sdk.NewAttribute("treasury_source", tokenomicsmoduletypes.StakingSecurityPoolName),
 		sdk.NewAttribute("denom", denom),
 	))
 	return nil

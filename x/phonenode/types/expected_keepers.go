@@ -13,21 +13,23 @@ type AccountKeeper interface {
 }
 
 // BankKeeper defines the expected interface needed to retrieve account balances
-// and to apply the slash burn / treasury split (finalized 2026-08).
+// and to route the slash treasury share. R1 iron rule: this module MUST NOT mint
+// MC — the treasury share is sourced by transferring from an existing reserve pool
+// (staking-security), never by MintCoins. MintCoins is intentionally absent from
+// this interface so the code physically cannot print new supply.
 type BankKeeper interface {
 	SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
+	// GetBalance returns the balance of denom held by addr. Used to cap the
+	// treasury transfer at the security pool's available balance.
+	GetBalance(ctx sdk.Context, addr sdk.AccAddress, denom string) sdk.Coin
 	// SendCoinsFromModuleToModule moves coins from one module account to another.
-	// Used to route slashed funds to the security pool instead of burning them.
+	// Used to route the slash treasury share from the staking-security pool to the
+	// protocol treasury (a transfer, not a mint).
 	SendCoinsFromModuleToModule(ctx sdk.Context, senderModule, recipientModule string, amt sdk.Coins) error
-	// BurnCoins burns coins from a module account (used for the 40% slash burn).
+	// BurnCoins burns coins from a module account. Retained for interface symmetry;
+	// the actual slash burn is performed by staking.Slash, not by this keeper.
 	BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
-	// MintCoins mints new coins from the bank module into a module account.
-	// Used to re-create the 60% slash treasury share (the native slash burns the
-	// full slashed amount; the treasury portion is re-minted so the documented
-	// 40% burn / 60% treasury split is honored without breaking staking accounting).
-	MintCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
-	// SendCoinsFromModuleToAccount sends coins from a module account to an address
-	// (used to route the 60% slash share into the protocol treasury).
+	// SendCoinsFromModuleToAccount sends coins from a module account to an address.
 	SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 }
 
