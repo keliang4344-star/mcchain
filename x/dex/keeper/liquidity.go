@@ -73,7 +73,7 @@ func (k Keeper) AddLiquidity(
 		return sdk.ZeroInt(), sdk.ZeroInt(), sdk.ZeroInt(), err
 	}
 
-	// Record LP lock: LP tokens are locked for params.LpLockBlocks (~7 days)
+	// Record LP lock: LP tokens are locked for params.LpLockBlocks (~4.7 days at the ~4 s block time)
 	// per whitepaper line 508. Re-adding liquidity refreshes the lock and
 	// accumulates the locked amount.
 	params := k.GetParams(ctx)

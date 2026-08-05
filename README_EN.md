@@ -8,7 +8,7 @@
 [![Go](https://img.shields.io/badge/Go-1.22.5-00ADD8?logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-Apache_2.0-green)](./LICENSE)
 
-MC is a DePIN + Edge AI public chain built on **Cosmos SDK + CometBFT**. Its core innovation is enabling smartphones to participate in consensus and contribution as "light full nodes," addressing the node centralization problem in current public chains. On-chain economics are driven by 6 custom modules, with a fixed total supply of 1 billion MC and zero inflation.
+MC is a DePIN + Edge AI public chain built on **Cosmos SDK + CometBFT**. Its core innovation is enabling smartphones to participate in consensus and contribution as "light full nodes," addressing the node centralization problem in current public chains. On-chain economics are driven by eight native modules, with a fixed total supply of 1 billion MC and zero inflation.
 
 **Open Source & Auditable · Parameters in Code · Truth on Chain · Consensus Symbiosis**
 

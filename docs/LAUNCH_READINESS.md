@@ -28,8 +28,8 @@
 证据：`go build/vet/test=0`；此前端到端「贡献即挖矿 +400umc×3」、总供给 exactly 1e15、mint 通胀=0 已真机验证。
 
 ### P0 · 智能合约 / 原生模块 — ✅ 已完成（Cosmos SDK 原生模块，非 EVM）
-五大自定义模块（depin / edgeai / mcchain / phonenode / tokenomics）均实现 Msg / keeper / querier / genesis。
-注：本项目采用 Cosmos SDK 原生模块而非 EVM 智能合约；若需 EVM 兼容（ethermint / CosmWasm）属独立范围扩展，当前未做。
+八大自定义模块（depin / edgeai / mcchain / phonenode / tokenomics / dex / referral / liquidstaking）均实现 Msg / keeper / querier / genesis。
+注：本项目采用 Cosmos SDK 原生模块而非 EVM 智能合约；CosmWasm 智能合约运行时（`x/wasm`）已在 CGO 构建下交付，EVM 兼容（ethermint）仍属独立范围扩展，当前未做。
 
 ### P1 · 后端 API — ✅ 接口已完成 + 文档今日新增
 - Cosmos SDK REST(1317) / gRPC(9090，已启用 reflection) / RPC(26657) / P2P(26656) 全暴露；自定义模块 Query 已注册。

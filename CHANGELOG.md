@@ -42,6 +42,20 @@ All notable changes to MobileChain (MC) will be documented in this file.
 
 ---
 
+## [v4.2.2] — 2026-08-05
+
+### Docs — 地毯式复核补漏（第三轮）
+
+- **第二轮漏改清零**：CN 白皮书 `WHITEPAPER_CN.md:406` 与 `mc-miner/WHITEPAPER_v3.md:406` 的「查询五大模块业务数据」→「查询八大模块业务数据」（此前仅改了 HTML 版，与架构段「八大原生模块」矛盾）。
+- **DEX 锁仓注释遗漏**：`x/dex/keeper/liquidity.go:76` 仍写 `~7 days`，改为 `~4.7 days at the ~4 s block time`（与 §14 / L128 已改口径一致，仅注释、不改常量）。
+- **辅助文档模块数口径过期对齐**：
+  - `README_EN.md`「6 custom modules」→「eight native modules」。
+  - `ROADMAP.md`「5/6 模块完成，dex 在测」「dex 上线 待完成」→ 八大原生模块全部完成、dex 已上线。
+  - `docs/LAUNCH_READINESS.md`「五大自定义模块（仅列 5 个）」→「八大自定义模块（补全 dex / referral / liquidstaking）」；CosmWasm「当前未做」→ 已在 CGO 构建下交付（EVM/ethermint 仍属未做）。
+- **遗留决策项（未改经济常量）**：`x/dex/types/params.go` 的 `BlocksPerDay = 14400` 按 ~6s/块 推导，但全链实际出块 `timeout_commit = "4s"`（白皮书 §A.1 正确）。`LpIncentiveEndHeightDefault = 2,592,000` 因此实际约 120 自然日而非注释宣称的 180 天。该常量为经济参数，本轮未动；待决策：要么改 §A.1 为 ~6s，要么把 `BlocksPerDay` 调为 21600 并使 `LpIncentiveEndHeightDefault = 3,888,000`（真正 180 天 @4s）。
+
+---
+
 ## [v4.0] — 2026-07-18
 
 ### Added
