@@ -10,7 +10,7 @@ import (
 )
 
 // mockBankBurnCap records module->account sends, module->module sends and burns,
-// so we can assert the clawback path routes the submitter's 80% escrow to the
+// so we can assert the clawback path routes the submitter's 85% escrow to the
 // staking security pool (NOT burned) — per the "作恶者损失=诚实者收益" policy.
 type mockBankBurnCap struct {
 	modToAcct []bankSend
@@ -38,7 +38,7 @@ func (m *mockBankBurnCap) BurnCoins(_ sdk.Context, _ string, amt sdk.Coins) erro
 }
 
 // TestClawbackOnCheatResolution 验证：仲裁裁定 cheat 时，提交者托管中的
-// 80% 奖励被销毁（clawback），且提交者被 slash、不收到任何拨付。
+// 85% 奖励被回收（clawback）至质押安全池，且提交者被 slash、不收到任何拨付。
 func TestClawbackOnCheatResolution(t *testing.T) {
 	pn := &mockPhonenode{}
 	bk := &mockBankBurnCap{}
@@ -58,7 +58,7 @@ func TestClawbackOnCheatResolution(t *testing.T) {
 	_, err := ms.ResolveDispute(sdk.WrapSDKContext(ctx), &types.MsgResolveDispute{Creator: arb, TaskId: "1", Resolution: "cheat"})
 	require.NoError(t, err)
 
-	// 80% of 500 = 400 must be routed to the staking security pool (clawed back
+	// 85% of 500 = 425 must be routed to the staking security pool (clawed back
 	// from escrow) — per the "作恶者的损失，变成诚实者的收益" policy. It is a 罚没
 	// (slash), NOT a 通缩销毁, so it must NOT be burned.
 	require.Empty(t, bk.burned, "作弊罚没不应销毁，应回流质押安全池")
@@ -68,7 +68,7 @@ func TestClawbackOnCheatResolution(t *testing.T) {
 			routedToSecurity += s.amount
 		}
 	}
-	require.Equal(t, uint64(400), routedToSecurity, "cheat 裁定应将提交者 80% 托管奖励(400)回流质押安全池")
+	require.Equal(t, uint64(425), routedToSecurity, "cheat 裁定应将提交者 85% 托管奖励(425)回流质押安全池")
 	// 提交者不应收到任何拨付。
 	require.Empty(t, bk.modToAcct, "cheat 裁定不应拨付提交者")
 	// 提交者被 slash。

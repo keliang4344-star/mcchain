@@ -23,8 +23,11 @@ func AttestationResultKey(deviceID string) []byte {
 	return append(KeyPrefix("AttestResult:"), []byte(deviceID)...)
 }
 
-// DePINBurnRatioBps defines the burn ratio for DePIN task rewards (基点).
-// 500 bps = 5%：每次 DePIN 任务奖励结算时，5% 永久销毁（通缩飞轮），
-// 剩余 95% 正常拨付给贡献设备。
-// 与 EdgeAI 的 5% 销毁对齐，构成全链统一的通缩压力。
-const DePINBurnRatioBps uint32 = 500
+// 【已撤销】DePINBurnRatioBps（设备任务赏金 5% 销毁）
+//
+// 早期版本对每笔设备任务赏金抽取 5% 打入黑洞。该设计已按白皮书《优化定稿版》
+// §24.6 否决清单撤销：通缩只能来自「协议使用费」（gas 7%、DEX 手续费 0.05%）
+// 与「作恶罚没」（40%），绝不侵蚀参与者以真实算力/带宽/在线时长换来的劳动应得。
+// 设备完成任务应得多少即足额到手，链上不做任何截留。
+//
+// 常量已删除而非置零，以从编译层面杜绝该逻辑被重新引用。

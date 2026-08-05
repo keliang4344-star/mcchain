@@ -33,8 +33,12 @@ type PhonenodeKeeper interface {
 // 需求方付费（escrow）模型下，EdgeAI 经 bankKeeper 完成：
 //   - SendCoinsFromAccountToModule：任务创建时由 creator 向 edgeai 模块账户托管 reward；
 //   - SendCoinsFromModuleToAccount：BeginBlock 结算时由 edgeai 模块账户向 submitter 拨付；
-//   - BurnCoins：销毁 edgeai 模块账户中的代币（80/15/5 分账中的 5% 通缩飞轮）；
+//   - SendCoinsFromModuleToModule：企业费分账（节点/国库）与作弊回收（质押安全池）；
 //   - SpendableCoins：创建任务前校验 creator 余额是否足以托管。
+//
+// 接口不含 MintCoins / BurnCoins：任务奖励是需求方托管的真实付费，85% 归提交者、
+// 15% 归核验预留，「结算销毁 5%」已按白皮书《优化定稿版》§24.6 撤销；
+// edgeai 既不新印也不销毁，从类型层面物理禁止。
 type BankKeeper interface {
 	SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
 	SendCoinsFromAccountToModule(ctx sdk.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error
@@ -42,7 +46,6 @@ type BankKeeper interface {
 	// SendCoinsFromModuleToModule routes the protocol-treasury share of the
 	// enterprise settlement fee (the treasury is a module account).
 	SendCoinsFromModuleToModule(ctx sdk.Context, senderModule, recipientModule string, amt sdk.Coins) error
-	BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
 }
 
 // PayoutKeeper 历史支付接口（B3.1 R4）：原设计由 depin 模块账户出币（受 B1 总量 cap 约束）。

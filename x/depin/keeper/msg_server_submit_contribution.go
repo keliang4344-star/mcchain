@@ -9,7 +9,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"mcchain/x/depin/types"
-	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
 // SubmitContribution records a verified contribution from a device and, when the
@@ -114,15 +113,17 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 		// P1/Q4: reward denom is a module param (default "umc"), no longer a const.
 		denom := k.Keeper.GetParams(ctx).RewardDenom
 
-		// ---- DePIN 5% burn ----
-		// 每次贡献奖励结算时，5% 永久销毁（通缩飞轮），95% 正常拨付。
-		burnAmount := uint64(reward) * uint64(types.DePINBurnRatioBps) / 10000
-		payoutAmount := uint64(reward) - burnAmount
+		// ---- 设备任务赏金 100% 归节点（白皮书《优化定稿版》§24.6 否决清单）----
+		// 早期版本曾对每笔赏金抽取 5% 销毁；该设计已被明确否决并撤销：
+		// 通缩只应来自「协议使用费」（gas、DEX 手续费）与「作恶罚没」，
+		// 绝不侵蚀参与者用真实算力/带宽/在线时长换来的劳动应得。
+		// 节点完成任务应得多少，就足额拿到多少，链上不做任何截留。
+		payoutAmount := uint64(reward)
 
 		// ====================================================================
 		// V3 新增：线性摊薄释放检查（release.go，白皮书行 372）
 		// ====================================================================
-		// 在烧毁之后、拨付之前检查日释放额度，确保每日发放不超线性摊薄上限。
+		// 拨付之前检查日释放额度，确保每日发放不超线性摊薄上限。
 		allowed, dailyCap, remaining, releaseErr := k.Keeper.CheckDailyReleaseCap(ctx, payoutAmount)
 		if releaseErr != nil {
 			k.Keeper.Logger(ctx).Error("depin: daily release cap check error", "err", releaseErr.Error())
@@ -143,28 +144,6 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 				),
 			)
 			return nil, sdkerrors.Wrapf(types.ErrInvalidScore, "daily release cap exceeded: need %d, cap %d, remaining %d", payoutAmount, dailyCap, remaining)
-		}
-
-		// 任务赏金 5% 销毁：打入全链唯一黑洞地址（永久不可支出），而非 bank 内部销毁。
-		// 总量 10 亿恒定不变，销毁体现为有效流通量下降，黑洞余额链上永久可查。
-		if burnAmount > 0 {
-			burnCoin := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewInt(int64(burnAmount))))
-			if burnErr := k.bankKeeper.SendCoinsFromModuleToAccount(
-				ctx, types.ModuleName, tokenomicstypes.BlackHoleAddress(), burnCoin,
-			); burnErr != nil {
-				k.Logger(ctx).Error("depin: burn 5% to black hole failed",
-					"task_id", msg.TaskId, "burn_amount", burnAmount, "err", burnErr.Error())
-			} else {
-				ctx.EventManager().EmitEvent(
-					sdk.NewEvent("depin.Burned",
-						sdk.NewAttribute("task_id", msg.TaskId),
-						sdk.NewAttribute("amount", strconv.FormatUint(burnAmount, 10)),
-						sdk.NewAttribute("ratio", "5%"),
-						sdk.NewAttribute("black_hole", tokenomicstypes.BlackHoleAddress().String()),
-					),
-				)
-				telemetry.IncrCounter(float32(burnAmount), "depin", "burn_amount")
-			}
 		}
 
 		amt := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewInt(int64(payoutAmount))))
@@ -201,7 +180,6 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 				sdk.NewAttribute("score", msg.Score),
 				sdk.NewAttribute("reward", strconv.FormatUint(uint64(reward), 10)),
 				sdk.NewAttribute("payout", strconv.FormatUint(payoutAmount, 10)),
-				sdk.NewAttribute("burn", strconv.FormatUint(burnAmount, 10)),
 				sdk.NewAttribute("denom", denom),
 				sdk.NewAttribute("resonance_multiplier", strconv.FormatFloat(resonanceMultiplier, 'f', 4, 64)),
 			),

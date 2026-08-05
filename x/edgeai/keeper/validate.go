@@ -9,7 +9,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"mcchain/x/edgeai/types"
-	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
 // detectCheatByConsensus 实现 B3.1 链上作弊自动检测：对同一任务的多节点 pending 结果做 ResultHash 一致性投票。
@@ -219,13 +218,13 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 
 		amount := DeterminePayout(task, params)
 
-		// ---- 80/15/5 reward split ----
-		// 80% → submitter (executor node)
+		// ---- 85/15 reward split ----
+		// 85% → submitter (executor node)
 		// 15% → verifier reserve (claimed on verification sampling)
-		//  5% → burn (deflationary pressure, permanent removal from supply)
+		// 原 5% 结算销毁已撤销（白皮书《优化定稿版》§24.6 否决清单），份额并入提交者：
+		// 需求方托管的任务付费 100% 流向真实完成工作的节点与核验者，链上零截留。
 		submitterAmount := amount * uint64(types.EdgeAISubmitterRatioBps) / 10000
-		burnAmount := amount * uint64(types.EdgeAIBurnRatioBps) / 10000
-		verifierReserveAmount := amount - submitterAmount - burnAmount // catch rounding
+		verifierReserveAmount := amount - submitterAmount // catch rounding
 
 		addr, err := sdk.AccAddressFromBech32(r.Submitter)
 		if err != nil {
@@ -246,27 +245,6 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 				),
 			)
 			continue
-		}
-
-		// 销毁 5% — 通缩飞轮，打入全链唯一黑洞地址，永久退出流通、链上可查
-		if burnAmount > 0 {
-			burnCoin := sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(burnAmount)))
-			if burnErr := k.bankKeeper.SendCoinsFromModuleToAccount(
-				ctx, types.ModuleName, tokenomicstypes.BlackHoleAddress(), burnCoin,
-			); burnErr != nil {
-				k.Logger(ctx).Error("edgeai: burn 5% to black hole failed", "task_id", r.TaskId,
-					"burn_amount", burnAmount, "err", burnErr.Error())
-			} else {
-				ctx.EventManager().EmitEvent(
-					sdk.NewEvent("edgeai.Burned",
-						sdk.NewAttribute("task_id", r.TaskId),
-						sdk.NewAttribute("amount", strconv.FormatUint(burnAmount, 10)),
-						sdk.NewAttribute("ratio", "5%"),
-						sdk.NewAttribute("black_hole", tokenomicstypes.BlackHoleAddress().String()),
-					),
-				)
-				telemetry.IncrCounter(float32(burnAmount), "edgeai", "burn_amount")
-			}
 		}
 
 		// 15% 存入验证者奖励预留池（验证者抽检后领取）
@@ -304,7 +282,6 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 				sdk.NewAttribute("task_id", r.TaskId),
 				sdk.NewAttribute("submitter", r.Submitter),
 				sdk.NewAttribute("submitter_amount", strconv.FormatUint(submitterAmount, 10)),
-				sdk.NewAttribute("burn_amount", strconv.FormatUint(burnAmount, 10)),
 				sdk.NewAttribute("verifier_reserve", strconv.FormatUint(verifierReserveAmount, 10)),
 				sdk.NewAttribute("result_status", types.ResultStatusValid),
 			),

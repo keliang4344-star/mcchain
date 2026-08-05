@@ -118,10 +118,23 @@ const (
 	//   - 地址由模块名经 sha256 确定性派生，不存在对应私钥，数学上永不可花费；
 	//   - 创世即存在，无需部署、无需治理开关，任何人可用标准 bank 查询实时核对余额；
 	//   - 该地址余额即「累计已销毁量」的权威口径，链上可审计、不可伪造。
-	// 销毁来源共 4 类（白皮书通缩表）：DePIN 任务赏金每笔 5% / DEX 手续费每笔 0.05% /
-	// 推荐加成每笔 1% / 治理押金 10%。
-	// 罚没（slashing）不属于销毁来源——罚没 100% 回流质押安全池，补贴诚实节点与验证人。
+	// 销毁来源（白皮书《优化定稿版》§24 通缩口径，2026-08 定稿）——只烧「协议使用费」
+	// 与「作恶罚没」，绝不烧参与者的劳动应得：
+	//   1) Gas 费销毁：每笔交易 gas 的 7%（gas_rebate.go）→ 黑洞；
+	//   2) DEX 手续费销毁：每笔撮合手续费 0.05%（x/dex/keeper/fee.go）→ 黑洞；
+	//   3) 作恶罚没销毁：罚没额的 40%（SlashBurnRatioBps）→ 黑洞，其余 60% 回流质押安全池；
+	//   4) 需求侧网络费销毁 1–2%：规划中（依赖 §23 预言机），尚未落链。
+	// 已明确否决、不得再实现的销毁项（会侵蚀参与者应得，白皮书 §24.6 否决清单）：
+	//   ✗ DePIN 设备任务赏金 5%   ✗ 推荐加成 1%   ✗ EdgeAI 任务结算 5%   ✗ 治理押金 10%
 	BlackHolePoolName = "black_hole"
+
+	// ---- Slash split (whitepaper §24.4, finalized 2026-08) ----
+	// 作恶罚没不是「充公」，而是「一半通缩、一半补贴诚实者」：
+	//   - SlashBurnRatioBps 部分从 bonded pool 转入黑洞地址，永久退出流通（通缩）；
+	//   - 其余部分转入质押安全池（staking_security），补贴诚实节点与验证人。
+	// 全程零新印：罚没币来自作恶者已质押的本金，只做转移，不调用 MintCoins。
+	SlashBurnRatioBps     = uint32(4000) // 40.00% 罚没销毁（→ 黑洞）
+	SlashSecurityRatioBps = uint32(6000) // 60.00% 回流质押安全池（补贴诚实节点）
 
 	// ---- Enterprise settlement fee (finalized 2026-08): 1.5% of settlement,
 	//      40% to nodes (fee_collector) / 60% to protocol treasury ----

@@ -4,6 +4,31 @@ All notable changes to MobileChain (MC) will be documented in this file.
 
 ---
 
+## [v4.2] — 2026-08-05
+
+### Changed — 销毁政策定稿（《优化定稿版》口径）
+
+通缩只向「协议使用费」与「作恶罚没」两处取材，**参与者的劳动所得一律不销毁**。
+
+- **保留销毁**：gas 手续费 7%（`GasBurnRatioBps = 700`）、DEX swap 手续费的 50%（`FeeBurnBps = 5000`，即成交额 0.15%）。
+- **撤销销毁（改为参与者 100% 足额到账）**：
+  - `x/depin` 设备任务赏金 5% 销毁 → 撤销，节点全额到手（删除 `DePINBurnRatioBps`）；
+  - `x/referral` 推荐奖励 1% 销毁 → 撤销，推荐人全额到手；
+  - `x/edgeai` 结算 5% 销毁 → 撤销，分账由 80/15/5 改为 **85/15**（`EdgeAISubmitterRatioBps = 8500`，删除 `EdgeAIBurnRatioBps`）。
+- **罚没分流**：`x/phonenode` 自定义 slash 由「100% 回流安全池」改为 **40% 销毁 / 60% 回流质押安全池**（`SlashBurnRatioBps = 4000`、`SlashSecurityRatioBps = 6000`）。销毁部分由 bonded pool 转入黑洞地址，回流部分转入 `staking_security`，两腿之和恒等于被罚总额。
+- **企业结算费**：1.50% 拆为 40% 给节点（`EnterpriseFeeNodeRatioBps`）/ 60% 进国库，**此路径不销毁、不铸币**。
+- **EdgeAI 作弊回收**：仲裁判定作弊时，托管的提交者份额转入质押安全池补贴诚实节点，不销毁。
+
+### Security
+- `x/depin`、`x/referral`、`x/edgeai` 的 `BankKeeper` 接口移除 `BurnCoins`，从类型层面物理禁止被撤销的销毁逻辑复用。
+- 新增 `x/phonenode/keeper/slash_split_test.go`：验证 40/60 拆分金额守恒、黑洞与安全池双腿到账、Jail 与 distribution 钩子正常。
+- `TestAppStateDeterminism`（含全量不变量）通过，自定义 slash 不破坏 staking 模块账户不变量。
+
+### Docs
+- `WHITEPAPER.md` / `docs/WHITEPAPER.md`、`WHITEPAPER_CN.md` / `mc-miner/WHITEPAPER_v3.md`、`docs/GAS_AND_FEES.md` 全量对齐上述口径，清理过期常量引用。
+
+---
+
 ## [v4.0] — 2026-07-18
 
 ### Added

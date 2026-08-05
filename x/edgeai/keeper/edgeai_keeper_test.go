@@ -309,8 +309,8 @@ func TestBeginBlockPayoutAfterWindow(t *testing.T) {
 	require.Len(t, bk.modToAcct, 1, "窗口过后应拨付一笔奖励")
 	require.Equal(t, types.ModuleName, bk.modToAcct[0].module)
 	require.Equal(t, node, bk.modToAcct[0].to)
-	// submitter 分得 80%（EdgeAISubmitterRatioBps），verifier 预留 15% + 销毁 5% 走其他路径
-	require.Equal(t, uint64(400), bk.modToAcct[0].amount)
+	// submitter 分得 85%（EdgeAISubmitterRatioBps），verifier 预留 15%；结算销毁已撤销
+	require.Equal(t, uint64(425), bk.modToAcct[0].amount)
 
 	task, _ := k.GetTask(ctx, "1")
 	require.Equal(t, types.TaskStatusDone, task.Status)
@@ -622,14 +622,12 @@ func TestFullLifecycle_CreateSubmitSettle(t *testing.T) {
 	// Step 4: 验证拨付
 	require.Len(t, bk.modToAcct, 1)
 	require.Equal(t, node, bk.modToAcct[0].to)
-	// submitter 分得 80%（EdgeAISubmitterRatioBps）
-	require.Equal(t, uint64(400), bk.modToAcct[0].amount)
+	// submitter 分得 85%（EdgeAISubmitterRatioBps）= 425，verifier 预留 15% = 75
+	require.Equal(t, uint64(425), bk.modToAcct[0].amount)
 
-	// 5% 任务结算销毁份额应打入全链唯一黑洞地址（永久通缩、链上可查、不可支出），
-	// 而非 bank 内部销毁。锁定此路由以确保通缩销毁始终可审计。
-	require.Len(t, bk.burned, 1, "应有一笔销毁份额打入黑洞地址")
-	require.Equal(t, tokenomicstypes.BlackHoleAddress().String(), bk.burned[0].to, "销毁份额目的地必须是黑洞地址")
-	require.Equal(t, uint64(25), bk.burned[0].amount, "5% 结算销毁应为 25 (5% of 500)")
+	// 任务结算销毁（原 5%）已按白皮书 §24.6 否决清单撤销：需求方托管的付费
+	// 100% 流向真实完成工作的节点与核验者，结算路径不得再出现任何销毁转账。
+	require.Empty(t, bk.burned, "任务结算不得再有销毁份额（5% 结算销毁已撤销）")
 
 	// Step 5: 验证状态
 	task, _ := k.GetTask(ctx, "1")

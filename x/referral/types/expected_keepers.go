@@ -14,12 +14,14 @@ type AccountKeeper interface {
 // BankKeeper defines the expected bank keeper interface for the referral module.
 // The referral module needs:
 //   - SendCoinsFromModuleToAccount: to pay rewards from the ecosystem module account to inviters
-//   - BurnCoins: to burn the 1% referral reward burn on each payout
 //   - GetBalance: to check ecosystem pool balance
+//
+// 接口不含 MintCoins / BurnCoins：推荐奖励 100% 足额发给推荐人，
+// 「领取时销毁 1%」已按白皮书《优化定稿版》§24.6 否决清单撤销，
+// referral 模块既不新印也不销毁，从类型层面物理禁止。
 type BankKeeper interface {
 	SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
 	SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
-	BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error
 	GetBalance(ctx sdk.Context, addr sdk.AccAddress, denom string) sdk.Coin
 }
 

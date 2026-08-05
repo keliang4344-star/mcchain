@@ -43,13 +43,17 @@ const (
 const CheatSlashBps uint32 = 1000
 
 // EdgeAI reward split ratios (基点, 10000 = 100%):
-//   80% → submitter (executor node)
+//   85% → submitter (executor node，执行节点足额到手)
 //   15% → verifier reserve (verifier 抽检后领取)
-//    5% → burn (通缩飞轮, 永久销毁)
+//
+// 【已撤销】原 5% 结算销毁（EdgeAIBurnRatioBps）：按白皮书《优化定稿版》§24.6
+// 否决清单撤销，该 5% 已并入提交者份额（80% → 85%）。任务奖励是需求方托管的
+// 真实付费，全额属于完成计算的节点与核验者，不承担通缩职能；全链通缩只来自
+// 协议使用费（gas 7%、DEX 手续费 0.05%）与作恶罚没（40%）。
+// 常量已删除而非置零，以从编译层面杜绝该逻辑被重新引用。
 const (
-	EdgeAISubmitterRatioBps       uint32 = 8000
+	EdgeAISubmitterRatioBps       uint32 = 8500
 	EdgeAIVerifierReserveRatioBps uint32 = 1500
-	EdgeAIBurnRatioBps            uint32 = 500
 )
 
 // Verifier constants

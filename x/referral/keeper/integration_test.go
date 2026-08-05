@@ -92,11 +92,11 @@ func newReferralKeeper(t *testing.T, bank types.BankKeeper) (*keeper.Keeper, sdk
 }
 
 // TestReferralEndToEnd 端到端验证推荐模块真实可用：
-// 创建推荐 → 追踪被推荐人奖励（三级分成）→ 领取（含 1% 销毁）→ 查询。
+// 创建推荐 → 追踪被推荐人奖励（三级分成）→ 领取（100% 足额，无销毁）→ 查询。
 func TestReferralEndToEnd(t *testing.T) {
 	bank := newMockRefBank()
 	k, ctx := newReferralKeeper(t, bank)
-	// 生态账户预拨资金（领取/销毁来源）
+	// 生态账户预拨资金（推荐奖励领取来源）
 	bank.mint(authtypes.NewModuleAddress(types.EcosystemModuleAccount).String(),
 		sdk.NewCoins(sdk.NewCoin("umc", sdkmath.NewInt(1_000_000_000))))
 
@@ -122,11 +122,11 @@ func TestReferralEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, inviter, rq.Referral.Inviter)
 
-	// 4) 领取：销毁 1% (1,000)，实付 99,000
+	// 4) 领取：推荐奖励 100% 足额到手（1% 销毁已撤销），实付 100,000
 	claimed, err := k.ClaimRewards(ctx, inviter)
 	require.NoError(t, err)
-	require.Equal(t, int64(99_000), claimed.Amount.Int64())
-	require.Equal(t, int64(99_000), bank.balances[inviter].AmountOf("umc").Int64())
+	require.Equal(t, int64(100_000), claimed.Amount.Int64())
+	require.Equal(t, int64(100_000), bank.balances[inviter].AmountOf("umc").Int64())
 	require.Equal(t, int64(0), k.GetPendingRewards(ctx, inviter).Amount.Int64())
 
 	// 5) 反女巫：被推荐人不可再被推荐

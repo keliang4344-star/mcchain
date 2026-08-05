@@ -33,7 +33,7 @@ Three properties define the economics.
 
 **Distribution weighted to contributors.** Fifty-five percent of supply sits in the device incentive pool and is released only against verified work. The team allocation is twelve percent behind a multisig with a one-year cliff and three-year linear vesting.
 
-**Deflation from usage, not from promises.** Gas, swaps, task settlement, and penalties all burn MC. Every burn is a permanent reduction against the fixed cap.
+**Deflation from usage, not from promises.** Gas fees, swap fees, and penalties burn MC. Every burn is a permanent reduction against the fixed cap. Contributor earnings are never touched.
 
 A sixth on-chain address, the Protocol Treasury, is created empty at genesis and funded only by protocol revenue. It is the mechanism that lets the network fund itself without diluting holders.
 
@@ -55,7 +55,7 @@ The second problem is ownership of value. Platforms monetized user activity and 
 
 **No minting after genesis.** Every payout draws from a pre-allocated pool. A module that cannot mint cannot inflate.
 
-**Penalties reduce supply, they do not enrich an operator.** Slashed value is split between a burn and the treasury, both of which are public.
+**Penalties reduce supply, they do not enrich an operator.** Slashed value is split between a burn and the staking-security pool, both of which are public. No individual receives the proceeds of another participant's penalty.
 
 **Rewards follow verified work.** Attestation, contribution scoring, and dispute windows gate every payout. Presence alone earns nothing.
 
@@ -99,15 +99,15 @@ MC is the native token. One MC equals 1,000,000 `umc`, and all on-chain arithmet
 
 The supply cap of 1,000,000,000 MC is enforced inside `x/tokenomics`. The `x/mint` module is configured to zero, so no block produces new supply. Any attempt to mint past the cap halts the transaction rather than silently truncating.
 
-Four mechanisms remove MC from circulation permanently:
+Three mechanisms remove MC from circulation permanently:
 
 | Source | Burn |
 |--------|------|
 | Gas fees | 7% of collected fees |
 | DEX swaps | 50% of the 0.30% swap fee (0.15% of volume) |
-| EdgeAI settlement | 5% of each task payout |
 | Slashing | 40% of the slashed amount |
-| Enterprise settlement fee | 40% of the 1.50% fee |
+
+Every burn source is either a protocol usage fee or a penalty for misbehavior. Contributor earnings are never burned: device task bounties, referral bonuses, and EdgeAI task payouts reach the participant in full, with nothing withheld on-chain.
 
 Because supply is fixed, each burn raises the proportional claim of every remaining holder. Deflation here is a consequence of network usage, not a marketing schedule.
 
@@ -172,7 +172,7 @@ The native AMM charges 0.30% per swap. Half of that fee is burned, which is 0.15
 
 Institutional consumers of the network — enterprises purchasing edge inference, device settlement, or oracle data — pay a 1.50% settlement fee. The fee is charged to the demand side, on top of the amount being escrowed, so it never reduces the payout to the contributor performing the work.
 
-The fee splits 40% burned and 60% routed to the Protocol Treasury. The split is computed dust-free: the treasury receives the remainder after the burn, so the two legs always reconstruct the fee exactly.
+The fee splits 40% to node operators, distributed through the fee collector alongside block rewards, and 60% to the Protocol Treasury. The split is computed dust-free: the treasury receives the remainder after the node share, so the two legs always reconstruct the fee exactly. Nothing is burned and nothing is minted on this path — enterprise revenue is redistributed, never destroyed.
 
 On the EdgeAI path the fee is collected when a task is escrowed. A requester who can fund the reward but not the fee still gets the task posted; the fee is waived and the waiver is recorded as an event rather than blocking the transaction.
 
@@ -188,7 +188,7 @@ The treasury exists so the protocol can fund audits, integrations, liquidity, gr
 
 ### 9.1 Slashing splits, it does not vanish
 
-When a bonded validator is penalized, the slashed stake is moved out of the bonded pool and split: 40% is burned, 60% is routed to the Protocol Treasury. Native Cosmos behavior would burn the full amount; MobileChain converts the majority into protocol capital instead, and burns the rest. Nothing is minted on this path, and no operator receives the proceeds.
+When a bonded validator is penalized, the slashed stake is moved out of the bonded pool and split: 40% is burned, 60% is routed to the staking-security pool, where it is drip-distributed to honest nodes and validators. Native Cosmos behavior would burn the full amount; MobileChain burns the deflationary share and turns the majority into a subsidy for the participants who kept the network honest. Nothing is minted on this path, and no operator receives the proceeds directly.
 
 *Status: Live.*
 
@@ -282,9 +282,9 @@ MobileChain runs three participation tiers rather than one.
 
 `x/edgeai` is a market for inference work. A requester posts a task and escrows the reward. Providers submit results. Settlement is optimistic: after the dispute window of 100 blocks passes without challenge, payment executes automatically.
 
-The payout splits three ways. Eighty percent goes to the node that performed the work. Fifteen percent is reserved for verifiers, claimed when a verifier is sampled to inspect a completed task. Five percent is burned.
+The payout splits two ways. Eighty-five percent goes to the node that performed the work. Fifteen percent is reserved for verifiers, claimed when a verifier is sampled to inspect a completed task. Nothing is burned on this path: the reward a requester escrows reaches the participants who produced and checked the result, in full.
 
-A dispute freezes settlement until arbitration resolves it. A ruling of fraud claws back the escrowed reward and burns it, and the submitter is penalized. Single-task reward is capped at 1,000 MC, and the anti-cheat consensus threshold is fifty percent.
+A dispute freezes settlement until arbitration resolves it. A ruling of fraud claws back the escrowed submitter share and routes it to the staking-security pool, where it is drip-distributed to honest nodes and validators, and the submitter is penalized separately. Single-task reward is capped at 1,000 MC, and the anti-cheat consensus threshold is fifty percent.
 
 Verifier selection is reputation-weighted and samples completed tasks after the fact, so a provider cannot know in advance which submissions will be checked.
 
@@ -395,10 +395,10 @@ Each row names the constant and the file that defines it. Where a value here dis
 | Gas burn | 7.00% | `GasBurnRatioBps = 700` |
 | Gas rebate to security pool | 10.00% | `GasRebateRatioBps = 1000` |
 | Enterprise settlement fee | 1.50% | `EnterpriseSettlementFeeBps = 150` |
-| — burned | 40.00% | `EnterpriseFeeBurnRatioBps = 4000` |
+| — to node operators | 40.00% | `EnterpriseFeeNodeRatioBps = 4000` |
 | — to treasury | 60.00% | `EnterpriseFeeTreasuryRatioBps = 6000` |
 | Slash burn | 40.00% | `SlashBurnRatioBps = 4000` |
-| Slash to treasury | 60.00% | `SlashTreasuryRatioBps = 6000` |
+| Slash to staking-security pool | 60.00% | `SlashSecurityRatioBps = 6000` |
 | Permanent tombstone on equivocation | true | `DoubleSignPermanentTombstone` |
 
 ### A.4 Device layer
@@ -431,9 +431,10 @@ Each row names the constant and the file that defines it. Where a value here dis
 | `MaxTaskReward` | 1,000,000,000 umc (1,000 MC) | `x/edgeai/types/params.go` |
 | `DisputePeriodBlocks` | 100 | same |
 | `AntiCheatThresholdBps` | 5000 (50%) | same |
-| Payout to submitter | 80% | `EdgeAISubmitterRatioBps` |
-| Verifier reserve | 15% | derived |
-| Burn on settlement | 5% | `EdgeAIBurnRatioBps` |
+| Payout to submitter | 85% | `EdgeAISubmitterRatioBps = 8500` |
+| Verifier reserve | 15% | `EdgeAIVerifierReserveRatioBps = 1500` |
+| Burn on settlement | none | — |
+| Cheat clawback destination | staking-security pool | `x/edgeai/keeper/clawback.go` |
 | Payment model | requester escrow, optimistic settlement | `x/edgeai/keeper` |
 
 ### A.7 Exchange and referral

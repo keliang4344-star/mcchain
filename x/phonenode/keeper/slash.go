@@ -46,8 +46,9 @@ func (k Keeper) GetSlashes(ctx sdk.Context, addr string) []types.SlashRecord {
 // SlashIfBad 是 B2 统一的 slash 入口：
 //  1. 吊销该节点 attestation（无论是否验证人）
 //  2. 记录 SlashRecord
-//  3. 若节点为 bonded 验证人：按 penaltyBps 比例扣自质押，罚没资金 100% 转入
-//     质押安全池，随后 Jail；非验证人节点不罚币，仅吊销 attestation + 记录
+//  3. 若节点为 bonded 验证人：按 penaltyBps 比例扣自质押，罚没资金按
+//     40% 销毁（黑洞）/ 60% 回流质押安全池 拆分，随后 Jail；
+//     非验证人节点不罚币，仅吊销 attestation + 记录
 //
 // 硬约束：本函数绝不调用 tokenomics.MintCoins，minted_supply 不变（B1 cap 不受 slash 影响）。
 func (k Keeper) SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint32) error {
@@ -84,19 +85,20 @@ func (k Keeper) SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint
 	}
 	consAddr := sdk.GetConsAddress(pubKey)
 
-	// === 罚没资金去向（2026-08 定稿）===
-	// 被罚没的自质押 100% 回流质押安全池，成为对诚实节点与验证人的补贴：
-	// 作恶者的损失，变成诚实者的收益。
+	// === 罚没资金去向（白皮书《优化定稿版》§24.4 定稿）===
+	// 被罚没的自质押按两条去向拆分：
+	//   - 40%（SlashBurnRatioBps）发往黑洞地址，永久退出流通 —— 作恶直接带来通缩；
+	//   - 60%（SlashSecurityRatioBps）回流质押安全池，补贴诚实节点与验证人 ——
+	//     作恶者的损失，变成诚实者的收益。
 	//
-	// 罚没不属于通缩销毁的四类来源（DePIN 赏金 5% / DEX 手续费 0.05% /
-	// 推荐加成 1% / 治理押金 10%），因此这里既不烧币、也不新印，只做转移。
+	// 全程零新印：罚没币来自作恶者已质押的本金，只做转移与销毁，不调用 MintCoins。
 	//
 	// 实现说明：Cosmos SDK v0.47 的 slashing.Slash 内部无条件调用
-	// burnBondedTokens 烧毁全部被罚金额，没有任何开关可以改变去向
-	//（BurnSlashTokens 参数要到 v0.50+ 才有），故此处以 slashToSecurityPool
-	// 完成等价动作。Jail 仍照常执行以吊销出块权。
+	// burnBondedTokens 烧毁全部被罚金额（100% 烧、无法拆分去向，
+	// BurnSlashTokens 参数要到 v0.50+ 才有），故此处以 slashAndRoute
+	// 完成等价动作并按 40/60 分流。Jail 仍照常执行以吊销出块权。
 	fraction := sdk.NewDecWithPrec(int64(penaltyBps), 4)
-	if err := k.slashToSecurityPool(ctx, valAddr, fraction, addr, reason); err != nil {
+	if err := k.slashAndRoute(ctx, valAddr, fraction, addr, reason); err != nil {
 		return err
 	}
 
@@ -119,27 +121,35 @@ func (k Keeper) emitSlashEvent(ctx sdk.Context, addr, reason string, penaltyBps 
 	telemetry.IncrCounter(1, "phonenode", "slash_count")
 }
 
-// slashToSecurityPool 扣减验证人被罚没的自质押，并把等额资金 100% 转入质押安全池。
+// slashAndRoute 扣减验证人被罚没的自质押，并把等额资金按
+// 40% 销毁（黑洞）/ 60% 回流质押安全池 拆分路由。
 //
-// 这是原生 slashing.Slash 的等价替代（SDK v0.47 的 Slash 会强制烧毁被罚金额，
-// 不满足「罚没回流安全池」的既定原则），按与 SDK 相同的顺序完成三件事：
+// 这是原生 slashing.Slash 的等价替代（SDK v0.47 的 Slash 会把被罚金额 100% 烧毁、
+// 无法拆分去向，不满足白皮书 §24.4「40% 销毁 / 60% 回流」的定稿口径），
+// 按与 SDK 相同的顺序完成四件事：
 //
 //  1. 触发 distribution 的 BeforeValidatorSlashed 钩子。必须在扣减 tokens 之前调用，
 //     否则委托人的历史奖励会按未罚没前的份额计算，导致超额提取。
 //  2. RemoveValidatorTokens 扣减验证人 tokens 并刷新 power index。
 //     只减 tokens 不减 shares，正是 slash 的语义：每一份委托的含金量下降。
-//  3. 把等额资金从 staking bonded pool 转入质押安全池。
+//  3. 把 40% 从 staking bonded pool 转入黑洞地址（永久不可支出，链上可查）。
+//  4. 把余下 60% 从 bonded pool 转入质押安全池，补贴诚实节点与验证人。
+//
+// 关于「销毁」的实现方式：全链统一以「打入黑洞地址」表达销毁，不调用
+// bank.BurnCoins。总量 10 亿恒定不变，销毁体现为有效流通量下降，
+// 黑洞余额即累计已销毁量的权威口径，任何人可用标准 bank 查询实时核对。
 //
 // 不变量安全性：v0.47 中 TotalBondedTokens 直接读取 bonded pool 模块账户余额，
 // 并无独立计数器；staking 的 ModuleAccountInvariants 校验
-//「bonded pool 余额 == 所有 bonded 验证人 tokens 之和」。上述第 2、3 步等额同向
-// 变动，两侧始终一致，不变量恒成立。
+//「bonded pool 余额 == 所有 bonded 验证人 tokens 之和」。第 2 步扣减的 tokens
+// 与第 3、4 步转出的总额恒等（burn + security == slashed），两侧始终一致，
+// 不变量恒成立。
 //
 // 已知边界：本实现只罚没验证人当前处于 bonded 状态的自质押，不追溯正在解绑
 //（unbonding）或再委托（redelegation）中的份额——SDK 的对应处理函数未导出，
 // 无法从模块外复用。检测到作恶后本链即时罚没，逃逸窗口仅为区块级，风险可控；
 // 彻底覆盖需待升级到提供 BurnSlashTokens 开关的 SDK 版本。
-func (k Keeper) slashToSecurityPool(
+func (k Keeper) slashAndRoute(
 	ctx sdk.Context, valAddr sdk.ValAddress, fraction sdk.Dec, addr, reason string,
 ) error {
 	if !fraction.IsPositive() {
@@ -165,13 +175,29 @@ func (k Keeper) slashToSecurityPool(
 	// 2. 扣减验证人 tokens（刷新 power index）。
 	k.stakingKeeper.RemoveValidatorTokens(ctx, validator, slashedAmt)
 
-	// 3. 等额资金由 bonded pool 转入质押安全池：不烧毁、不新印，全链总量不变。
+	// 3./4. 拆分路由：40% → 黑洞（销毁），余下 60% → 质押安全池（补贴诚实者）。
+	// 用减法求安全池份额，确保 burn + security == slashed，杜绝取整误差破坏不变量。
 	bondDenom := k.stakingKeeper.BondDenom(ctx)
-	slashedCoins := sdk.NewCoins(sdk.NewCoin(bondDenom, slashedAmt))
-	if err := k.bankKeeper.SendCoinsFromModuleToModule(
-		ctx, stakingtypes.BondedPoolName, tokenomicsmoduletypes.StakingSecurityPoolName, slashedCoins,
-	); err != nil {
-		return fmt.Errorf("phonenode: route slashed stake to security pool: %w", err)
+	burnAmt := slashedAmt.
+		MulRaw(int64(tokenomicsmoduletypes.SlashBurnRatioBps)).
+		QuoRaw(10000)
+	securityAmt := slashedAmt.Sub(burnAmt)
+
+	if burnAmt.IsPositive() {
+		burnCoins := sdk.NewCoins(sdk.NewCoin(bondDenom, burnAmt))
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(
+			ctx, stakingtypes.BondedPoolName, tokenomicsmoduletypes.BlackHoleAddress(), burnCoins,
+		); err != nil {
+			return fmt.Errorf("phonenode: burn slashed stake to black hole: %w", err)
+		}
+	}
+	if securityAmt.IsPositive() {
+		securityCoins := sdk.NewCoins(sdk.NewCoin(bondDenom, securityAmt))
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(
+			ctx, stakingtypes.BondedPoolName, tokenomicsmoduletypes.StakingSecurityPoolName, securityCoins,
+		); err != nil {
+			return fmt.Errorf("phonenode: route slashed stake to security pool: %w", err)
+		}
 	}
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
@@ -179,11 +205,14 @@ func (k Keeper) slashToSecurityPool(
 		sdk.NewAttribute("address", addr),
 		sdk.NewAttribute("reason", reason),
 		sdk.NewAttribute("slashed", slashedAmt.String()),
+		sdk.NewAttribute("burned", burnAmt.String()),
+		sdk.NewAttribute("black_hole", tokenomicsmoduletypes.BlackHoleAddress().String()),
+		sdk.NewAttribute("security_pool", securityAmt.String()),
 		sdk.NewAttribute("destination", tokenomicsmoduletypes.StakingSecurityPoolName),
-		sdk.NewAttribute("burned", "0"),
 		sdk.NewAttribute("minted", "0"),
 		sdk.NewAttribute("denom", bondDenom),
 	))
-	telemetry.IncrCounter(float32(slashedAmt.Int64()), "phonenode", "slashed_to_security_pool")
+	telemetry.IncrCounter(float32(securityAmt.Int64()), "phonenode", "slashed_to_security_pool")
+	telemetry.IncrCounter(float32(burnAmt.Int64()), "phonenode", "slashed_burned")
 	return nil
 }

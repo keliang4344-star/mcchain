@@ -137,13 +137,12 @@ func TestSubmitContribution_RegisteredPhonenode_Paid(t *testing.T) {
 	require.NoError(t, err)
 
 	// V3 经济：base = score(80) × inference rate(5) = 400；共振倍数 ≈ 1.2402
-	//（taskCount=1, quality=0.8, 空闲网络）→ 496；再扣 5% 通缩销毁
-	//（DePINBurnRatioBps=500）= 472 umc 实际拨付。
+	//（taskCount=1, quality=0.8, 空闲网络）→ 496 umc 全额拨付。
+	// 赏金 5% 销毁已撤销（白皮书 §24.6 否决清单）：设备劳动应得 100% 到手，链上零截留。
 	expectedBase := keeper.ComputeReward(80, keeper.TaskTypeInference)
 	require.Equal(t, 400, expectedBase)
 	expectedAdjusted := keeper.ComputeResonanceReward(expectedBase, 1, 0.0, 0.8)
-	expectedPayout := expectedAdjusted - expectedAdjusted*int(types.DePINBurnRatioBps)/10000
-	expected := sdk.NewCoins(sdk.NewCoin("umc", sdk.NewInt(int64(expectedPayout))))
+	expected := sdk.NewCoins(sdk.NewCoin("umc", sdk.NewInt(int64(expectedAdjusted))))
 	require.Equal(t, types.ModuleName, bank.sentModule)
 	require.True(t, bank.sentTo.Equals(expectedAddr), "paid to %s, want %s", bank.sentTo, expectedAddr)
 	require.True(t, bank.sentAmount.IsEqual(expected), "paid %s, want %s", bank.sentAmount, expected)

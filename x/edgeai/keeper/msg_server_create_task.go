@@ -31,8 +31,8 @@ func (k msgServer) CreateTask(goCtx context.Context, msg *types.MsgCreateTask) (
 		}
 		// Enterprise settlement fee (finalized 2026-08): the demand side pays
 		// EnterpriseSettlementFeeBps (1.50%) on top of the escrowed reward.
-		// The fee is split 40% burned / 60% to the protocol treasury.
-		// Charging the demand side keeps the 80/15/5 payout split for the supply
+		// The fee is split 40% to nodes (fee_collector) / 60% to the protocol treasury.
+		// Charging the demand side keeps the 85/15 payout split for the supply
 		// side untouched. A creator without the fee balance is not blocked from
 		// posting the task; the fee is skipped and recorded as waived.
 		if err := k.chargeEnterpriseSettlementFee(ctx, creatorAddr, msg.Reward); err != nil {
@@ -71,9 +71,10 @@ func (k msgServer) CreateTask(goCtx context.Context, msg *types.MsgCreateTask) (
 
 // chargeEnterpriseSettlementFee applies the enterprise settlement fee policy to
 // an EdgeAI task escrow. Fee = reward * EnterpriseSettlementFeeBps / 10000.
-// Split: EnterpriseFeeBurnRatioBps burned (permanent supply reduction) and the
-// remainder routed to the protocol treasury, the 6th independent address.
-// No coin is minted on this path.
+// Split: EnterpriseFeeNodeRatioBps (40%) routed to the fee collector for node
+// operators, the remainder (60%) routed to the protocol treasury, the 6th
+// independent address. Nothing is burned and no coin is minted on this path:
+// enterprise revenue is redistributed, never destroyed.
 func (k msgServer) chargeEnterpriseSettlementFee(ctx sdk.Context, payer sdk.AccAddress, reward uint64) error {
 	feeAmt := sdk.NewIntFromUint64(reward).
 		MulRaw(int64(tokenomicstypes.EnterpriseSettlementFeeBps)).
