@@ -245,7 +245,7 @@ func (k Keeper) ClaimRewards(ctx sdk.Context, claimer string) (sdk.Coin, error) 
 	// 推荐奖励 100% 足额发放给推荐人（白皮书《优化定稿版》§24.6 否决清单）。
 	// 早期版本曾在领取时抽取 1% 打入黑洞，该设计已撤销：推荐奖励来自设备池内
 	// 专项子预算（额外拨付，不从被推荐人收益中扣减），属参与者应得，不承担通缩职能。
-	// 全链通缩仅来自协议使用费（gas 7%、DEX 手续费 0.05%）与作恶罚没（40%）。
+	// 全链通缩仅来自协议使用费（gas 7%、DEX 手续费的 50%）与作恶罚没（40%）。
 	payoutAmt := pending
 	payout := sdk.NewCoins(sdk.NewCoin("umc", payoutAmt))
 	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.EcosystemModuleAccount, claimerAddr, payout); err != nil {
