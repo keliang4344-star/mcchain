@@ -117,27 +117,27 @@ import (
 	depinmodule "mcchain/x/depin"
 	depinmodulekeeper "mcchain/x/depin/keeper"
 	depinmoduletypes "mcchain/x/depin/types"
+	dexmodule "mcchain/x/dex"
+	dexmodulekeeper "mcchain/x/dex/keeper"
+	dexmoduletypes "mcchain/x/dex/types"
+	edgeaimodule "mcchain/x/edgeai"
+	edgeaimodulekeeper "mcchain/x/edgeai/keeper"
+	edgeaimoduletypes "mcchain/x/edgeai/types"
+	liquidstakingmodule "mcchain/x/liquidstaking"
+	liquidstakingmodulekeeper "mcchain/x/liquidstaking/keeper"
+	liquidstakingmoduletypes "mcchain/x/liquidstaking/types"
 	mcchainmodule "mcchain/x/mcchain"
 	mcchainmodulekeeper "mcchain/x/mcchain/keeper"
 	mcchainmoduletypes "mcchain/x/mcchain/types"
 	phonenodemodule "mcchain/x/phonenode"
 	phonenodemodulekeeper "mcchain/x/phonenode/keeper"
 	phonenodemoduletypes "mcchain/x/phonenode/types"
-	tokenomicsmodule "mcchain/x/tokenomics"
-	tokenomicsmodulekeeper "mcchain/x/tokenomics/keeper"
-	tokenomicsmoduletypes "mcchain/x/tokenomics/types"
-	edgeaimodule "mcchain/x/edgeai"
-	edgeaimodulekeeper "mcchain/x/edgeai/keeper"
-	edgeaimoduletypes "mcchain/x/edgeai/types"
-	dexmodule "mcchain/x/dex"
-	dexmodulekeeper "mcchain/x/dex/keeper"
-	dexmoduletypes "mcchain/x/dex/types"
 	referralmodule "mcchain/x/referral"
 	referralmodulekeeper "mcchain/x/referral/keeper"
 	referralmoduletypes "mcchain/x/referral/types"
-	liquidstakingmodule "mcchain/x/liquidstaking"
-	liquidstakingmodulekeeper "mcchain/x/liquidstaking/keeper"
-	liquidstakingmoduletypes "mcchain/x/liquidstaking/types"
+	tokenomicsmodule "mcchain/x/tokenomics"
+	tokenomicsmodulekeeper "mcchain/x/tokenomics/keeper"
+	tokenomicsmoduletypes "mcchain/x/tokenomics/types"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
 	appparams "mcchain/app/params"
@@ -238,8 +238,8 @@ var (
 		// DEX 保留 Minter/Burner 仅用于铸造/销毁 LP 份额代币（poolN denom，非 MC、不计入
 		// 1B 上限）；MC(umc) 的创世初始流动性由 tokenomics 从基金会 T0 转账预拨，DEX 绝不新铸 MC
 		// （白皮书 §24 / 零通胀硬约束）。
-		dexmoduletypes.ModuleName: {authtypes.Minter, authtypes.Burner},
-		referralmoduletypes.ModuleName: nil, // ecosystem pool rewards are paid via bank
+		dexmoduletypes.ModuleName:                  {authtypes.Minter, authtypes.Burner},
+		referralmoduletypes.ModuleName:             nil, // ecosystem pool rewards are paid via bank
 		referralmoduletypes.EcosystemModuleAccount: nil, // ecosystem pool for referral rewards
 		// x/liquidstaking holds pooled MC, delegates it to validators and mints the
 		// ulmc receipt token. Minter/Burner are scoped to ulmc only: ulmc is a
@@ -322,8 +322,8 @@ type App struct {
 
 	PhonenodeKeeper phonenodemodulekeeper.Keeper
 
-	EdgeaiKeeper edgeaimodulekeeper.Keeper
-	DexKeeper    dexmodulekeeper.Keeper
+	EdgeaiKeeper   edgeaimodulekeeper.Keeper
+	DexKeeper      dexmodulekeeper.Keeper
 	ReferralKeeper referralmodulekeeper.Keeper
 
 	LiquidStakingKeeper liquidstakingmodulekeeper.Keeper
@@ -522,6 +522,10 @@ func New(
 		app.BaseApp,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
+
+	// 注册软件升级处理器（A3）：无处理器时，通过的 SoftwareUpgrade 治理提案会在目标高度
+	// 停机且无迁移可执行，导致不可逆停链。默认处理器运行全部模块迁移。
+	app.RegisterUpgradeHandlers()
 
 	// ... other modules keepers
 
@@ -732,6 +736,10 @@ func New(
 			// insert staking hooks receivers here
 			app.DistrKeeper.Hooks(),
 			app.SlashingKeeper.Hooks(),
+			// 流动性质押必须感知罚没：验证人被罚后，模块代持的委托同比例缩水。
+			// 不接这个 hook，ulmc/umc 兑换率会停留在罚没前的高位，先赎回的人
+			// 按虚高汇率提走本不存在的本金，最后持有者承担全部损失（挤兑）。
+			app.LiquidStakingKeeper.Hooks(),
 		),
 	)
 
@@ -1119,6 +1127,23 @@ func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.Res
 // Configurator get app configurator
 func (app *App) Configurator() module.Configurator {
 	return app.configurator
+}
+
+// UpgradeName 是首个计划内软件升级的规范升级名。
+// 未来每次升级都必须用同一机制（RegisterUpgradeHandlers）注册对应处理器。
+const UpgradeName = "mcchain-v1"
+
+// RegisterUpgradeHandlers 注册计划内软件升级的处理器。
+// 修复（A3）：此前全仓无任何 SetUpgradeHandler，一旦 SoftwareUpgrade 治理提案通过，
+// 链在目标高度停机却无处理器可执迁移，导致不可逆停链。默认处理器运行全部模块迁移，
+// 使链在升级时可安全执行模块版本迁移而非永久 halt。
+func (app *App) RegisterUpgradeHandlers() {
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeName,
+		func(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			return app.mm.RunMigrations(ctx, app.configurator, fromVM)
+		},
+	)
 }
 
 // LoadHeight loads a particular height

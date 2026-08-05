@@ -20,11 +20,12 @@ const (
 	LpIncentivePerDayDefault = "5000000000"
 
 	// LpIncentiveEndHeightDefault is the default end height for LP incentives.
-	// 6 months ≈ 180 days × 14,400 blocks/day (at ~6s/block) = 2,592,000 blocks.
-	LpIncentiveEndHeightDefault = 2592000
+	// 180 days × 21,600 blocks/day (at the ~4 s block time per whitepaper §A.1) = 3,888,000 blocks.
+	LpIncentiveEndHeightDefault = 3888000
 
-	// BlocksPerDay is the approximate number of blocks per day at ~6s/block.
-	BlocksPerDay = 14400
+	// BlocksPerDay is the approximate number of blocks per day.
+	// Aligned to the chain's ~4 s block time (whitepaper §A.1): 86,400 s / 4 s = 21,600 blocks/day.
+	BlocksPerDay = 21600
 )
 
 func ParamKeyTable() paramtypes.KeyTable {

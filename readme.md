@@ -8,7 +8,7 @@
 [![Go](https://img.shields.io/badge/Go-1.22.5-00ADD8?logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-Apache_2.0-green)](./LICENSE)
 
-MC 是基于 **Cosmos SDK + CometBFT** 构建的 DePIN + 边缘 AI 公链。核心创新是让智能手机以「轻全节点」方式参与共识与贡献，解决当前公链节点集中化问题。链上经济由 5 个自定义模块驱动，通证固定总量 10 亿 MC、零通胀。
+MC 是基于 **Cosmos SDK + CometBFT** 构建的 DePIN + 边缘 AI 公链。核心创新是让智能手机以「轻全节点」方式参与共识与贡献，解决当前公链节点集中化问题。链上经济由 8 个原生模块驱动，通证固定总量 10 亿 MC、零通胀。
 
 **开源可审计 · 参数写代码 · 链上求真 · 共识共生**
 

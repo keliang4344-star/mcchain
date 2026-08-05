@@ -76,7 +76,15 @@ func (k Keeper) GetGovernanceHandoverConfig(ctx sdk.Context) GovernanceHandoverC
 }
 
 // SetGovernanceHandoverConfig 持久化移交配置。
+// 修复（B2）：RequiredSigners 此前是死字段、执行路径从不校验。现强制边界：
+// 必须落在 [1, 10] 区间，避免误配导致移交阈值失效或被置 0（任何人可发起移交）。
 func (k Keeper) SetGovernanceHandoverConfig(ctx sdk.Context, cfg GovernanceHandoverConfig) {
+	if cfg.RequiredSigners < 1 || cfg.RequiredSigners > 10 {
+		cfg.RequiredSigners = DefaultGovernanceHandoverConfig.RequiredSigners
+	}
+	if cfg.TimelockBlocks == 0 {
+		cfg.TimelockBlocks = DefaultGovernanceHandoverConfig.TimelockBlocks
+	}
 	bz, err := json.Marshal(cfg)
 	if err != nil {
 		ctx.Logger().Error("mcchain: marshal governance handover config", "err", err)

@@ -33,7 +33,7 @@
 ### 开放区（Open）
 外部工程师可深度参与，≥1 名 Core / Reviewer approve 即可 merge。
 
-- `x/dex` — 原生 AMM（目前在测，欢迎完善与审计）
+- `x/dex` — 原生 AMM（已交付，生产可用；结算批次由治理授权的运营地址签名提交）
 - `x/edgeai` — 边缘 AI 任务市场（非共识关键路径）
 - `web/` — 钱包 / 浏览器前端（RPC 可配置化等）
 - `tools/`、`monitoring/`、`mc-miner/`、`cosmjs-bundle/`

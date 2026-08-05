@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -22,6 +23,11 @@ func (k msgServer) CreateTask(goCtx context.Context, msg *types.MsgCreateTask) (
 	// 需求方付费（escrow）：创建任务即由 creator 向 edgeai 模块账户托管 reward，
 	// 结算时由该托管金拨付 submitter。reward=0 视为无奖励任务，跳过托管。
 	if msg.Reward > 0 {
+		// 上界检查（B7）：uint64 → int64 转换在超过 math.MaxInt64 时会溢出，
+		// 必须先校验，避免恶意超大 reward 导致托管金额符号翻转。
+		if msg.Reward > uint64(math.MaxInt64) {
+			return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "reward %d exceeds int64 range", msg.Reward)
+		}
 		rewardCoins := sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(msg.Reward)))
 		if k.bankKeeper.SpendableCoins(ctx, creatorAddr).AmountOf(types.EdgeAIDenom).LT(rewardCoins.AmountOf(types.EdgeAIDenom)) {
 			return nil, sdkerrors.Wrapf(sdkerrors.ErrInsufficientFunds, "creator balance insufficient to escrow reward %d umc", msg.Reward)

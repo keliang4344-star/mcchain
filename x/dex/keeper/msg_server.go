@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -117,6 +118,15 @@ func (m msgServer) SwapExactIn(goCtx context.Context, msg *types.MsgSwapExactIn)
 func (m msgServer) SubmitSettlementBatch(goCtx context.Context, msg *types.MsgSubmitSettlementBatch) (*types.MsgSubmitSettlementBatchResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
+	// 安全校验（A1）：仅授权运营地址可提交结算批次；熔断时拒绝。
+	cfg := m.Keeper.GetSettlementConfig(ctx)
+	if cfg.Halted {
+		return nil, fmt.Errorf("dex: settlement is halted")
+	}
+	if msg.Creator != cfg.Authority {
+		return nil, fmt.Errorf("dex: unauthorized settlement submitter %s; only %s may submit batches", msg.Creator, cfg.Authority)
+	}
+
 	entries := make([]BatchEntry, 0, len(msg.Entries))
 	var total uint64
 	for _, e := range msg.Entries {
@@ -140,6 +150,15 @@ func (m msgServer) SubmitSettlementBatch(goCtx context.Context, msg *types.MsgSu
 // FinalizeSettlementBatch 清算一个 pending 批次：从结算源模块账户一次性拨付给各接收方。
 func (m msgServer) FinalizeSettlementBatch(goCtx context.Context, msg *types.MsgFinalizeSettlementBatch) (*types.MsgFinalizeSettlementBatchResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// 安全校验（A1）：仅授权运营地址可清算结算批次；熔断时拒绝。
+	cfg := m.Keeper.GetSettlementConfig(ctx)
+	if cfg.Halted {
+		return nil, fmt.Errorf("dex: settlement is halted")
+	}
+	if msg.Creator != cfg.Authority {
+		return nil, fmt.Errorf("dex: unauthorized settlement finalizer %s; only %s may finalize batches", msg.Creator, cfg.Authority)
+	}
 
 	if err := m.Keeper.FinalizeBatch(ctx, msg.BatchId); err != nil {
 		return nil, err

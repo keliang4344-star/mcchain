@@ -16,4 +16,5 @@ var (
 	ErrNothingToClaim     = sdkerrors.Register(ModuleName, 1209, "no matured unbonding receipt to claim")
 	ErrInvalidAddress     = sdkerrors.Register(ModuleName, 1210, "invalid address")
 	ErrDustRedemption     = sdkerrors.Register(ModuleName, 1211, "redemption rounds down to zero")
+	ErrPoolWipedOut       = sdkerrors.Register(ModuleName, 1212, "pool has outstanding shares with no bonded stake: new deposits are closed until governance resolves it")
 )

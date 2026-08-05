@@ -6,10 +6,10 @@ import (
 	"sort"
 
 	"github.com/cosmos/cosmos-sdk/codec/legacy"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	secp256k1 "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	multisig "github.com/cosmos/cosmos-sdk/crypto/keys/multisig"
+	secp256k1 "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
@@ -195,10 +195,56 @@ func init() {
 	TeamMultisigPubKey = multisig.NewLegacyAminoPubKey(int(TeamMultisigThreshold), pubKeys)
 	TeamAddress = sdk.AccAddress(TeamMultisigPubKey.Address())
 
-	// 早期流通拨付地址：占位确定性派生（主网前替换真实地址）。
-	EarlyDevPubKey, EarlyDevAddress = derivedPlaceholder(0x21)
-	FoundationOpsPubKey, FoundationOpsAddress = derivedPlaceholder(0x22)
-	FoundationVestingPubKey, FoundationVestingAddress = derivedPlaceholder(0x23)
+	// 早期流通拨付地址：默认占位确定性派生（私钥写在源码中，仅测试/占位用）；
+	// 若 foundation_addrs_gen.go 提供了真实覆写公钥，则优先生效（A2 修复）。
+	EarlyDevPubKey, EarlyDevAddress = resolveFoundationKey(earlyDevPubKeyOverride, 0x21)
+	FoundationOpsPubKey, FoundationOpsAddress = resolveFoundationKey(foundationOpsPubKeyOverride, 0x22)
+	FoundationVestingPubKey, FoundationVestingAddress = resolveFoundationKey(foundationVestingPubKeyOverride, 0x23)
+}
+
+// resolveFoundationKey 若提供了覆写公钥（bech32 mcpub）则用之派生地址，
+// 否则回退到确定性占位派生（私钥可源码还原，仅测试/占位）。
+// 主网创世前必须在 foundation_addrs_gen.go 填入真实公钥，使 1.8 亿 MC 不落在源码可推导私钥的地址上。
+func resolveFoundationKey(override string, seed byte) (cryptotypes.PubKey, sdk.AccAddress) {
+	if override == "" {
+		return derivedPlaceholder(seed)
+	}
+	_, bz, err := bech32.DecodeAndConvert(override)
+	if err != nil {
+		panic(fmt.Sprintf("tokenomics: invalid foundation override pubkey %q: %v", override, err))
+	}
+	pk, err := legacy.PubKeyFromBytes(bz)
+	if err != nil {
+		panic(fmt.Sprintf("tokenomics: invalid foundation override pubkey %q: %v", override, err))
+	}
+	return pk, sdk.AccAddress(pk.Address())
+}
+
+// FoundationOverridesConfigured 报告 EarlyDev / FoundationOps / FoundationVesting
+// 三个拨付地址是否均已由真实公钥覆写。
+//
+// 为 false 时这三个地址由 derivedPlaceholder 的固定种子派生，其私钥等于
+// sha256(单字节种子)——任何读过源码的人都能还原，因此绝不可持有资产。
+// 主网创世前必须在 foundation_addrs_gen.go 填入真实公钥使其为 true；
+// 创世编排在为 false 时打出显式告警（见 x/tokenomics/keeper/genesis.go）。
+func FoundationOverridesConfigured() bool {
+	return earlyDevPubKeyOverride != "" &&
+		foundationOpsPubKeyOverride != "" &&
+		foundationVestingPubKeyOverride != ""
+}
+
+// TeamPubKeysConfigured 报告团队 3-of-5 多签是否由真实公钥构成。
+// 为 false 时 TeamAddress 由固定种子占位公钥派生，同样不可持有资产。
+func TeamPubKeysConfigured() bool {
+	if len(teamPubKeyStrings) != 5 {
+		return false
+	}
+	for _, s := range teamPubKeyStrings {
+		if s == "" {
+			return false
+		}
+	}
+	return true
 }
 
 // buildTeamPubKeys 若 teamPubKeyStrings 含 5 个有效 bech32 公钥则解析；

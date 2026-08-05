@@ -13,6 +13,10 @@ const (
 	DenomPrefix = "dex/pool/"
 )
 
+// SettlementConfigKey stores the DEX settlement authority & circuit-breaker state
+// as JSON (see x/dex/keeper/settlement_config.go). Not in proto Params by design.
+var SettlementConfigKey = []byte("SettleConfig:")
+
 // KVStore key prefixes for state persistence.
 var (
 	// LiquidityLockKeyPrefix stores LP lock positions.

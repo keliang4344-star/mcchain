@@ -36,6 +36,17 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) error 
 		return fmt.Errorf("tokenomics: set default params: %w", err)
 	}
 
+	// 占位密钥告警（A2）：团队多签与三个基金会/早期开发拨付地址若仍走源码
+	// 固定种子派生，其私钥可由任何读过源码的人还原。测试网允许如此，主网
+	// 创世前必须替换为真实公钥，否则 30% 总量落在公开可推导的私钥上。
+	// 这里不硬失败——否则本地开发网与 CI 都无法启动——但必须在日志里喊出来。
+	if !types.TeamPubKeysConfigured() {
+		ctx.Logger().Error("tokenomics: TEAM MULTISIG USES SOURCE-DERIVABLE PLACEHOLDER KEYS — never use this genesis on mainnet")
+	}
+	if !types.FoundationOverridesConfigured() {
+		ctx.Logger().Error("tokenomics: EARLY-DEV/FOUNDATION PAYOUT ADDRESSES USE SOURCE-DERIVABLE PLACEHOLDER KEYS — replace them in x/tokenomics/types/foundation_addrs_gen.go before mainnet genesis")
+	}
+
 	// 恢复模式（幂等保护，R1 总量固化的必要条件）：
 	// minted_supply 非零的创世文件来自 `export` 导出的既有链状态（链升级、
 	// 分叉、重启、状态迁移都走这条路径），而非全新启动。此时代币早已在源链

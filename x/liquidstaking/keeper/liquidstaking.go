@@ -85,6 +85,13 @@ func (k Keeper) LiquidStake(ctx sdk.Context, delegator sdk.AccAddress, valAddr s
 	}
 
 	ps := k.GetPoolState(ctx)
+	// A fully slashed pool still carries share supply with zero backing. Letting
+	// a new depositor in at that point would mint them shares alongside worthless
+	// ones and hand part of their principal to the wiped-out holders. Deposits
+	// stay closed until governance resolves the pool.
+	if ps.TotalSharesUlmc > 0 && ps.TotalBondedUmc == 0 {
+		return 0, types.ErrPoolWipedOut
+	}
 	if err := k.checkValidatorCap(ctx, params, ps, valAddr.String(), amountUmc); err != nil {
 		return 0, err
 	}

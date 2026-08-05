@@ -15,7 +15,9 @@ func TestMsgServerSettlementBatchFlow(t *testing.T) {
 	ms := NewMsgServerImpl(*k)
 	goCtx := sdk.WrapSDKContext(ctx)
 
+	// 将结算授权方配置为测试提交者（默认是治理模块账户）。
 	submitter := addrOfDex(t)
+	k.SetSettlementConfig(ctx, SettlementConfig{Authority: submitter})
 	r1 := addrOfDex(t)
 	r2 := addrOfDex(t)
 
@@ -76,6 +78,39 @@ func TestMsgServerSettlementBatchRejectsInvalid(t *testing.T) {
 
 	_, ok := k.GetBatch(ctx, "b-empty")
 	require.False(t, ok)
+}
+
+// TestMsgServerSettlementUnauthorized 越权与熔断必须被拒（A1 / A4）。
+func TestMsgServerSettlementUnauthorized(t *testing.T) {
+	k, ctx, _ := setupDex(t)
+	ms := NewMsgServerImpl(*k)
+	goCtx := sdk.WrapSDKContext(ctx)
+
+	// 授权方设为与提交者不同的地址。
+	authority := addrOfDex(t)
+	attacker := addrOfDex(t)
+	k.SetSettlementConfig(ctx, SettlementConfig{Authority: authority})
+
+	// 越权提交
+	_, err := ms.SubmitSettlementBatch(goCtx, &types.MsgSubmitSettlementBatch{
+		Creator: attacker, BatchId: "b-attack", MerkleRoot: "root",
+		Entries: []*types.SettlementEntry{{Recipient: addrOfDex(t), AmountUmc: 1}},
+	})
+	require.Error(t, err)
+
+	// 越权清算
+	_, err = ms.FinalizeSettlementBatch(goCtx, &types.MsgFinalizeSettlementBatch{
+		Creator: attacker, BatchId: "b-attack",
+	})
+	require.Error(t, err)
+
+	// 熔断：即使授权方提交也被拒
+	k.SetSettlementConfig(ctx, SettlementConfig{Authority: authority, Halted: true})
+	_, err = ms.SubmitSettlementBatch(goCtx, &types.MsgSubmitSettlementBatch{
+		Creator: authority, BatchId: "b-halt", MerkleRoot: "root",
+		Entries: []*types.SettlementEntry{{Recipient: addrOfDex(t), AmountUmc: 1}},
+	})
+	require.Error(t, err)
 }
 
 // TestSettlementMsgValidateBasic 消息层面基础校验。

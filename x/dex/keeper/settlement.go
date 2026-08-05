@@ -1,6 +1,8 @@
 package keeper
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -29,12 +31,26 @@ type BatchEntry struct {
 // SettlementBatch 一个离链聚合批次的链上清算记录。
 type SettlementBatch struct {
 	BatchID     string       `json:"batch_id"`
-	MerkleRoot  string       `json:"merkle_root"` // hex
+	MerkleRoot  string       `json:"merkle_root"` // hex（链下聚合器构造，供收款方链下自验）
 	Entries     []BatchEntry `json:"entries"`
+	EntriesHash string       `json:"entries_hash"` // 链上条目完整性承诺（提交即定，清算时复核）
 	Total       uint64       `json:"total"`
 	SubmittedBy string       `json:"submitted_by"`
 	Status      string       `json:"status"` // pending / settled
 	BlockHeight int64        `json:"block_height"`
+}
+
+// computeEntriesHash 对条目做规范化承诺：sha256(recipient:amount;...) 的 hex。
+// 用于链上保证「提交的条目 == 清算的条目」，防止批次在 pending 期间被置换。
+func computeEntriesHash(entries []BatchEntry) string {
+	h := sha256.New()
+	for _, e := range entries {
+		h.Write([]byte(e.Recipient))
+		h.Write([]byte(":"))
+		h.Write([]byte(fmt.Sprintf("%d", e.Amount)))
+		h.Write([]byte(";"))
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func settlementBatchKey(id string) []byte { return append(SettlementBatchKeyPrefix, []byte(id)...) }
@@ -61,6 +77,7 @@ func (k Keeper) SubmitBatch(ctx sdk.Context, batchID, merkleRoot, submittedBy st
 		BatchID:     batchID,
 		MerkleRoot:  merkleRoot,
 		Entries:     entries,
+		EntriesHash: computeEntriesHash(entries),
 		Total:       total,
 		SubmittedBy: submittedBy,
 		Status:      "pending",
@@ -99,6 +116,11 @@ func (k Keeper) FinalizeBatch(ctx sdk.Context, batchID string) error {
 	}
 	if b.Status == "settled" {
 		return nil // 幂等
+	}
+	// 条目完整性复核：清算时实际条目必须仍与提交时承诺的 hash 一致，
+	// 防止批次在 pending 期间被置换（防御性校验，A1）。
+	if got := computeEntriesHash(b.Entries); got != b.EntriesHash {
+		return fmt.Errorf("dex: batch %s entries hash mismatch: stored %s, recomputed %s", batchID, b.EntriesHash, got)
 	}
 	denom := "umc"
 	for _, e := range b.Entries {

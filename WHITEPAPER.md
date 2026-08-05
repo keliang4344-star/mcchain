@@ -21,6 +21,8 @@ Two status markers are used throughout:
 
 Where the code and this document disagree, the code governs.
 
+Section 21 sets out the known limitations of the design and of the launch state. It is part of the argument, not a disclaimer appended to it: a reader who skips it has not read this document.
+
 ---
 
 ## 1. Executive Summary
@@ -276,6 +278,8 @@ MobileChain runs three participation tiers rather than one.
 
 **Liquid staking** issues a transferable representation of bonded MC, so stake can secure the network without being immobilized. The module is live in the client.
 
+The receipt is a claim on a pooled delegation, priced by an exchange rate rather than at par. Compounded staking rewards lift that rate; a validator slash lowers it. The write-down is applied the moment `x/staking` reports the slash, before any redemption can be processed, so the loss is shared by every holder instead of falling on whoever redeems last. No single validator may hold more than 20% of the module's bonded stake, which stops the pool from quietly centralising the validator set it depends on.
+
 *Status: Live.*
 
 ---
@@ -301,6 +305,8 @@ Verifier selection is reputation-weighted and samples completed tasks after the 
 The initial MC/USDT pool is seeded with 5,000,000 MC from the foundation genesis unlock, paired with market-maker USDT, at an opening reference price of 0.02 USDT per MC. Swap fee is 0.30%, split evenly between the burn and liquidity providers. Liquidity positions carry a 100,800-block minimum lock (about 4.7 days at the ~4 s block time).
 
 The exchange is where a phone's earnings become liquid, and every trade that passes through it reduces total supply.
+
+High-frequency micro-payouts are batched off-chain and settled on-chain in one transaction. Both the submission and the finalisation of a batch are restricted to an authorised address — the governance module account by default — and governance holds a halt switch over the whole path. Each batch commits to a SHA-256 hash of its entries when submitted; finalisation recomputes that hash and refuses to pay if it has changed, so the entries settled are provably the entries proposed.
 
 *Status: Live.*
 
@@ -345,6 +351,112 @@ The roadmap is stated as milestones, not dates. Progress is measured against on-
 **In progress.** Mainnet launch preparation: genesis ceremony, validator recruitment, final audit. Mobile SDK refinement. Dashboard and RPC configuration.
 
 **Planned.** None outstanding at the protocol layer: CosmWasm was the final planned capability and is now delivered with the `x/wasm` integration (WebAssembly runtime active on CGO-enabled builds).
+
+---
+
+## 19. Value Capture
+
+MC is not a claim on revenue and carries no promise of return. What it has is a fixed supply and a set of places where the network's own activity consumes it.
+
+**Structural demand.** Four flows require MC rather than merely encouraging it. Every transaction pays gas in MC. Every validator posts a 30,000 MC minimum self-delegation, and every mobile node posts a bond that a slash can take. Every enterprise task on the Edge AI market escrows its budget in MC before a phone will accept it. Every liquidity position on the native exchange holds MC on one side of the pair. None of these is discretionary; they are the cost of using the network.
+
+**Structural supply reduction.** Three paths remove MC permanently. All three are ordinary usage or misconduct, never discretionary intervention.
+
+| Path | Rate | Base | Constant |
+|-------|------|------|----------|
+| Gas | 7.00% of the fee | every transaction | `GasBurnRatioBps = 700` |
+| Exchange | half of the 0.30% swap fee, i.e. 0.15% of traded volume | every swap | `FeeBurnBps = 5000` |
+| Slashing | 40% of the amount slashed | validator misconduct | `SlashBurnRatioBps = 4000` |
+
+Burned MC is sent to a deterministic unspendable address. It is not parked in the treasury and cannot be recovered by a vote.
+
+**What is deliberately never burned.** Earnings do not shrink. Device rewards, referral rewards and Edge AI settlements reach the participant in full: no percentage is taken from work performed. Deflation is funded by protocol use and by misconduct, not by anyone's labour.
+
+**What the protocol does not do.** There is no treasury buyback, no market-making mandate, no revenue-sharing entitlement, and no staking yield underwritten by issuance. The staking drip pays from a pre-allocated 150,000,000 MC pool; when that pool is spent, the yield it funded ends with it. The renewal mechanism can lower the rate to extend the pool's life, but it cannot create supply.
+
+The honest formulation: MC captures value only to the degree the network is used. The supply side is settled in code. The demand side is not something a document can settle.
+
+---
+
+## 20. Adoption and Distribution
+
+Adoption is stated as budgets and gates, because those are the parts that can be checked.
+
+**What the acquisition budget is, and what bounds it.** The referral programme is funded by a dedicated 82,500,000 MC slice carved out of the device allocation — a separate budget, paid to the referrer, never deducted from the person referred. Three levels pay 10%, 5% and 2% (`DefaultLevel1..3RewardRateBps`), so 17% of a participant's accounted contribution base is the ceiling on what the network will pay to acquire that participant, and it is paid out of the 82.5M pool rather than out of their earnings.
+
+Two caps bound the spend rate. Per referrer, 500 MC per day. Network-wide, 20,600 MC per day (`DefaultDailyNetworkCap`). At maximum utilisation the network cap alone stretches the 82.5M budget over 82,500,000 ÷ 20,600 ≈ 4,005 days, roughly eleven years. A growth spike cannot drain it; the arithmetic is in the constants.
+
+**What the device budget supports.** 467,500,000 MC funds device rewards across the twelve-year drip floor — an average of about 106,700 MC per day. Against that, the node capital allowance pays 30 MC per day to each registered, attested, non-jailed node (`DefaultNodeCapitalAllowancePerDay`). The two figures are related by a governance dial: the allowance is a per-node constant, so the total daily outflow scales linearly with the node count, and the per-node figure is expected to fall as the network grows. This is a parameter under governance, not a fixed entitlement, and §21.2 states the consequence plainly.
+
+**What the demand side pays.** An enterprise task escrows up to 1,000 MC (`MaxTaskReward`), settles 85% to the submitting device and reserves 15% for verification, and carries a 1.50% settlement fee split 40% to node operators and 60% to the Protocol Treasury. The treasury therefore receives 0.90% of enterprise settlement volume. The arithmetic is linear and can be applied to any volume assumption the reader prefers: at 1,000,000 MC of daily settled volume the treasury receives 9,000 MC per day. That is arithmetic, not a forecast.
+
+**Gates rather than dates.**
+
+- *Phase one — genesis integrity.* A validator set large enough that the failure of any single member is survivable, with the 30,000 MC self-delegation floor enforced at the ante handler on every create and edit. Measured by the on-chain validator set, not by an announcement.
+- *Phase two — demand.* Enterprise settlement fees become a recurring treasury inflow, so that the treasury is funded by usage rather than by the genesis unlock. Measured by treasury balance composition at height.
+- *Phase three — handover.* Operational keys held by the team decrease, parameters move under on-chain vote, and the treasury timelock is activated. Measured by what has been transferred, not by what has been promised.
+
+---
+
+## 21. Risk Disclosure and Limitations
+
+This section exists because a document that lists only strengths is not an engineering document. Everything below is a known, current limitation.
+
+### 21.1 Launch-state risks
+
+**Genesis key material.** The team allocation is held by a 3-of-5 multisig whose member public keys are supplied at build time. The early-development address and the two foundation addresses are resolved the same way, through explicit public-key overrides. Where an override is absent, the build falls back to a deterministic address derived from a fixed seed — a placeholder that is reproducible by anyone reading the source and therefore **must not hold value**. Substituting real public keys for every placeholder is a blocking precondition of the genesis ceremony. Until that substitution is verifiable in the genesis file, no allocation figure in Appendix A should be read as a claim about custody.
+
+**External audit.** The protocol is covered by an in-repository test suite that fails when economic constants move, and by internal review. A completed third-party security audit is not among the delivered items. Treat the code as unaudited by an independent party until an audit report is published.
+
+**Validator concentration.** At genesis the validator set is small by construction. A small set is easier to coordinate and easier to capture. The 30,000 MC self-delegation floor raises the cost of a trivial validator, but no parameter substitutes for a genuinely distributed set, and distribution takes time the protocol cannot compress.
+
+### 21.2 Economic risks
+
+**The node allowance scales with the network, the pool does not.** The node capital allowance is a flat per-node, per-day payment drawn from the device pool. Total outflow is therefore linear in node count while the pool is fixed at 467,500,000 MC. If the node count grows faster than governance reduces the per-node figure, the pool depletes ahead of the twelve-year floor. The mitigation is a governance parameter that must actually be used; it is not automatic, and the protocol will not throttle the payment on its own.
+
+**Drip exhaustion.** The staking drip targets 5% APR on bonded MC from a finite 150,000,000 MC pool with a twelve-year floor. The renewal band can reduce the target to 1.00%–2.00% to extend it. Both ends of that mechanism reduce yield; neither creates supply. Anyone modelling staking returns should model them as declining.
+
+**No issuance means no elastic security budget.** Zero inflation is a deliberate constraint, and its cost is that the security budget cannot be expanded by decree. Long-term validator economics depend on fee volume and on the security pool's remaining balance. If both fall, so does the incentive to validate.
+
+**Referral programme.** The programme rewards introductions, and any such programme attracts participants whose only activity is introduction. The circuit breakers — per-referrer daily cap, network-wide daily cap, depth limit of three, maximum 100 referrals per account, minimum payout — bound the damage rather than eliminate the behaviour.
+
+### 21.3 Technical risks
+
+**Off-chain trust surface.** Device attestation and liveness are facts the chain cannot observe by itself. The oracle service reports them under constraint — bearer-token access, rate limits, fail-closed verification against hardware roots of trust, mandatory public key in production. Constraint is not elimination: a compromised oracle credential is a real attack surface, and the honest description of the boundary is that the oracle reports while on-chain modules decide.
+
+**Exchange settlement operator.** Off-chain settlement batching for high-frequency micro-payouts is submitted by an authorised address, defaults to the governance module account, and is subject to a governance halt switch. Each batch commits to a hash of its entries at submission, and finalisation recomputes that hash and refuses on mismatch. The residual risk is the authorised submitter's availability: if it stops submitting, micro-settlement stops until governance appoints another.
+
+**Liquid staking.** The ulmc receipt is a claim on a pooled delegation, not a deposit. When a validator the pool delegated to is slashed, the loss is written down immediately and shared across all holders through a lower exchange rate — by design, so that early redeemers cannot escape a loss the late ones would otherwise absorb alone. In the extreme case of a total write-down the pool holds shares with no backing; new deposits are refused in that state until governance resolves the pool.
+
+**Smart-contract execution.** CosmWasm runs on CGO-enabled builds, where the WebAssembly runtime is linked. Contracts are third-party code; the protocol makes no representation about any contract deployed on it.
+
+**Interchain transfer.** IBC connects MobileChain to counterparty chains whose security is not MobileChain's to guarantee. Assets bridged in carry the risk of their origin.
+
+### 21.4 Governance risks
+
+Treasury spending requires a governance multisig, which is enforced today. The withdrawal timelock is on the roadmap and is **not yet active**: in v1 there is no enforced delay between approval and movement of treasury funds. Until the timelock ships, the control is the multisig alone.
+
+Governance capture is the standing risk of any token-weighted vote. The supply cap and permanent tombstoning for equivocation are outside the reach of a vote; most other parameters are not.
+
+### 21.5 External risks
+
+Regulatory treatment of network tokens differs by jurisdiction and continues to change. Exchange availability, custody, taxation and the legality of participation are outside the protocol's control. Market liquidity may be thin, and the price of MC may fall to zero.
+
+---
+
+## 22. Legal and Regulatory Posture
+
+**What MC is.** MC is the native unit of account of a public, permissionless network. It pays gas, posts validator and node bonds, escrows Edge AI tasks, and provides one side of liquidity on the native exchange. Its utility is exhausted by those functions.
+
+**What MC is not.** MC confers no equity, no ownership of any entity, no dividend, no interest, no claim on revenue and no right to repayment. Holding MC creates no relationship with any issuer. Rewards described in this document are protocol-level distributions executed by on-chain rules against pre-allocated pools; they are not returns on an investment and are not underwritten by anyone.
+
+**No offer.** This document is published for technical and economic description. It is not an offer to sell, a solicitation of an offer to buy, or a recommendation regarding any asset, in any jurisdiction. Nothing here is investment, legal, accounting or tax advice.
+
+**Participation is the participant's responsibility.** The protocol is software. It does not screen participants, and it cannot assess whether participation is lawful where a given participant lives. Operators of exchanges, custodians, front-ends and other intermediaries have their own obligations under their own regimes; running a node, deploying a contract or trading MC may be restricted or prohibited in some jurisdictions. Each participant is responsible for their own compliance and their own tax position.
+
+**Transparency commitments in place of assurances.** Team and foundation allocations vest on-chain against schedules that are public and enforced by code rather than by undertaking. Every pool balance is queryable at every height. Every constant in Appendix A names the file that defines it. Where this document and the code disagree, the code governs — and that rule is itself the compliance posture: statements about MobileChain should be verified against the ledger, not accepted from a document.
+
+**Forward-looking statements.** Statements about roadmap, adoption or future capability describe intent, not commitment. They depend on engineering outcomes, governance decisions and external conditions, and they may not occur.
 
 ---
 
@@ -425,6 +537,10 @@ Each row names the constant and the file that defines it. Where a value here dis
 | `ContribSlashBps` | 1000 (10%) | same |
 | `AttestSlashBps` | 2000 (20%) | same |
 | `SlashCooldownBlocks` | 43,200 (~12 h) | `DefaultSlashCooldownBlocks` |
+| Node capital allowance | 30,000,000 umc/node/day (30 MC) | `DefaultNodeCapitalAllowancePerDay` |
+| Allowance funding source | device incentive pool | `x/phonenode/keeper/node_allowance.go` |
+| Allowance eligibility | registered, not jailed, not inactive | same |
+| Verifier minimum stake | 30,000,000,000 umc (30,000 MC) | `VerifierMinStake` |
 
 ### A.6 Edge AI
 
@@ -477,6 +593,20 @@ Each row names the constant and the file that defines it. Where a value here dis
 | ante decorator | `app/ante.go` | Validator minimum self-delegation |
 | oracle service | `internal/oraclesvc` | Constrained submission of off-chain facts |
 | dashboard | `web/` | Wallet, explorer, transaction tooling |
+
+### A.10 Liquid staking and off-chain settlement
+
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| Receipt denomination | `ulmc` | `x/liquidstaking/types/keys.go` |
+| Minimum liquid stake | 1,000,000 umc (1 MC) | `DefaultParams().MinStakeUmc` |
+| Per-validator concentration cap | 2,000 bps (20% of module stake) | `MaxValidatorShareBps` |
+| Slash propagation | pool bond written down on `BeforeValidatorSlashed` | `x/liquidstaking/keeper/hooks.go` |
+| Deposits when pool backing is zero | refused (`ErrPoolWipedOut`) | `x/liquidstaking/keeper/liquidstaking.go` |
+| Reward source | staking rewards, compounded; no issuance | `x/liquidstaking/keeper/liquidstaking.go` |
+| Settlement batch submitter | governance module account by default | `x/dex/keeper/settlement_config.go` |
+| Settlement halt switch | governance-settable | same |
+| Batch integrity | SHA-256 of entries committed on submit, re-checked on finalise | `x/dex/keeper/settlement.go` |
 
 ---
 

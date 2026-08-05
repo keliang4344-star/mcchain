@@ -58,6 +58,10 @@ type PoolState struct {
 	TotalUnbondingUmc uint64 `json:"total_unbonding_umc"`
 	// CumulativeRewardsUmc is the lifetime staking reward compounded into the pool.
 	CumulativeRewardsUmc uint64 `json:"cumulative_rewards_umc"`
+	// CumulativeSlashedUmc is the lifetime loss written off the pool because a
+	// validator it delegated to was slashed. Kept for auditability: the pair
+	// (rewards, slashed) fully explains any drift between deposits and backing.
+	CumulativeSlashedUmc uint64 `json:"cumulative_slashed_umc"`
 }
 
 // UnbondingEntry is a redemption receipt created by Unstake.

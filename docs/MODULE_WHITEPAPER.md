@@ -63,8 +63,8 @@ mcchain (基础/系统参数模块，独立)
 | 16 | deploy | `deploy` | Docker 容器化部署（Dockerfile/docker-compose.yml） | — |
 | 17 | monitoring | `monitoring` | Grafana 监控看板（dashboards 目录） | grafana |
 | 18 | dex | `x/dex` | 原生 AMM：池创建 / 兑换 / 流动性 / 离链结算批次（SubmitBatch + FinalizeBatch，模块账户拨付） | bank |
-| 19 | referral | `x/referral` | 推荐奖励：3 级推荐、10% 网络获客成本封顶、双断路（单推荐人/全网日限），预算来自 5.5 亿设备池独立切片，初始化即铸造 | bank, depin |
-| 20 | liquidstaking | `x/liquidstaking` | 流动性质押：质押 MC 由模块账户代为委托验证人并铸造可转账凭证，到期赎回 | staking, distr, bank |
+| 19 | referral | `x/referral` | 推荐奖励：3 级推荐（10%/5%/2%，合计 17% 网络获客成本封顶）、双断路（单推荐人日限 / 全网日限），预算为设备激励切片内单独划出的 8250 万 MC（`ReferralEcosystemBudget`），创世时由设备池转入，不新增铸造 | bank, depin |
+| 20 | liquidstaking | `x/liquidstaking` | 流动性质押：质押 MC 由模块账户代为委托验证人并铸造可转账凭证 `ulmc`，按兑换率赎回；验证人被罚没时经 `BeforeValidatorSlashed` 钩子同步写减池内本金 | staking, distr, bank |
 
 ### 1.3 模块依赖关系图
 
