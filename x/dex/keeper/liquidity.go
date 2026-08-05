@@ -125,7 +125,7 @@ func (k Keeper) RemoveLiquidity(
 	}
 
 	// Check LP token lock: per whitepaper line 508, LP tokens are locked
-	// for LpLockBlocks (default ~100800 = 7 days at 6s/block).
+	// for LpLockBlocks (default ~100800 ≈ 4.7 days at the ~4 s block time per the whitepaper).
 	if k.HasActiveLock(ctx, creator, poolID) {
 		return sdk.ZeroInt(), sdk.ZeroInt(), types.ErrLpLocked
 	}

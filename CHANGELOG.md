@@ -29,6 +29,19 @@ All notable changes to MobileChain (MC) will be documented in this file.
 
 ---
 
+## [v4.2.1] — 2026-08-05
+
+### Docs — 白皮书 ↔ 代码 双向一致性审计二轮修整（M#1–M#6 全载体同步）
+
+- **timelock 收敛**：白皮书原将国库提现 timelock 写为硬约束（Delivered），代码仅注释、无实现；现统一为「治理多签 Live，timelock 规划中（v1 未强制执行）」，覆盖 WHITEPAPER.md、docs/WHITEPAPER.md、WHITEPAPER_CN.md、mc-miner/WHITEPAPER_v3.md、docs/whitepaper.html。
+- **模块数统一**：「五大 / 六原生模块」→「八大原生模块」；架构表与路线图清单补全 liquidstaking / referral / 治理移交（mcchain）；附录 A.9 / A.7 代码地图补 liquidstaking、wasm、ibc。
+- **DEX 锁仓时长自洽**：「7 天」→「100,800 区块（约 4.7 天，按 ~4 秒出块）」，与 `LpLockBlocksDefault = 100800` 及 §A.1 ~4s 一致；同步修正 `x/dex` 锁仓注释的 6s/7天 旧表述为 ~4s/~4.7天（不改任何常量值）。
+- **节点日津贴归口**：明确由 `x/phonenode` 模块发放、取自设备池额度（30 MC / 认证节点 / 日）。
+- **点名黑洞地址**：销毁章节补「确定性派生、无私钥的 black_hole 模块账户」说明。
+- **路线图清单去重**：CN 与 HTML 版原将 liquidstaking / CosmWasm / IBC / 治理移交误列「规划中」，现移至「已完成」；规划中仅保留 EdgeAI 算力市场规模化。
+
+---
+
 ## [v4.0] — 2026-07-18
 
 ### Added

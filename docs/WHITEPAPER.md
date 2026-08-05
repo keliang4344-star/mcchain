@@ -80,7 +80,7 @@ The second problem is ownership of value. Platforms monetized user activity and 
 +-----------------------------------------------------------+
 ```
 
-Consensus is CometBFT BFT with roughly four-second blocks and instant finality. The application layer is six custom modules.
+Consensus is CometBFT BFT with roughly four-second blocks and instant finality. The application layer is eight native modules.
 
 | Module | Responsibility |
 |--------|----------------|
@@ -90,6 +90,8 @@ Consensus is CometBFT BFT with roughly four-second blocks and instant finality. 
 | `x/edgeai` | Edge AI task market: escrow, optimistic settlement, dispute arbitration, verifier sampling |
 | `x/dex` | Constant-product AMM with a deflationary fee |
 | `x/referral` | Referral accounting funded from an independent budget, with per-user and network-wide circuit breakers |
+| `x/liquidstaking` | Delegated liquid staking: bonded MC stays liquid while earning drip yield |
+| `x/mcchain` | System anchor module and progressive governance-handover controller |
 
 ---
 
@@ -99,7 +101,7 @@ MC is the native token. One MC equals 1,000,000 `umc`, and all on-chain arithmet
 
 The supply cap of 1,000,000,000 MC is enforced inside `x/tokenomics`. The `x/mint` module is configured to zero, so no block produces new supply. Any attempt to mint past the cap halts the transaction rather than silently truncating.
 
-Three mechanisms remove MC from circulation permanently:
+Three mechanisms remove MC from circulation permanently. All burned MC is sent to a deterministic, keyless burn module account (`black_hole`), derived from the module name and holding no private key, so every reduction is permanent and irrecoverable.
 
 | Source | Burn |
 |--------|------|
@@ -124,7 +126,7 @@ The entire supply is allocated at genesis. Genesis validation rejects any config
 | 3 | Team | 12% | 120,000,000 | 3-of-5 multisig; 1-year cliff, then 3-year linear vesting |
 | 4 | Foundation | 13% | 130,000,000 | 50,000,000 unlocked at genesis; 80,000,000 on 2-year linear vesting |
 | 5 | Early Development | 5% | 50,000,000 | Operational multisig and vesting address |
-| 6 | **Protocol Treasury** | — | **0 at genesis** | `protocol_treasury` module account; governance multisig with timelock |
+| 6 | **Protocol Treasury** | — | **0 at genesis** | `protocol_treasury` module account; governance multisig (Live) with a planned withdrawal timelock (v1: multisig enforced, timelock not yet active) |
 
 Two details deserve emphasis.
 
@@ -180,7 +182,7 @@ On the EdgeAI path the fee is collected when a task is escrowed. A requester who
 
 ### 8.4 What the treasury is for
 
-The treasury exists so the protocol can fund audits, integrations, liquidity, grants, and the drip renewal of section 7 out of revenue rather than out of holders' balances. It is spent only through governance, behind a multisig and a timelock, and its balance is public at every block.
+The treasury exists so the protocol can fund audits, integrations, liquidity, grants, and the drip renewal of section 7 out of revenue rather than out of holders' balances. It is spent only through governance, behind a multisig (Live). A withdrawal timelock is on the roadmap but is not yet enforced in v1; its balance is public at every block.
 
 ---
 
@@ -224,7 +226,7 @@ The device incentive pool pays for verified work, and only for verified work.
 
 A phone joins by registering and presenting hardware attestation. Sybil binding ties one identity to one device, so the same handset cannot multiply into a farm of accounts. Contribution is then scored per task; a submission below the quality threshold of 30 earns nothing, though the attempt is still recorded on-chain for auditability.
 
-Attested, active nodes also receive a daily node allowance from the device pool. The allowance is a protocol parameter and is paid only while attestation is current.
+Attested, active nodes also receive a daily node allowance of 30 MC per attested node, disbursed through the `x/phonenode` module and drawn from the device-pool allocation. The allowance is a protocol parameter and is paid only while attestation is current.
 
 `x/depin` has no minting authority. It distributes from a pre-funded balance of 467,500,000 MC and can never exceed it.
 
@@ -296,7 +298,7 @@ Verifier selection is reputation-weighted and samples completed tasks after the 
 
 `x/dex` is a constant-product automated market maker supporting pool creation, swaps, and liquidity provision.
 
-The initial MC/USDT pool is seeded with 5,000,000 MC from the foundation genesis unlock, paired with market-maker USDT, at an opening reference price of 0.02 USDT per MC. Swap fee is 0.30%, split evenly between the burn and liquidity providers. Liquidity positions carry a seven-day minimum lock.
+The initial MC/USDT pool is seeded with 5,000,000 MC from the foundation genesis unlock, paired with market-maker USDT, at an opening reference price of 0.02 USDT per MC. Swap fee is 0.30%, split evenly between the burn and liquidity providers. Liquidity positions carry a 100,800-block minimum lock (about 4.7 days at the ~4 s block time).
 
 The exchange is where a phone's earnings become liquid, and every trade that passes through it reduces total supply.
 
@@ -320,7 +322,7 @@ The boundary is explicit. The oracle reports; it does not decide. Reward release
 
 Governance uses the standard Cosmos governance module: proposal, deposit, voting, execution. Parameters that governance can reach are marked as such in Appendix A.
 
-Three constraints bound it. The supply cap is not a governance parameter. Permanent tombstoning for equivocation is not a governance parameter. Treasury spending requires both a multisig and a timelock, so no single approval moves funds and every movement is visible before it executes.
+Three constraints bound it. The supply cap is not a governance parameter. Permanent tombstoning for equivocation is not a governance parameter. Treasury spending requires a governance multisig (Live). A withdrawal timelock is planned so that no single approval moves funds and every movement is visible before it executes; in v1 the multisig is the enforced control and the timelock is not yet active.
 
 The intended trajectory is a progressive handover: the team holds fewer operational keys over time, and more parameters move under on-chain vote. That transfer is measured by what has been transferred, not by what has been announced.
 
@@ -338,7 +340,7 @@ CosmWasm smart-contract support is integrated via the `x/wasm` module (wasmd v0.
 
 The roadmap is stated as milestones, not dates. Progress is measured against on-chain state and the public repository.
 
-**Delivered.** Eight native modules; five-pool genesis with end-to-end verification; zero-inflation enforcement; mobile node security including attestation, Sybil binding, offline grace, tiered slashing, and cooldown; liquid staking with delegated bonding; phone-cloud co-signing; the EdgeAI economic loop from posting through optimistic settlement and arbitration with on-chain recomputation as a second verification layer; the native AMM with its burn; the referral module with dual circuit breakers; the 30,000 MC validator floor; oracle hardening with fail-closed device verification; the twelve-year drip with treasury renewal; gas burn and rebate; the slash split; the enterprise settlement fee; the Protocol Treasury as the sixth address; progressive governance handover with timelock; off-chain settlement batching for high-frequency micro-payouts; IBC interoperability through interchain accounts and IBC transfer; and CosmWasm smart contracts via `x/wasm` (enabled on CGO-enabled builds).
+**Delivered.** Eight native modules; five-pool genesis with end-to-end verification; zero-inflation enforcement; mobile node security including attestation, Sybil binding, offline grace, tiered slashing, and cooldown; liquid staking with delegated bonding; phone-cloud co-signing; the EdgeAI economic loop from posting through optimistic settlement and arbitration with on-chain recomputation as a second verification layer; the native AMM with its burn; the referral module with dual circuit breakers; the 30,000 MC validator floor; oracle hardening with fail-closed device verification; the twelve-year drip with treasury renewal; gas burn and rebate; the slash split; the enterprise settlement fee; the Protocol Treasury as the sixth address; progressive governance handover — a timelock on treasury withdrawals is on the roadmap (v1: governance multisig enforced, timelock not yet active); off-chain settlement batching for high-frequency micro-payouts; IBC interoperability through interchain accounts and IBC transfer; and CosmWasm smart contracts via `x/wasm` (enabled on CGO-enabled builds).
 
 **In progress.** Mainnet launch preparation: genesis ceremony, validator recruitment, final audit. Mobile SDK refinement. Dashboard and RPC configuration.
 
@@ -469,6 +471,9 @@ Each row names the constant and the file that defines it. Where a value here dis
 | edgeai | `x/edgeai` | Task escrow, optimistic settlement, arbitration, enterprise fee |
 | dex | `x/dex` | Constant-product AMM and swap-fee burn |
 | referral | `x/referral` | Referral ledger and circuit breakers |
+| liquidstaking | `x/liquidstaking` | Delegated liquid staking with bonded yield |
+| cosmwasm | `x/wasm` | WebAssembly smart-contract runtime (CGO-enabled builds) |
+| ibc | `x/ibc` (ibc-go) | Interchain accounts and IBC transfer |
 | ante decorator | `app/ante.go` | Validator minimum self-delegation |
 | oracle service | `internal/oraclesvc` | Constrained submission of off-chain facts |
 | dashboard | `web/` | Wallet, explorer, transaction tooling |

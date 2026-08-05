@@ -10,8 +10,8 @@ var _ paramtypes.ParamSet = (*Params)(nil)
 
 // LP lock and incentive constants (whitepaper aligned).
 const (
-	// LpLockBlocksDefault is the default LP token lock duration: 7 days at ~6s/block.
-	// 7 × 24 × 3600 / 6 ≈ 100,800 blocks.
+	// LpLockBlocksDefault is the default LP token lock duration: 100,800 blocks
+	// (≈ 4.7 days at the ~4 s block time assumed in the whitepaper).
 	LpLockBlocksDefault = 100800
 
 	// LpIncentivePerDayDefault is the default daily LP incentive: 5,000 MC
