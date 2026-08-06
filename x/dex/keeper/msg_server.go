@@ -6,6 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"mcchain/internal/safemath"
 	"mcchain/x/dex/types"
 )
 
@@ -134,7 +135,11 @@ func (m msgServer) SubmitSettlementBatch(goCtx context.Context, msg *types.MsgSu
 			continue
 		}
 		entries = append(entries, BatchEntry{Recipient: e.Recipient, Amount: e.AmountUmc})
-		total += e.AmountUmc
+		sum, ok := safemath.AddUint64(total, e.AmountUmc)
+		if !ok {
+			return nil, fmt.Errorf("dex: batch %s total overflows uint64", msg.BatchId)
+		}
+		total = sum
 	}
 
 	if err := m.Keeper.SubmitBatch(ctx, msg.BatchId, msg.MerkleRoot, msg.Creator, entries); err != nil {

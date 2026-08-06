@@ -29,11 +29,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -70,6 +72,11 @@ type OracleService struct {
 
 	// monitor 记录链上提交的成败与最近一次成功时间，供周期自检判定降级。
 	monitor *oraclesvc.HealthMonitor
+
+	// apiKey 若非空，/attest 必须携带 Authorization: Bearer <apiKey>（ORACLE-1 加固）。
+	apiKey string
+	// rateLimiter 按客户端 IP 限流，防止开放中继被刷（ORACLE-1 加固）。
+	rateLimiter *rateLimiter
 }
 
 func main() {
@@ -120,6 +127,7 @@ type oracleConfig struct {
 	listenAddr string
 	mnemonic   string
 	keyringDir string
+	apiKey     string
 	strict     bool
 }
 
@@ -177,6 +185,10 @@ func resolveConfig(chainID, node string, port int) (oracleConfig, error) {
 	if n := len(strings.Fields(cfg.mnemonic)); n != 12 && n != 24 {
 		return oracleConfig{}, fmt.Errorf("ORACLE_SIGNER_MNEMONIC must be a 12 or 24 word BIP39 mnemonic, got %d words", n)
 	}
+
+	// 6) API key（可选）：生产环境应设置 ORACLE_API_KEY，使 /attest 必须携带
+	//    Authorization: Bearer <key>，避免开放中继被任意调用（ORACLE-1 加固）。
+	cfg.apiKey = strings.TrimSpace(os.Getenv("ORACLE_API_KEY"))
 
 	// 5) keyring 目录：必须可创建/可写，否则启动后第一次签名才炸。
 	cfg.keyringDir = strings.TrimSpace(envOrDefault("ORACLE_KEYRING_DIR", os.ExpandEnv("$HOME/.mcchain-oracle")))
@@ -282,13 +294,15 @@ func runOracle(cfg oracleConfig) error {
 		chainID:    chainID,
 		listenAddr: listenAddr,
 		// 生产加固④：监控链上提交的最近成功时间。
-		monitor: oraclesvc.NewHealthMonitor("chain-submit", healthInterval, healthStaleAfter),
+		monitor:    oraclesvc.NewHealthMonitor("chain-submit", healthInterval, healthStaleAfter),
+		apiKey:     cfg.apiKey,
+		rateLimiter: newRateLimiter(20, 10*time.Second), // 单 IP 每 10s 最多 20 次 /attest
 	}
 
 	// HTTP 路由
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", svc.handleHealth)
-	mux.HandleFunc("/attest", svc.handleAttest)
+	mux.HandleFunc("/attest", svc.authAndRateLimit(svc.handleAttest))
 
 	svc.httpServer = &http.Server{
 		Addr:              listenAddr,
@@ -325,6 +339,11 @@ func runOracle(cfg oracleConfig) error {
 	oraclesvc.Infof("oracle   : %s", oracleAddr.String())
 	oraclesvc.Infof("listening: http://%s", listenAddr)
 	oraclesvc.Infof("endpoints: POST /attest  GET /health")
+	if svc.apiKey != "" {
+		oraclesvc.Infof("attest auth: Bearer required (ORACLE_API_KEY set)")
+	} else {
+		oraclesvc.Warnf("attest auth: ORACLE_API_KEY NOT set — /attest is OPEN (set it before production exposure)")
+	}
 
 	if err := svc.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		oraclesvc.Errorf("HTTP server terminated: %v", err)
@@ -535,6 +554,79 @@ func envOrDefault(key, defaultValue string) string {
 		return v
 	}
 	return defaultValue
+}
+
+// ---------------------------------------------------------------------------
+// ORACLE-1 生产加固：/attest 端点 Bearer 鉴权 + 按 IP 限流
+// ---------------------------------------------------------------------------
+
+// rateLimiter 是极简的固定窗口按 IP 限流器（进程内，重启清零）。
+// 足以挡住开放中继被刷的初级 DoS；跨实例部署应前置反向代理/网关限流。
+type rateLimiter struct {
+	mu        sync.Mutex
+	visits    map[string]int
+	window    time.Duration
+	maxReqs   int
+	lastReset time.Time
+}
+
+func newRateLimiter(maxReqs int, window time.Duration) *rateLimiter {
+	return &rateLimiter{
+		visits:    make(map[string]int),
+		window:    window,
+		maxReqs:   maxReqs,
+		lastReset: time.Now(),
+	}
+}
+
+// allow 返回该 IP 当前窗口内是否仍可放行一次请求。
+func (rl *rateLimiter) allow(ip string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	now := time.Now()
+	if now.Sub(rl.lastReset) > rl.window {
+		rl.visits = make(map[string]int)
+		rl.lastReset = now
+	}
+	if rl.visits[ip] >= rl.maxReqs {
+		return false
+	}
+	rl.visits[ip]++
+	return true
+}
+
+// authAndRateLimit 在调用 handleAttest 前执行 Bearer 鉴权与按 IP 限流。
+func (s *OracleService) authAndRateLimit(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// 1) Bearer 鉴权：仅当配置了 ORACLE_API_KEY 时强制。
+		if s.apiKey != "" {
+			got := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+			if got != s.apiKey {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+		// 2) 按客户端 IP 限流，防开放中继被刷。
+		if !s.rateLimiter.allow(clientIP(r)) {
+			http.Error(w, "too many requests", http.StatusTooManyRequests)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// clientIP 从请求中取出最可信的客户端 IP（优先 X-Forwarded-For，回退 RemoteAddr）。
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if idx := strings.IndexByte(xff, ','); idx >= 0 {
+			return strings.TrimSpace(xff[:idx])
+		}
+		return strings.TrimSpace(xff)
+	}
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
 }
 
 // 确保 phonetypes 被引用（编译时链接 phonenode 模块类型）

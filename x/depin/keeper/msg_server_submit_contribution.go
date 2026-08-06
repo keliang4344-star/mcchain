@@ -74,11 +74,13 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 	// ========================================================================
 	// V3 新增：共振分发算法调整奖励（resonance.go，白皮书行 366-376）
 	// ========================================================================
-	var resonanceMultiplier float64 = 1.0
+	// FLOAT-1：倍数改用 sdk.Dec 定点表示，与链上实际发放口径完全一致，
+	// 且不引入任何浮点运算——事件属性也必须在各节点上逐位相同。
+	resonanceMultiplier := sdk.OneDec()
 	if reward > 0 {
 		adjustedReward := k.Keeper.ComputeResonanceRewardWithContext(ctx, reward, deviceAddr, score)
 		if adjustedReward != reward {
-			resonanceMultiplier = float64(adjustedReward) / float64(reward)
+			resonanceMultiplier = ResonanceMultiplierOf(reward, adjustedReward)
 			reward = adjustedReward
 		}
 		// 更新贡献记录的奖励字段（共振调整后）
@@ -146,7 +148,8 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 			return nil, sdkerrors.Wrapf(types.ErrInvalidScore, "daily release cap exceeded: need %d, cap %d, remaining %d", payoutAmount, dailyCap, remaining)
 		}
 
-		amt := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewInt(int64(payoutAmount))))
+		// OVF-1：payoutAmount 虽 ≤ MaxRewardPerTask，但统一用 uint64 → Int，无 int64 面。
+		amt := sdk.NewCoins(sdk.NewCoin(denom, sdkmath.NewIntFromUint64(payoutAmount)))
 		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, toAddr, amt); err != nil {
 			return nil, sdkerrors.Wrapf(err, "failed to pay reward from depin pool")
 		}
@@ -181,7 +184,7 @@ func (k msgServer) SubmitContribution(goCtx context.Context, msg *types.MsgSubmi
 				sdk.NewAttribute("reward", strconv.FormatUint(uint64(reward), 10)),
 				sdk.NewAttribute("payout", strconv.FormatUint(payoutAmount, 10)),
 				sdk.NewAttribute("denom", denom),
-				sdk.NewAttribute("resonance_multiplier", strconv.FormatFloat(resonanceMultiplier, 'f', 4, 64)),
+				sdk.NewAttribute("resonance_multiplier", resonanceMultiplier.String()),
 			),
 		)
 

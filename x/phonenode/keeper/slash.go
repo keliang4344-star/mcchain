@@ -7,9 +7,34 @@ import (
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+
+	"mcchain/internal/safemath"
 	"mcchain/x/phonenode/types"
 	tokenomicsmoduletypes "mcchain/x/tokenomics/types"
 )
+
+// nodeValAddress 把节点在 phonenode 模块登记的地址换算成验证人操作地址。
+//
+// VALADDR-1（上线前审计发现的致命项）：节点登记用的是**账户地址**（mc1... 前缀），
+// 而 sdk.ValAddressFromBech32 只接受 mcvaloper1... 前缀，对账户地址一律返回 err。
+// 旧实现直接用 ValAddressFromBech32 解析节点地址，于是：
+//   - SlashIfBad 永远落入「非验证人」分支——作恶的验证人节点只被吊销 attestation，
+//     自质押分毫未损，白皮书 §24.4 的罚没拆分从未真正触发；
+//   - GetVerifierNodes 对每个节点都解码失败 continue，恒返回空集，
+//     EdgeAI 第三阶段抽检验证成为死代码。
+//
+// 账户地址与验证人操作地址在 Cosmos 中是**同一串 20 字节**、仅 bech32 前缀不同，
+// 因此按账户地址解码后做同字节类型转换即可。为兼容历史/外部传入的 valoper 形式，
+// 解码失败时再尝试 valoper 前缀；两者都失败才判定为无法解析。
+func nodeValAddress(addr string) (sdk.ValAddress, bool) {
+	if acc, err := sdk.AccAddressFromBech32(addr); err == nil {
+		return sdk.ValAddress(acc), true
+	}
+	if val, err := sdk.ValAddressFromBech32(addr); err == nil {
+		return val, true
+	}
+	return nil, false
+}
 
 // RecordSlash 追加一条 slash 记录（按地址聚合为 JSON 列表，便于 q phonenode slashes 查询）。
 // slash 绝不调用 MintCoins：仅吊销 attestation + 记录 + （若是 bonded 验证人）staking.Slash/Jail。
@@ -67,9 +92,9 @@ func (k Keeper) SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint
 	k.RecordSlash(ctx, addr, reason, penaltyBps)
 
 	// 3. 仅对 bonded 验证人执行币种 slash
-	valAddr, err := sdk.ValAddressFromBech32(addr)
-	if err != nil {
-		// 非验证人 operator 地址：仅吊销 + 记录，不罚币
+	valAddr, ok := nodeValAddress(addr)
+	if !ok || k.stakingKeeper == nil {
+		// 地址无法解析（理论上不可达：注册时已校验）：仅吊销 + 记录，不罚币
 		k.emitSlashEvent(ctx, addr, reason, penaltyBps)
 		return nil
 	}
@@ -212,7 +237,7 @@ func (k Keeper) slashAndRoute(
 		sdk.NewAttribute("minted", "0"),
 		sdk.NewAttribute("denom", bondDenom),
 	))
-	telemetry.IncrCounter(float32(securityAmt.Int64()), "phonenode", "slashed_to_security_pool")
-	telemetry.IncrCounter(float32(burnAmt.Int64()), "phonenode", "slashed_burned")
+	telemetry.IncrCounter(safemath.Float32(securityAmt), "phonenode", "slashed_to_security_pool")
+	telemetry.IncrCounter(safemath.Float32(burnAmt), "phonenode", "slashed_burned")
 	return nil
 }

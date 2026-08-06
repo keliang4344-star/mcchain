@@ -9,6 +9,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"mcchain/internal/safemath"
 	"mcchain/x/referral/types"
 )
 
@@ -163,7 +164,16 @@ func (k Keeper) TrackReward(ctx sdk.Context, invitee string, rewardAmount sdkmat
 	for level := 0; level < int(types.MaxReferralDepth); level++ {
 		rate := rates[level]
 		if rate == 0 {
-			continue
+			// M-4 修复：该级无费率不代表链终结——若直接 continue 而不推进
+			// currentInvitee，下一级费率会错配到同一祖先（如 Level2=0 时
+			// 三代 2% 被误发给二代祖先）。先沿链上移一级再继续。
+			if refID, found := k.getReferralIDByInvitee(ctx, currentInvitee); found {
+				if ref, found := k.GetReferral(ctx, refID); found && ref.Status == types.ReferralStatusActive {
+					currentInvitee = ref.Inviter
+					continue
+				}
+			}
+			return nil
 		}
 
 		refID, found := k.getReferralIDByInvitee(ctx, currentInvitee)
@@ -251,7 +261,7 @@ func (k Keeper) ClaimRewards(ctx sdk.Context, claimer string) (sdk.Coin, error) 
 	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.EcosystemModuleAccount, claimerAddr, payout); err != nil {
 		return sdk.Coin{}, err
 	}
-	telemetry.IncrCounter(float32(payoutAmt.Int64()), "referral", "rewards_claimed")
+	telemetry.IncrCounter(safemath.Float32(payoutAmt), "referral", "rewards_claimed")
 
 	// Reset pending rewards
 	k.setPendingRewards(ctx, claimer, sdkmath.ZeroInt())

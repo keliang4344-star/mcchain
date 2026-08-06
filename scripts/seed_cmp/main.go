@@ -11,7 +11,16 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-const mnemonic = "mom merry morning skull behave memory door talent dove enough strike public squirrel play moral vibrant awesome day step scale luxury lab top science"
+// mnemonic 必须从环境变量 MC_TEAM_MNEMONIC 注入——本文件不再硬编码任何助记词
+// （KEY-1 安全修复：此前硬编码的助记词对应一把真实团队多签私钥，已泄漏）。
+var mnemonic = os.Getenv("MC_TEAM_MNEMONIC")
+
+func init() {
+	if mnemonic == "" {
+		fmt.Fprintln(os.Stderr, "MC_TEAM_MNEMONIC not set; this dev script refuses to embed a secret")
+		os.Exit(1)
+	}
+}
 
 func deriveFromSeed(seed []byte) string {
 	masterPriv, chainCode := hd.ComputeMastersFromSeed(seed)

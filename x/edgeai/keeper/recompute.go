@@ -120,6 +120,9 @@ func (k Keeper) applyCheatOutcome(ctx sdk.Context, taskID string) {
 	k.clawbackSubmitterReward(ctx, taskID)
 	if task, terr := k.GetTask(ctx, taskID); terr == nil && task != nil {
 		task.Status = types.TaskStatusCheated
-		_ = k.SetTask(ctx, task)
+		if err := k.SetTask(ctx, task); err != nil {
+			// ERR-1：写入失败不得静默吞掉（序列化异常属确定性故障，记录以便排障）。
+			ctx.Logger().Error("edgeai: SetTask failed", "err", err.Error())
+		}
 	}
 }

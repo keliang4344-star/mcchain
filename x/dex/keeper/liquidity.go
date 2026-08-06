@@ -4,6 +4,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"mcchain/internal/safemath"
 	"mcchain/x/dex/types"
 )
 
@@ -61,7 +62,9 @@ func (k Keeper) AddLiquidity(
 	pool.ReserveB = reserveB.Add(actualB).String()
 	pool.TotalLp = totalLP.Add(lpMinted).String()
 	k.SetPool(ctx, pool)
-	telemetry.IncrCounter(float32(lpMinted.Int64()), "dex", "lp_minted")
+	// lpMinted derives from user-supplied amounts and may exceed the int64
+	// range; Int.Int64() would panic and abort the block, so saturate instead.
+	telemetry.IncrCounter(safemath.Float32(lpMinted), "dex", "lp_minted")
 
 	// Mint LP tokens to creator
 	lpDenom := types.PoolDenom(poolID)
@@ -119,7 +122,28 @@ func (k Keeper) RemoveLiquidity(
 		return sdk.ZeroInt(), sdk.ZeroInt(), types.ErrInvalidDenom
 	}
 
+	// Bound the burn against the outstanding LP supply BEFORE computing the
+	// payout. Without this, redeeming more LP than the pool ever issued drove
+	// both reserves and TotalLp negative, permanently corrupting pool state and
+	// letting the caller withdraw more than their proportional share.
+	if !totalLP.IsPositive() {
+		return sdk.ZeroInt(), sdk.ZeroInt(), types.ErrPoolEmpty
+	}
+	if lpAmount.GT(totalLP) {
+		return sdk.ZeroInt(), sdk.ZeroInt(), types.ErrInsufficientLiquidity
+	}
+
 	amountA, amountB = CalcRemoveLiquidity(reserveA, reserveB, lpAmount, totalLP)
+	if !amountA.IsPositive() && !amountB.IsPositive() {
+		// The burn is too small to redeem anything on either leg; refuse it
+		// rather than burning the caller's LP for nothing.
+		return sdk.ZeroInt(), sdk.ZeroInt(), types.ErrInsufficientLiquidity
+	}
+	if amountA.GT(reserveA) || amountB.GT(reserveB) {
+		// Unreachable given the bound above; kept as a hard invariant so a
+		// future refactor can never pay out more than the reserve holds.
+		return sdk.ZeroInt(), sdk.ZeroInt(), types.ErrInsufficientLiquidity
+	}
 	if amountA.LT(minAOut) || amountB.LT(minBOut) {
 		return sdk.ZeroInt(), sdk.ZeroInt(), types.ErrSlippageExceeded
 	}
@@ -150,7 +174,9 @@ func (k Keeper) RemoveLiquidity(
 	pool.ReserveB = reserveB.Sub(amountB).String()
 	pool.TotalLp = totalLP.Sub(lpAmount).String()
 	k.SetPool(ctx, pool)
-	telemetry.IncrCounter(float32(lpAmount.Int64()), "dex", "lp_burned")
+	// lpAmount is user-supplied and may exceed the int64 range; Int.Int64()
+	// would panic and abort the block, so saturate instead.
+	telemetry.IncrCounter(safemath.Float32(lpAmount), "dex", "lp_burned")
 
 	// Send assets to creator
 	coinsA := sdk.NewCoins(sdk.NewCoin(pool.DenomA, amountA))

@@ -70,9 +70,12 @@ func (k Keeper) InitGenesisPool(ctx sdk.Context) {
 	// Calculate initial LP tokens: geometric mean = sqrt(reserveA * reserveB).
 	// We use integer square root; this is the standard AMM convention for
 	// the first LP position.
-	lpMinted := sdk.NewIntFromUint64(integerSqrt(
-		reserveA.Mul(reserveB).BigInt().Uint64(),
-	))
+	//
+	// The product must stay in big.Int: 5e12 × 1e11 = 5e23 far exceeds the
+	// uint64 range (1.8e19), so routing it through .Uint64() would silently
+	// truncate to the low 64 bits and mint 1,000,940,608 LP instead of the
+	// correct 707,106,781,186 — a 707× error baked into genesis state.
+	lpMinted := sdk.NewIntFromBigInt(integerSqrt(reserveA.Mul(reserveB).BigInt()))
 
 	pool := types.Pool{
 		Id:         1,
@@ -127,17 +130,4 @@ func (k Keeper) InitGenesisPool(ctx sdk.Context) {
 		"reserve_b", reserveB.String(),
 		"lp_minted", lpMinted.String(),
 	)
-}
-
-// integerSqrt returns the floor of the integer square root of x using
-// Newton's method. Returns 0 for x == 0.
-func integerSqrt(x uint64) uint64 {
-	if x <= 1 {
-		return x
-	}
-	r := x
-	for r*r > x {
-		r = (r + x/r) / 2
-	}
-	return r
 }

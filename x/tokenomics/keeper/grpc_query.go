@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"mcchain/internal/safemath"
 	"mcchain/x/tokenomics/types"
 )
 
@@ -43,7 +44,7 @@ func (k Keeper) Release(goCtx context.Context, req *types.QueryReleaseRequest) (
 func (k Keeper) QuerySupply(ctx sdk.Context) *types.QuerySupplyResponse {
 	return &types.QuerySupplyResponse{
 		TotalSupplyCap: types.TotalSupplyCap,
-		MintedSupply:   k.GetMintedSupply(ctx).Uint64(),
+		MintedSupply:   safemath.ClampUint64(k.GetMintedSupply(ctx)),
 		Denom:          types.DefaultDenom,
 	}
 }
@@ -66,7 +67,7 @@ func (k Keeper) QueryAllocations(ctx sdk.Context) *types.QueryAllocationsRespons
 			Name:           a.Name,
 			PercentBps:     a.PercentBps,
 			AllocatedAmount: a.AllocatedAmount,
-			CurrentBalance: uint64(balance.Amount.Int64()),
+			CurrentBalance: safemath.ClampUint64(balance.Amount),
 			Address:        a.Address,
 		})
 	}

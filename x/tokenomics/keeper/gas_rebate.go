@@ -36,11 +36,23 @@ func (k Keeper) RebateGasFeesToSecurity(ctx sdk.Context) error {
 		return nil
 	}
 
-	rebateAmount := balance.Amount.Uint64() * uint64(GasRebateRatioBps) / 10000
-	burnAmount := balance.Amount.Uint64() * uint64(GasBurnRatioBps) / 10000
-	if rebateAmount == 0 && burnAmount == 0 {
+	// 比例计算全程走 sdk.Int。此前先 .Uint64() 再乘以 bps 有两条隐患：余额超出
+	// uint64 时 Int.Uint64() 直接 panic（BeginBlocker 内 panic = 全网停机），
+	// 且 `balance * bps` 在 uint64 上可静默溢出，回绕后算出的销毁/回流额毫无意义。
+	rebateAmt := balance.Amount.MulRaw(int64(GasRebateRatioBps)).QuoRaw(10000)
+	burnAmt := balance.Amount.MulRaw(int64(GasBurnRatioBps)).QuoRaw(10000)
+	if !rebateAmt.IsPositive() && !burnAmt.IsPositive() {
 		return nil
 	}
+	// 双重保险：两笔之和不得超过 fee_collector 实际余额。
+	if rebateAmt.Add(burnAmt).GT(balance.Amount) {
+		k.Logger(ctx).Error("tokenomics: gas split exceeds fee collector balance; skipping",
+			"balance", balance.Amount.String(),
+			"rebate", rebateAmt.String(), "burn", burnAmt.String())
+		return nil
+	}
+	rebateAmount := rebateAmt.String()
+	burnAmount := burnAmt.String()
 
 	// 7% of gas fees sent to the black hole (deflation, finalized 2026-08).
 	//
@@ -48,8 +60,8 @@ func (k Keeper) RebateGasFeesToSecurity(ctx sdk.Context) error {
 	// 旧实现从 tokenomics 模块账户扣款（余额恒为 0），必然失败且 return 阻断了后续
 	// 10% 安全池回流；现改为从 fee_collector 直接转入黑洞地址，且失败只记日志不阻断
 	// ——与本函数「gas 回流是增值行为，不应成为链安全瓶颈」的既定语义一致。
-	if burnAmount > 0 {
-		burnCoins := sdk.NewCoins(sdk.NewInt64Coin(types.DefaultDenom, int64(burnAmount)))
+	if burnAmt.IsPositive() {
+		burnCoins := sdk.NewCoins(sdk.NewCoin(types.DefaultDenom, burnAmt))
 		if err := k.bankKeeper.SendCoinsFromModuleToAccount(
 			ctx, authtypes.FeeCollectorName, types.BlackHoleAddress(), burnCoins,
 		); err != nil {
@@ -58,7 +70,7 @@ func (k Keeper) RebateGasFeesToSecurity(ctx sdk.Context) error {
 		} else {
 			ctx.EventManager().EmitEvent(
 				sdk.NewEvent("tokenomics.GasBurned",
-					sdk.NewAttribute("amount", fmt.Sprintf("%d", burnAmount)),
+					sdk.NewAttribute("amount", burnAmount),
 					sdk.NewAttribute("ratio_bps", fmt.Sprintf("%d", GasBurnRatioBps)),
 					sdk.NewAttribute("black_hole", types.BlackHoleAddress().String()),
 				),
@@ -69,8 +81,8 @@ func (k Keeper) RebateGasFeesToSecurity(ctx sdk.Context) error {
 	}
 
 	// 10% of gas fees rebated to the staking-security pool (B3.1 安全池闭环).
-	if rebateAmount > 0 {
-		coins := sdk.NewCoins(sdk.NewInt64Coin(types.DefaultDenom, int64(rebateAmount)))
+	if rebateAmt.IsPositive() {
+		coins := sdk.NewCoins(sdk.NewCoin(types.DefaultDenom, rebateAmt))
 		if err := k.bankKeeper.SendCoinsFromModuleToModule(
 			ctx, authtypes.FeeCollectorName, types.StakingSecurityPoolName, coins,
 		); err != nil {
@@ -81,7 +93,7 @@ func (k Keeper) RebateGasFeesToSecurity(ctx sdk.Context) error {
 
 		ctx.EventManager().EmitEvent(
 			sdk.NewEvent("tokenomics.GasRebated",
-				sdk.NewAttribute("amount", fmt.Sprintf("%d", rebateAmount)),
+				sdk.NewAttribute("amount", rebateAmount),
 				sdk.NewAttribute("ratio_bps", fmt.Sprintf("%d", GasRebateRatioBps)),
 				sdk.NewAttribute("destination", types.StakingSecurityPoolName),
 			),

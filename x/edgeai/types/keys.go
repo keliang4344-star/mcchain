@@ -39,6 +39,32 @@ const (
 	MaxTasksPerBlock uint64 = 20
 )
 
+// ---------------------------------------------------------------------------
+// SCALE-1：BeginBlock 有界扫描上限
+//
+// 硬约束：BeginBlock / EndBlock 内的任何遍历都必须是 O(常数)，
+// 绝不允许出现 O(全量任务) / O(全量结果) / O(全量节点) 的整库扫描——
+// 在 5.5 亿设备的目标规模下，一次全量扫描即可让出块超时、全网停摆。
+//
+// 实现方式：为「待处理集合」建独立索引，并配持久化游标做轮转扫描，
+// 每区块只消费固定预算，游标随状态一同进入 AppHash，全网确定性一致。
+// ---------------------------------------------------------------------------
+const (
+	// MaxPendingResultScanPerBlock 每区块从 pending 结果索引中最多消费的条目数
+	// （硬上限，防止单个任务挂载超多提交者时预算被击穿）。
+	MaxPendingResultScanPerBlock int = 512
+
+	// MaxOpenTaskScanPerBlock 每区块从 open 任务索引中最多检查的任务数（过期回收）。
+	MaxOpenTaskScanPerBlock int = 128
+
+	// MaxReputationScanPerBlock 每区块最多检查的声誉记录数（衰减轮转）。
+	MaxReputationScanPerBlock int = 128
+
+	// DoneTaskRingSize 「近期已完成任务」环形缓冲容量，供验证者抽检采样。
+	// 抽检的意义在于覆盖新近完成的任务，无需对历史全库采样，故以定长环替代全表扫描。
+	DoneTaskRingSize uint64 = 256
+)
+
 // CheatSlashBps B3.1：争议裁定作弊时对结果提交者的 slash 基点（10%）。
 const CheatSlashBps uint32 = 1000
 

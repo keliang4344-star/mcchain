@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"testing"
 
 	tmdb "github.com/cometbft/cometbft-db"
@@ -24,13 +25,18 @@ import (
 // ---------------------------------------------------------------------------
 
 // mockDexBank implements types.BankKeeper for DEX integration tests.
-// Tracks SendCoins*, MintCoins, BurnCoins, GetBalance, HasBalance calls.
+//
+// 这是一个「严格复式记账」的账本 mock：每一笔转账都同时扣付款方、记收款方，
+// 余额不足直接返回错误。早期版本只给收款方加钱、不扣模块账户，导致模块账户
+// 余额恒为 0 也能「清算成功」——偿付能力类缺陷在测试里完全隐形（假绿）。
+// 模块账户地址与生产保持一致（authtypes.NewModuleAddress），否则 keeper 里
+// 按生产算法查询到的余额与测试预置的余额不是同一个账户。
 type mockDexBank struct {
-	sentFromMod    []sendRecord
-	sentFromAcct   []sendRecord
-	minted         []mintBurnRecord
-	burned         []mintBurnRecord
-	balances       map[string]map[string]sdk.Coin // addr → denom → coin
+	sentFromMod  []sendRecord
+	sentFromAcct []sendRecord
+	minted       []mintBurnRecord
+	burned       []mintBurnRecord
+	balances     map[string]map[string]sdk.Coin // addr → denom → coin
 }
 
 type sendRecord struct {
@@ -50,12 +56,54 @@ func newMockDexBank() *mockDexBank {
 	}
 }
 
+// moduleAddrOf 返回与生产一致的模块账户地址字符串。
+func moduleAddrOf(name string) string { return authtypes.NewModuleAddress(name).String() }
+
 // setBalance sets the initial spendable balance for a given address and denom.
 func (m *mockDexBank) setBalance(addr string, denom string, amount int64) {
 	if _, ok := m.balances[addr]; !ok {
 		m.balances[addr] = make(map[string]sdk.Coin)
 	}
 	m.balances[addr][denom] = sdk.NewCoin(denom, sdk.NewInt(amount))
+}
+
+// setModuleBalance 给模块账户预置余额（使用生产地址算法）。
+func (m *mockDexBank) setModuleBalance(module string, denom string, amount int64) {
+	m.setBalance(moduleAddrOf(module), denom, amount)
+}
+
+// credit 记账收款。
+func (m *mockDexBank) credit(addr string, amt sdk.Coins) {
+	if _, ok := m.balances[addr]; !ok {
+		m.balances[addr] = make(map[string]sdk.Coin)
+	}
+	for _, c := range amt {
+		if existing, ok := m.balances[addr][c.Denom]; ok {
+			m.balances[addr][c.Denom] = sdk.NewCoin(c.Denom, existing.Amount.Add(c.Amount))
+		} else {
+			m.balances[addr][c.Denom] = c
+		}
+	}
+}
+
+// debit 记账付款；余额不足返回错误（与真实 bank keeper 语义一致）。
+func (m *mockDexBank) debit(addr string, amt sdk.Coins) error {
+	for _, c := range amt {
+		bal, ok := m.balances[addr][c.Denom]
+		if !ok || bal.Amount.LT(c.Amount) {
+			have := sdk.ZeroInt()
+			if ok {
+				have = bal.Amount
+			}
+			return fmt.Errorf("mockbank: insufficient funds for %s: have %s%s, need %s%s",
+				addr, have, c.Denom, c.Amount, c.Denom)
+		}
+	}
+	for _, c := range amt {
+		bal := m.balances[addr][c.Denom]
+		m.balances[addr][c.Denom] = sdk.NewCoin(c.Denom, bal.Amount.Sub(c.Amount))
+	}
+	return nil
 }
 
 func (m *mockDexBank) SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins {
@@ -74,11 +122,10 @@ func (m *mockDexBank) SendCoinsFromAccountToModule(
 	ctx sdk.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins,
 ) error {
 	a := senderAddr.String()
-	for _, c := range amt {
-		if bal, ok := m.balances[a][c.Denom]; ok && bal.Amount.GTE(c.Amount) {
-			m.balances[a][c.Denom] = sdk.NewCoin(c.Denom, bal.Amount.Sub(c.Amount))
-		}
+	if err := m.debit(a, amt); err != nil {
+		return err
 	}
+	m.credit(moduleAddrOf(recipientModule), amt)
 	m.sentFromAcct = append(m.sentFromAcct, sendRecord{from: a, to: recipientModule, amount: amt})
 	return nil
 }
@@ -86,34 +133,35 @@ func (m *mockDexBank) SendCoinsFromAccountToModule(
 func (m *mockDexBank) SendCoinsFromModuleToAccount(
 	ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins,
 ) error {
-	a := recipientAddr.String()
-	if _, ok := m.balances[a]; !ok {
-		m.balances[a] = make(map[string]sdk.Coin)
+	if err := m.debit(moduleAddrOf(senderModule), amt); err != nil {
+		return err
 	}
-	for _, c := range amt {
-		if existing, ok := m.balances[a][c.Denom]; ok {
-			m.balances[a][c.Denom] = sdk.NewCoin(c.Denom, existing.Amount.Add(c.Amount))
-		} else {
-			m.balances[a][c.Denom] = c
-		}
-	}
-	m.sentFromMod = append(m.sentFromMod, sendRecord{from: senderModule, to: a, amount: amt})
+	m.credit(recipientAddr.String(), amt)
+	m.sentFromMod = append(m.sentFromMod, sendRecord{from: senderModule, to: recipientAddr.String(), amount: amt})
 	return nil
 }
 
 func (m *mockDexBank) SendCoinsFromModuleToModule(
 	ctx sdk.Context, senderModule, recipientModule string, amt sdk.Coins,
 ) error {
+	if err := m.debit(moduleAddrOf(senderModule), amt); err != nil {
+		return err
+	}
+	m.credit(moduleAddrOf(recipientModule), amt)
 	m.sentFromMod = append(m.sentFromMod, sendRecord{from: senderModule, to: recipientModule, amount: amt})
 	return nil
 }
 
 func (m *mockDexBank) MintCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error {
+	m.credit(moduleAddrOf(moduleName), amt)
 	m.minted = append(m.minted, mintBurnRecord{recipient: moduleName, amount: amt})
 	return nil
 }
 
 func (m *mockDexBank) BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) error {
+	if err := m.debit(moduleAddrOf(moduleName), amt); err != nil {
+		return err
+	}
 	m.burned = append(m.burned, mintBurnRecord{recipient: moduleName, amount: amt})
 	return nil
 }
@@ -138,8 +186,10 @@ func (m *mockDexBank) HasBalance(ctx sdk.Context, addr sdk.AccAddress, amt sdk.C
 
 type mockDexAccountKeeper struct{}
 
+// GetModuleAddress 必须与生产（authtypes.NewModuleAddress）一致，否则 keeper 中
+// 通过两条不同路径拿到的模块地址不是同一个账户，余额校验会出现假阴/假阳。
 func (m *mockDexAccountKeeper) GetModuleAddress(name string) sdk.AccAddress {
-	return sdk.AccAddress([]byte(name))
+	return authtypes.NewModuleAddress(name)
 }
 
 // HasAccount always returns true for any address.
@@ -148,7 +198,7 @@ func (m *mockDexAccountKeeper) HasAccount(ctx sdk.Context, addr sdk.AccAddress) 
 }
 
 func (m *mockDexAccountKeeper) GetModuleAccount(ctx sdk.Context, name string) authtypes.ModuleAccountI {
-	addr := sdk.AccAddress([]byte(name))
+	addr := authtypes.NewModuleAddress(name)
 	base := authtypes.NewBaseAccount(addr, nil, 0, 0)
 	return authtypes.NewModuleAccount(base, name)
 }

@@ -97,8 +97,8 @@ func validateFeeRateBps(i interface{}) error {
 	if !ok {
 		return fmt.Errorf("invalid parameter type: %T", i)
 	}
-	if v > 10000 {
-		return fmt.Errorf("fee rate bps must be <= 10000, got %d", v)
+	if v > MaxFeeRateBps {
+		return fmt.Errorf("fee rate bps must be <= %d, got %d", MaxFeeRateBps, v)
 	}
 	return nil
 }

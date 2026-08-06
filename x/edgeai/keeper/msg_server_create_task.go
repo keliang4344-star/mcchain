@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -28,7 +29,7 @@ func (k msgServer) CreateTask(goCtx context.Context, msg *types.MsgCreateTask) (
 		if msg.Reward > uint64(math.MaxInt64) {
 			return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "reward %d exceeds int64 range", msg.Reward)
 		}
-		rewardCoins := sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(msg.Reward)))
+		rewardCoins := sdk.NewCoins(sdk.NewCoin(types.EdgeAIDenom, sdkmath.NewIntFromUint64(msg.Reward)))
 		if k.bankKeeper.SpendableCoins(ctx, creatorAddr).AmountOf(types.EdgeAIDenom).LT(rewardCoins.AmountOf(types.EdgeAIDenom)) {
 			return nil, sdkerrors.Wrapf(sdkerrors.ErrInsufficientFunds, "creator balance insufficient to escrow reward %d umc", msg.Reward)
 		}

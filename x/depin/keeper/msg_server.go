@@ -27,7 +27,7 @@ func (k msgServer) SubmitAttestation(goCtx context.Context, msg *types.MsgSubmit
 	passed, reason := k.Keeper.VerifyDeviceAttestation(ctx, msg.DeviceId, msg.AttestationProof, msg.Signature)
 
 	// 存储验证结果
-	result := types.NewAttestationResult(msg.DeviceId, passed, reason, msg.OracleAddress)
+	result := types.NewAttestationResult(msg.DeviceId, passed, reason, msg.OracleAddress, ctx.BlockTime().Unix())
 	if err := k.Keeper.StoreAttestationResult(ctx, msg.DeviceId, result); err != nil {
 		return nil, err
 	}

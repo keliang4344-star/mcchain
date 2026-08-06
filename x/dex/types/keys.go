@@ -10,6 +10,24 @@ const (
 	DefaultFeeRateBps = 30
 	MaxPoolID         = 1000
 
+	// MaxFeeRateBps is the absolute upper bound of any fee rate: 10000 bps =
+	// 100%. Every basis-point calculation in this module divides by this
+	// constant, and `MaxFeeRateBps - feeRateBps` is evaluated on an unsigned
+	// integer, so a rate above this bound would wrap around and corrupt the
+	// AMM pricing. Never relax it.
+	MaxFeeRateBps = 10000
+
+	// MaxPoolFeeRateBps caps the fee a pool creator may choose: 1000 bps = 10%.
+	// Whitepaper §24 fixes the canonical swap fee at 0.30% (30 bps); this cap
+	// exists only so a pool owner cannot set a confiscatory rate that would
+	// silently expropriate traders.
+	MaxPoolFeeRateBps = 1000
+
+	// MaxSettlementEntries caps how many recipients a single off-chain
+	// settlement batch may carry. FinalizeBatch iterates every entry inside one
+	// transaction, so an unbounded batch is a block-time / gas-griefing vector.
+	MaxSettlementEntries = 10000
+
 	DenomPrefix = "dex/pool/"
 )
 

@@ -31,12 +31,28 @@ func stateProofKey(node string) []byte {
 }
 
 // SetNode 持久化节点状态（upsert）。
+//
+// SCALE-1：同步维护「按最近心跳高度排序」的节点索引。本函数是节点状态的唯一
+// 写入点（注册 / 心跳 / attestation / 验证者状态变更全部经此），索引与主记录
+// 同事务更新，不会漂移。有了它，离线检测才能只看真正超时的那一小段区间，
+// 而不是每个区块把全量节点读进内存。
 func (k Keeper) SetNode(ctx sdk.Context, st *NodeState) error {
 	bz, err := json.Marshal(st)
 	if err != nil {
 		return fmt.Errorf("phonenode: marshal node state: %w", err)
 	}
-	ctx.KVStore(k.storeKey).Set(nodeKey(st.Address), bz)
+	store := ctx.KVStore(k.storeKey)
+
+	// 心跳高度变化时先摘除旧索引位，避免同一节点在索引中留下多个残影。
+	if old := store.Get(nodeKey(st.Address)); old != nil {
+		var prev NodeState
+		if json.Unmarshal(old, &prev) == nil && prev.LastProofBlock != st.LastProofBlock {
+			store.Delete(types.HeartbeatIndexKey(prev.LastProofBlock, st.Address))
+		}
+	}
+
+	store.Set(nodeKey(st.Address), bz)
+	store.Set(types.HeartbeatIndexKey(st.LastProofBlock, st.Address), []byte{1})
 	return nil
 }
 

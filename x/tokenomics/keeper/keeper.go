@@ -10,6 +10,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
+	"mcchain/internal/safemath"
 	"mcchain/x/tokenomics/types"
 )
 
@@ -60,7 +61,7 @@ func (k Keeper) MintCoins(ctx sdk.Context, amt sdk.Coins) error {
 		))
 	}
 	k.SetMintedSupply(ctx, newMinted)
-	telemetry.IncrCounter(float32(amt.AmountOf(types.DefaultDenom).Int64()), "tokenomics", "minted_amount")
+	telemetry.IncrCounter(safemath.Float32(amt.AmountOf(types.DefaultDenom)), "tokenomics", "minted_amount")
 	return nil
 }
 
@@ -85,7 +86,7 @@ func (k Keeper) SendToBlackHole(ctx sdk.Context, senderModule string, amt sdk.Co
 		return err
 	}
 	burned := amt.AmountOf(types.DefaultDenom)
-	telemetry.IncrCounter(float32(burned.Int64()), "tokenomics", "burned_amount")
+	telemetry.IncrCounter(safemath.Float32(burned), "tokenomics", "burned_amount")
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("tokenomics.BlackHoleBurn",
 			sdk.NewAttribute("from_module", senderModule),
@@ -112,14 +113,15 @@ func (k Keeper) GetBurnedSupply(ctx sdk.Context) sdk.Int {
 // The caller MUST first transfer `amount` into the tokenomics module account.
 // Called by settlement modules (oracle data / device settlement / EdgeAI inference).
 func (k Keeper) ProcessEnterpriseSettlementFee(ctx sdk.Context, amount sdk.Int) error {
-	if amount.IsZero() {
+	// 负数会让 40/60 拆分算出负腿并在 NewCoin 处 panic；非正数一律视为无操作。
+	if amount.IsNil() || !amount.IsPositive() {
 		return nil
 	}
 	nodeAmt := amount.MulRaw(int64(types.EnterpriseFeeNodeRatioBps)).QuoRaw(10000)
 	treasuryAmt := amount.Sub(nodeAmt) // remainder == EnterpriseFeeTreasuryRatioBps, dust-free
 
-	telemetry.IncrCounter(float32(nodeAmt.Int64()), "tokenomics", "enterprise_fee_nodes")
-	telemetry.IncrCounter(float32(treasuryAmt.Int64()), "tokenomics", "enterprise_fee_treasury")
+	telemetry.IncrCounter(safemath.Float32(nodeAmt), "tokenomics", "enterprise_fee_nodes")
+	telemetry.IncrCounter(safemath.Float32(treasuryAmt), "tokenomics", "enterprise_fee_treasury")
 
 	if nodeAmt.IsPositive() {
 		if err := k.bankKeeper.SendCoinsFromModuleToModule(

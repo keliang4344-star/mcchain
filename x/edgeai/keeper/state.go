@@ -44,12 +44,28 @@ func (k Keeper) nextTaskID(ctx sdk.Context) string {
 }
 
 // SetTask 持久化任务（protobuf 编码，与全链一致）。
+//
+// SCALE-1：这里同时维护两个派生索引，使 BeginBlock 不再需要整库扫描——
+//   - open 任务索引：过期回收只遍历真正处于 open 的任务；
+//   - 近期完成任务环：验证者抽检只在定长环上采样，与历史任务总量解耦。
+//
+// 本函数是任务状态的唯一写入点，索引与主记录同事务写入，不会漂移。
 func (k Keeper) SetTask(ctx sdk.Context, t *Task) error {
 	bz, err := k.cdc.Marshal(t)
 	if err != nil {
 		return fmt.Errorf("edgeai: marshal task: %w", err)
 	}
+
+	// 仅在「首次进入 done」时入环，避免同一任务重复占用环位。
+	if t.Status == types.TaskStatusDone {
+		prev, prevErr := k.GetTask(ctx, t.Id)
+		if prevErr == nil && (prev == nil || prev.Status != types.TaskStatusDone) {
+			k.pushDoneTaskRing(ctx, t.Id)
+		}
+	}
+
 	ctx.KVStore(k.storeKey).Set(taskKey(t.Id), bz)
+	k.setOpenTaskIndex(ctx, t)
 	return nil
 }
 
@@ -100,12 +116,17 @@ func resultKeyFor(taskID, submitter string) []byte {
 }
 
 // SetResult 持久化结果（protobuf 编码）。
+//
+// SCALE-1：同步维护 pending 结果索引。BeginBlock 的结算与一致性投票只遍历
+// 该索引（待办集合），不再对全量历史结果做整库扫描。
+// 本函数是结果状态的唯一写入点，索引不会与主记录漂移。
 func (k Keeper) SetResult(ctx sdk.Context, r *Result) error {
 	bz, err := k.cdc.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("edgeai: marshal result: %w", err)
 	}
 	ctx.KVStore(k.storeKey).Set(resultKeyFor(r.TaskId, r.Submitter), bz)
+	k.setPendingResultIndex(ctx, r)
 	return nil
 }
 
@@ -150,15 +171,38 @@ func (k Keeper) GetDispute(ctx sdk.Context, taskID string) (*Dispute, error) {
 	return &d, nil
 }
 
+// ResultsByTask 返回某任务下的全部结果，按提交者字典序（前缀迭代，确定性）。
+//
+// SCALE-3：结果键为 "result:<taskID>/<submitter>"，同一任务的记录在 KVStore 中
+// 本就是连续的，因此这里做一次前缀迭代即可，代价与该任务的提交者数成正比，
+// 与全链历史结果总量无关。原实现走 AllResults 全表扫描，是规模化下的性能陷阱。
+//
+// 分隔符 "/" 保证前缀不会串组：taskID "1" 的前缀为 "1/"，不会命中 "10/..."。
+func (k Keeper) ResultsByTask(ctx sdk.Context, taskID string) []*Result {
+	p := append(append([]byte{}, resultKeyPrefix...), []byte(taskID+"/")...)
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), p)
+	it := store.Iterator(nil, nil)
+	defer it.Close()
+	out := make([]*Result, 0)
+	for ; it.Valid(); it.Next() {
+		var r Result
+		if err := k.cdc.Unmarshal(it.Value(), &r); err != nil {
+			// 关键审计路径：结果反序列化失败属状态损坏，fail-fast 而非静默吞掉数据损坏。
+			panic(fmt.Sprintf("edgeai: corrupt result entry for task %q: %v", taskID, err))
+		}
+		rr := r
+		out = append(out, &rr)
+	}
+	return out
+}
+
 // GetResultByTask 返回某任务下的首个结果（争议裁定时定位提交者用）。
 func (k Keeper) GetResultByTask(ctx sdk.Context, taskID string) (*Result, error) {
-	results := k.AllResults(ctx)
-	for _, r := range results {
-		if r.TaskId == taskID {
-			return r, nil
-		}
+	results := k.ResultsByTask(ctx, taskID)
+	if len(results) == 0 {
+		return nil, nil
 	}
-	return nil, nil
+	return results[0], nil
 }
 
 // ---- Verifier Reserve (80/15/5 split) ----

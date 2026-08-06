@@ -4,9 +4,9 @@ package types
 // 与 team_multisig_vault.txt / team_keys_gen.json 保持同步；私钥由各自 bip39 助记词恢复。
 // teamPubKeyStrings 真实团队 3-of-5 多签公钥（bech32 mcpub 前缀，共 5 个）。
 var teamPubKeyStrings = []string{
-	"mcpub1addwnpepqw2gx4xyjmy469nlcfqp79kwr9cgklc2pt5ghp6f5gx3huch9crvuwuxm8p",
-	"mcpub1addwnpepq2wqpsaxdldaymd926dnmsksc0jmxjvlzppejrumy9vhxvwsehnqvd6z7wq",
-	"mcpub1addwnpepqvyhmduawehepqehjczx8dggyjh54phhnspmnz5rcyc27s8wvc5c7m7q0wg",
-	"mcpub1addwnpepqwqph743fudfhckucgczu6hgap5waq08xh3glyrlwemd4mpmk2n9sace4fg",
-	"mcpub1addwnpepqv9qhefrlgtk8hkme6ynms6u0658xqcck3rt5w4p23367kelt6xf2ctu2d6",
+	"mcpub1addwnpepq25653jd7utnlnw470zk09t8yjuqq4zptqwrd4wk9989mvz58k6jsmhdm8r",
+	"mcpub1addwnpepq06wkulwrav5szmgetf8hh2994eys365zk5ccks4fukrjvmesqqau6d9h9j",
+	"mcpub1addwnpepqwwa599zewmv4mfjgkvcs55j0vz7fx26hmnaacrpxxg7rddtz59e2lxcyv6",
+	"mcpub1addwnpepqgyyhywv7umwk5hzadp0n7kp6352t5kzdte03sjqc833vettcu8z7n4ljld",
+	"mcpub1addwnpepqtfkd8qgw45yhp7v3kfh64fge3867cwknnwsaudgk2j6ks7xv3z3geet0ke",
 }

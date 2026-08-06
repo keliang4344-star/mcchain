@@ -16,7 +16,9 @@ func CmdRegisterDevice() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "register-device [address] [model] [os]",
 		Short: "Broadcast message register-device",
-		Args:  cobra.ExactArgs(3),
+		Long: "注册设备。[address] 必须与 --from 指定的签名账户完全一致：" +
+			"设备身份即签名者身份，链上会拒绝为他人地址注册（AUTH-1）。",
+		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			argAddress := args[0]
 			argModel := args[1]

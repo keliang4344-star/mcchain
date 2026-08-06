@@ -3,10 +3,8 @@ package keeper
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
 )
 
 // ============================================================================
@@ -349,7 +347,9 @@ func (k Keeper) defenseLayer6_IPDispersion(ctx sdk.Context, deviceAddr string) D
 // 当日累计奖励进行准入判断。若当日累计已达上限，拒绝所有后续提交。
 
 func (k Keeper) defenseLayer7_EconomicConstraint(ctx sdk.Context, deviceAddr string) DefenseResult {
-	dayKey := time.Now().UTC().Format("20060102")
+	// FORK-2：日界必须取自区块时间。用 time.Now() 会让各节点在 UTC 跨日瞬间
+	// 算出不同的 dayKey，读到不同的当日累计值，准入判定不一致 → AppHash 分叉。
+	dayKey := ctx.BlockTime().UTC().Format("20060102")
 
 	store := ctx.KVStore(k.storeKey)
 
@@ -377,7 +377,10 @@ func (k Keeper) defenseLayer7_EconomicConstraint(ctx sdk.Context, deviceAddr str
 // RecordDailyReward 将本次发放的奖励计入设备当日累计，用于第 7 层判断。
 // 应在 msg_server 拨付奖励成功后调用。
 func (k Keeper) RecordDailyReward(ctx sdk.Context, deviceAddr string, amount uint64) {
-	dayKey := time.Now().UTC().Format("20060102")
+	// FORK-2：与 defenseLayer7_EconomicConstraint 必须使用同一日界口径（区块时间），
+	// 否则「写入的当日累计」与「读取校验的当日累计」会落在不同 key 上，
+	// 单设备日收益上限形同虚设。
+	dayKey := ctx.BlockTime().UTC().Format("20060102")
 
 	store := ctx.KVStore(k.storeKey)
 

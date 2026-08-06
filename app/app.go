@@ -214,7 +214,11 @@ var (
 		authtypes.FeeCollectorName:     nil,
 		distrtypes.ModuleName:          nil,
 		icatypes.ModuleName:            nil,
-		minttypes.ModuleName:           {authtypes.Minter},
+		// MINT-1 / R1 铸币铁律：mint 模块账户不得持有 Minter 权限。
+		// 全链唯一合法铸币入口是 tokenomics（创世一次性铸 TotalSupplyCap）。
+		// 配合 ZeroInflationCalculationFn，mint 每区块产出恒为 0 币，
+		// keeper.MintCoins 在 Empty() 处短路，永不调用 bank.MintCoins。
+		minttypes.ModuleName:           nil,
 		stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		govtypes.ModuleName:            {authtypes.Burner},
@@ -257,6 +261,20 @@ var (
 	_ runtime.AppI            = (*App)(nil)
 	_ servertypes.Application = (*App)(nil)
 )
+
+// ZeroInflationCalculationFn 是 MC 固定总量链的通胀计算函数：恒定返回 0。
+//
+// MINT-1 / R1 铸币铁律：MC 总量硬顶 1e15 umc（10 亿 MC），由 tokenomics 在创世
+// 一次性铸造完毕，链上绝不允许二次通胀。SDK 的 x/mint 默认使用
+// types.DefaultInflationCalculationFn（年化约 7%~20%，目标 13%），若沿用会绕过
+// tokenomics 的 cap 直接增发，破坏总量上限。
+//
+// 相比「仅在 InitChainer 里把 params 清零」，此函数是编译期硬约束：
+// 即便未来有人通过治理提案把 InflationMax/InflationMin 改回非零，
+// BeginBlocker 拿到的 inflation 依旧是 0，AnnualProvisions 与 BlockProvision 也恒为 0。
+func ZeroInflationCalculationFn(_ sdk.Context, _ minttypes.Minter, _ minttypes.Params, _ sdk.Dec) sdk.Dec {
+	return sdk.ZeroDec()
+}
 
 func init() {
 	userHomeDir, err := os.UserHomeDir()
@@ -407,7 +425,7 @@ func New(
 	)
 
 	// set the BaseApp's parameter store
-	app.ConsensusParamsKeeper = consensusparamkeeper.NewKeeper(appCodec, keys[upgradetypes.StoreKey], authtypes.NewModuleAddress(govtypes.ModuleName).String())
+	app.ConsensusParamsKeeper = consensusparamkeeper.NewKeeper(appCodec, keys[consensusparamtypes.StoreKey], authtypes.NewModuleAddress(govtypes.ModuleName).String())
 	bApp.SetParamStore(&app.ConsensusParamsKeeper)
 
 	// add capability keeper and ScopeToModule for ibc module
@@ -526,6 +544,18 @@ func New(
 	// 注册软件升级处理器（A3）：无处理器时，通过的 SoftwareUpgrade 治理提案会在目标高度
 	// 停机且无迁移可执行，导致不可逆停链。默认处理器运行全部模块迁移。
 	app.RegisterUpgradeHandlers()
+
+	// UPG-1 修复：升级存储加载器（Store Loader）。缺少它时，任何「新增/删除模块 store」
+	// 的软件升级会让全网节点在目标高度因 store 版本不匹配而崩溃且不可恢复。
+	// 必须早于 baseapp 加载最新版本（LoadLatestVersion）之前设置。
+	upgradeInfo, err := app.UpgradeKeeper.ReadUpgradeInfoFromDisk()
+	if err != nil {
+		panic(fmt.Sprintf("upgrade: failed to read upgrade info from disk: %v", err))
+	}
+	if storeUpgrades, ok := StoreUpgradesByUpgradeName[upgradeInfo.Name]; ok &&
+		!app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
+		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, storeUpgrades))
+	}
 
 	// ... other modules keepers
 
@@ -767,7 +797,8 @@ func New(
 		feegrantmodule.NewAppModule(appCodec, app.AccountKeeper, app.BankKeeper, app.FeeGrantKeeper, app.interfaceRegistry),
 		groupmodule.NewAppModule(appCodec, app.GroupKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		gov.NewAppModule(appCodec, &app.GovKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(govtypes.ModuleName)),
-		mint.NewAppModule(appCodec, app.MintKeeper, app.AccountKeeper, nil, app.GetSubspace(minttypes.ModuleName)),
+		// MINT-1：传入硬编码零通胀计算函数（传 nil 会退回 SDK 默认 ~13% 通胀）。
+		mint.NewAppModule(appCodec, app.MintKeeper, app.AccountKeeper, ZeroInflationCalculationFn, app.GetSubspace(minttypes.ModuleName)),
 		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(slashingtypes.ModuleName)),
 		distr.NewAppModule(appCodec, app.DistrKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(distrtypes.ModuleName)),
 		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(stakingtypes.ModuleName)),
@@ -804,7 +835,6 @@ func New(
 		// upgrades should be run first
 		upgradetypes.ModuleName,
 		capabilitytypes.ModuleName,
-		minttypes.ModuleName,
 		distrtypes.ModuleName,
 		slashingtypes.ModuleName,
 		evidencetypes.ModuleName,
@@ -818,6 +848,15 @@ func New(
 		ibcexported.ModuleName,
 		icatypes.ModuleName,
 		wasmtypes.ModuleName,
+		// MINT-1：mint 必须保留在 BeginBlockers 中——SDK 的 assertNoForgottenModules
+		// 要求「所有已注册模块」都出现在顺序表里，遗漏会在 New() 阶段 panic。
+		// 零通胀由两道物理约束保证，而非靠从顺序表里删除：
+		//   ① mint.NewAppModule 传入 ZeroInflationCalculationFn（硬编码返回 0，
+		//      治理改 params 也无法产生通胀）；
+		//   ② maccPerms 中 mint 模块账户已剥夺 authtypes.Minter 权限。
+		// BeginBlocker 计算出 0 币后，keeper.MintCoins 因 newCoins.Empty() 直接短路返回，
+		// 永不触达 bank.MintCoins，故剥权不会导致 panic。
+		minttypes.ModuleName,
 		genutiltypes.ModuleName,
 		authz.ModuleName,
 		feegrant.ModuleName,
@@ -1095,9 +1134,16 @@ func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.Res
 	app.StakingKeeper.SetParams(ctx, p)
 
 	// P0/R1: 固定总量链——tokenomics 模块一次性铸造并强约束 cap(1e15 umc)，
-	// 链上绝不允许二次通胀。mint 模块默认 inflation≈13% 且持有 Minter 权限、
-	// 会绕过 tokenomics 的 cap 直接铸币，必须强制清零。即便 genesis 漏设，
-	// 此处每次启动都兜底，保证总量上限不被破坏。
+	// 链上绝不允许二次通胀。mint 模块默认 inflation≈13%，若持有 Minter 权限
+	// 便可绕过 tokenomics 的 cap 直接铸币，故此处在创世把通胀参数清零。
+	//
+	// MINT-1 更正：InitChainer 仅在**创世**执行一次，并非"每次启动兜底"
+	// （旧注释如此描述，是错误的）。参数清零因此只是第一道防线——真正的
+	// 硬约束是 maccPerms 中 mint 模块已**不再持有 Minter 权限**
+	// （见本文件 `minttypes.ModuleName: nil`）：即便日后治理把 InflationMax
+	// 改回非零，mint.BeginBlock 的 MintCoins 也会因缺少 Minter 权限而失败，
+	// 10 亿 MC 硬顶不会被击穿。
+	//
 	// 注意：GoalBonded 绝不能为 0——mint.BeginBlock 会算 bondedRatio/GoalBonded，
 	// 归零将在首区块除零 panic 导致链 halt。仅清零通胀上下限与本区块通胀率。
 	mp := app.MintKeeper.GetParams(ctx)
@@ -1110,10 +1156,32 @@ func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.Res
 	minter.AnnualProvisions = sdk.ZeroDec()
 	app.MintKeeper.SetMinter(ctx, minter)
 
+	// P0/WASM-1：将 CosmWasm 合约上传/实例化权限收敛到治理账户，禁止任意地址
+	// 随意上传/实例化合约（默认 AllowEverybody 是上线阻断级风险：任何人可部署恶意合约）。
+	// 仅在 wasm 模块实际注册时（CGO 构建）执行；非 CGO 构建未注册 wasm 模块，跳过。
+	if _, ok := app.mm.Modules[wasmtypes.ModuleName]; ok {
+		wp := app.WasmKeeper.GetParams(ctx)
+		govAddr := authtypes.NewModuleAddress(govtypes.ModuleName)
+		// CodeUploadAccess：仅治理模块账户可上传合约字节码。
+		wp.CodeUploadAccess = wasmtypes.AccessTypeAnyOfAddresses.With(govAddr)
+		// InstantiateDefaultPermission：wasmd 以 `perm.With(creator)` 派生每份代码的
+		// 默认实例化权限。设为 AnyOfAddresses 即「仅上传者本人可实例化」；
+		// 由于上传者只能是治理账户，实例化同样收敛到治理。
+		wp.InstantiateDefaultPermission = wasmtypes.AccessTypeAnyOfAddresses
+		if err := app.WasmKeeper.SetParams(ctx, wp); err != nil {
+			panic(fmt.Sprintf("wasm: failed to restrict upload/instantiate to gov: %v", err))
+		}
+	}
+
 	// Q1/C: genesis validators are created by InitGenesis and therefore bypass
 	// the ante decorator. Lift any validator whose MinSelfDelegation is below
-	// the chain-wide floor up to the floor so acceptance (min_self_delegation
-	// == 100000000000) holds for the genesis validator as well.
+	// the chain-wide floor up to that floor, so the same acceptance rule holds
+	// for genesis validators as for every later MsgCreateValidator.
+	//
+	// L-3 更正：旧注释写的下限是 100000000000（10 万 MC），与实际常量不符。
+	// 唯一权威值是 MinSelfDelegationLowerBound = 30_000_000_000 umc（3 万 MC），
+	// 定义于 app/ante.go，白皮书 §A.6 同值。此处不再复述字面量，直接引用常量，
+	// 避免注释与代码二次漂移。
 	for _, v := range app.StakingKeeper.GetAllValidators(ctx) {
 		if v.MinSelfDelegation.LT(sdk.NewInt(MinSelfDelegationLowerBound)) {
 			v.MinSelfDelegation = sdk.NewInt(MinSelfDelegationLowerBound)
@@ -1132,6 +1200,15 @@ func (app *App) Configurator() module.Configurator {
 // UpgradeName 是首个计划内软件升级的规范升级名。
 // 未来每次升级都必须用同一机制（RegisterUpgradeHandlers）注册对应处理器。
 const UpgradeName = "mcchain-v1"
+
+// StoreUpgradesByUpgradeName 按升级名登记该次升级涉及的 KVStore 增删改。
+// UPG-1：SDK 的 store 版本在升级时若与 app 注册的 store key 集合不一致，
+// 节点会在目标高度 panic 且无法恢复。凡是「新增/删除/重命名模块 store」的升级，
+// 都必须在此登记，NewApp 会据此安装 upgradetypes.UpgradeStoreLoader。
+// mcchain-v1 为首个升级，不涉及 store 变更，故为空集合（登记本身即启用加载器路径）。
+var StoreUpgradesByUpgradeName = map[string]*storetypes.StoreUpgrades{
+	UpgradeName: {},
+}
 
 // RegisterUpgradeHandlers 注册计划内软件升级的处理器。
 // 修复（A3）：此前全仓无任何 SetUpgradeHandler，一旦 SoftwareUpgrade 治理提案通过，

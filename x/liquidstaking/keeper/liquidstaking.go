@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"fmt"
+	stdmath "math"
 	"strconv"
 
 	"cosmossdk.io/math"
@@ -9,12 +10,22 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
+	"mcchain/internal/safemath"
 	"mcchain/x/liquidstaking/types"
 )
 
 // maxDelegationsScanned bounds the reward-compounding sweep so BeginBlock work
 // stays predictable.
 const maxDelegationsScanned uint16 = 200
+
+// saturatingAddU64 returns a+b, saturating at MaxUint64 instead of wrapping.
+// Wrapping here would silently zero out already-accounted bond, so we clamp.
+func saturatingAddU64(a, b uint64) uint64 {
+	if sum, ok := safemath.AddUint64(a, b); ok {
+		return sum
+	}
+	return stdmath.MaxUint64
+}
 
 // ---------------------------------------------------------------------------
 // Exchange rate
@@ -40,7 +51,7 @@ func sharesForStake(ps types.PoolState, amountUmc uint64) uint64 {
 	shares := math.NewIntFromUint64(amountUmc).
 		Mul(math.NewIntFromUint64(ps.TotalSharesUlmc)).
 		Quo(math.NewIntFromUint64(ps.TotalBondedUmc))
-	return shares.Uint64()
+	return safemath.ClampUint64(shares)
 }
 
 // umcForShares converts ulmc shares back into umc at the current rate.
@@ -51,7 +62,7 @@ func umcForShares(ps types.PoolState, shares uint64) uint64 {
 	amt := math.NewIntFromUint64(shares).
 		Mul(math.NewIntFromUint64(ps.TotalBondedUmc)).
 		Quo(math.NewIntFromUint64(ps.TotalSharesUlmc))
-	return amt.Uint64()
+	return safemath.ClampUint64(amt)
 }
 
 // ---------------------------------------------------------------------------
@@ -383,9 +394,16 @@ func (k Keeper) AccrueRewards(ctx sdk.Context) (uint64, error) {
 			k.Logger(ctx).Debug("re-delegate rewards failed", "validator", del.ValidatorAddress, "err", err)
 			continue
 		}
-		gained := amount.Uint64()
-		compounded += gained
-		k.setValidatorBond(ctx, del.ValidatorAddress, k.GetValidatorBond(ctx, del.ValidatorAddress)+gained)
+		// OVF-1：amount 来自 distribution 模块，Int.Uint64() 在超界时 panic；
+		// BeginBlocker 内 panic 会中止整个区块，故一律饱和钳制并做饱和累加，
+		// 绝不允许 uint64 回绕把已记账的 bond 清零。
+		gained := safemath.ClampUint64(amount)
+		if gained == 0 {
+			continue
+		}
+		compounded = saturatingAddU64(compounded, gained)
+		k.setValidatorBond(ctx, del.ValidatorAddress,
+			saturatingAddU64(k.GetValidatorBond(ctx, del.ValidatorAddress), gained))
 	}
 
 	if compounded == 0 {
@@ -393,8 +411,8 @@ func (k Keeper) AccrueRewards(ctx sdk.Context) (uint64, error) {
 	}
 
 	ps = k.GetPoolState(ctx)
-	ps.TotalBondedUmc += compounded
-	ps.CumulativeRewardsUmc += compounded
+	ps.TotalBondedUmc = saturatingAddU64(ps.TotalBondedUmc, compounded)
+	ps.CumulativeRewardsUmc = saturatingAddU64(ps.CumulativeRewardsUmc, compounded)
 	k.SetPoolState(ctx, ps)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(

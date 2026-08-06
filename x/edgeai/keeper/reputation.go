@@ -22,6 +22,13 @@ type Reputation struct {
 	Score                   uint32 `json:"score"`
 	LastContributionBlock   int64  `json:"last_contribution_block"`
 	ConsecutiveMissedBlocks int64  `json:"consecutive_missed_blocks"`
+	// LastDecayBlock 记录最近一次衰减发生的高度（REP-1）。
+	// 缺失该字段时，一旦跨过 ReputationDecayBlocks 阈值，节点会在此后的
+	// 每一个区块都被 -1，满分 100 约 100 个区块（十分钟量级）即被清零，
+	// 与白皮书「连续 N 区块无贡献 → 声誉 -1」的语义严重不符。
+	// 有了该字段，衰减基准 = max(最近贡献高度, 最近衰减高度)，
+	// 每个衰减周期至多扣 1 分。旧记录反序列化后为 0，自动回退到按贡献高度计。
+	LastDecayBlock int64 `json:"last_decay_block"`
 }
 
 // reputation key prefix for KV store
@@ -88,7 +95,10 @@ func (k Keeper) IncrementReputation(ctx sdk.Context, nodeAddr string, delta uint
 	r.Score = newScore
 	r.LastContributionBlock = ctx.BlockHeight()
 	r.ConsecutiveMissedBlocks = 0
-	_ = k.SetReputation(ctx, r)
+	if err := k.SetReputation(ctx, r); err != nil {
+		// ERR-1：写入失败不得静默吞掉（序列化异常属确定性故障，记录以便排障）。
+		ctx.Logger().Error("edgeai: SetReputation failed", "err", err.Error())
+	}
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("edgeai.ReputationIncreased",
@@ -111,7 +121,10 @@ func (k Keeper) DecrementReputation(ctx sdk.Context, nodeAddr string, delta uint
 	}
 	r.LastContributionBlock = ctx.BlockHeight()
 	r.ConsecutiveMissedBlocks = 0
-	_ = k.SetReputation(ctx, r)
+	if err := k.SetReputation(ctx, r); err != nil {
+		// ERR-1：写入失败不得静默吞掉（序列化异常属确定性故障，记录以便排障）。
+		ctx.Logger().Error("edgeai: SetReputation failed", "err", err.Error())
+	}
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("edgeai.ReputationDecreased",
@@ -131,32 +144,60 @@ func (k Keeper) IsLowPriority(ctx sdk.Context, nodeAddr string) bool {
 }
 
 // DecayReputation 在 BeginBlock 中调用，对连续无贡献的节点执行声誉衰减。
-// 连续 ReputationDecayBlocks (1000) 区块无贡献 → -1。
+// 每满 ReputationDecayBlocks (1000) 个区块无贡献 → -1。
+//
+// SCALE-1：不再调用 AllReputations 把全量声誉记录读进内存，
+// 改为按持久化游标做有界轮转，每区块至多检查 MaxReputationScanPerBlock 条。
+// 游标属链上状态，各节点批次一致，不引入非确定性；扫到末尾自动回到开头。
+//
+// REP-1：衰减基准取 max(最近贡献高度, 最近衰减高度)，
+// 保证一个衰减周期最多扣 1 分，而不是跨过阈值后每个区块都扣。
 func (k Keeper) DecayReputation(ctx sdk.Context) {
 	currentHeight := ctx.BlockHeight()
-	reputations := k.AllReputations(ctx)
-	for _, r := range reputations {
+	entries := boundedScan(
+		ctx.KVStore(k.storeKey),
+		reputationKeyPrefix,
+		reputationCursorKey,
+		types.MaxReputationScanPerBlock,
+	)
+
+	for _, e := range entries {
+		var r Reputation
+		if err := json.Unmarshal(e.Value, &r); err != nil {
+			continue
+		}
 		if r.LastContributionBlock <= 0 {
 			// 新节点尚未贡献过，跳过衰减
 			continue
 		}
-		missed := currentHeight - r.LastContributionBlock
-		if missed >= types.ReputationDecayBlocks {
-			// 连续无贡献超过阈值 → 衰减 -1
-			if r.Score > types.MinReputationScore {
-				r.Score--
-				r.ConsecutiveMissedBlocks = missed
-				_ = k.SetReputation(ctx, r)
-
-				ctx.EventManager().EmitEvent(
-					sdk.NewEvent("edgeai.ReputationDecayed",
-						sdk.NewAttribute("node_addr", r.NodeAddr),
-						sdk.NewAttribute("new_score", fmt.Sprintf("%d", r.Score)),
-						sdk.NewAttribute("missed_blocks", fmt.Sprintf("%d", missed)),
-					),
-				)
-				telemetry.IncrCounter(1, "edgeai", "reputation_decay_count")
-			}
+		if r.Score <= types.MinReputationScore {
+			continue // 已见底，无需重复写入
 		}
+
+		base := r.LastContributionBlock
+		if r.LastDecayBlock > base {
+			base = r.LastDecayBlock
+		}
+		if currentHeight-base < types.ReputationDecayBlocks {
+			continue
+		}
+
+		r.Score--
+		r.LastDecayBlock = currentHeight
+		r.ConsecutiveMissedBlocks = currentHeight - r.LastContributionBlock
+		if err := k.SetReputation(ctx, &r); err != nil {
+			// ERR-1：写入失败不得静默吞掉（序列化异常属确定性故障，记录以便排障）。
+			ctx.Logger().Error("edgeai: SetReputation failed", "err", err.Error())
+			continue
+		}
+
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent("edgeai.ReputationDecayed",
+				sdk.NewAttribute("node_addr", r.NodeAddr),
+				sdk.NewAttribute("new_score", fmt.Sprintf("%d", r.Score)),
+				sdk.NewAttribute("missed_blocks", fmt.Sprintf("%d", r.ConsecutiveMissedBlocks)),
+			),
+		)
+		telemetry.IncrCounter(1, "edgeai", "reputation_decay_count")
 	}
 }

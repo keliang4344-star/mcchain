@@ -118,7 +118,10 @@ func (k Keeper) SubmitAttestation(ctx sdk.Context, nodeAddr, rootHash, nonce, de
 	// 重置在线宽限计时：重新 attest 视为刚上线，给予完整 OfflineGraceBlocks 宽限。
 	if node, nerr := k.GetNode(ctx, nodeAddr); nerr == nil {
 		node.LastProofBlock = ctx.BlockHeight()
-		_ = k.SetNode(ctx, node)
+		if err := k.SetNode(ctx, node); err != nil {
+			// ERR-1：写入失败不得静默吞掉（序列化异常属确定性故障，记录以便排障）。
+			ctx.Logger().Error("phonenode: SetNode failed", "err", err.Error())
+		}
 	}
 
 	// 标记 nonce 已用，防重放

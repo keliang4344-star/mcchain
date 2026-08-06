@@ -2,6 +2,8 @@ package keeper
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"mcchain/internal/safemath"
 )
 
 // 本文件内联 MobileChain DePIN + 边缘 AI 的核心经济逻辑（纯函数层）。
@@ -66,7 +68,8 @@ func ComputeReward(score int, taskType string) int {
 	if r.IsNegative() {
 		r = sdk.ZeroInt()
 	}
-	return int(r.Int64())
+	// OVF-1：r 已被钳制到 MaxRewardPerTask，但统一走饱和转换，消除 int64 面。
+	return safemath.ClampToInt(r)
 }
 
 // IsValidTaskType 校验任务类型是否受支持（防止非法类型绕过量级）。

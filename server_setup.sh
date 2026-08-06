@@ -19,7 +19,7 @@ KEY="validator"
 # 金额（umc，1 MC = 1,000,000 umc）
 SELF_BOND="30000000000umc"         # 自抵押 30k MC（>= ante 最低 3e10umc）
 GENESIS_AMT="200000000000umc"      # 创世账户拨款 200k MC
-MIN_SELF_DELEGATION="30000000"     # 必须 >= 30k MC，否则创世执行 panic（整数，不带 umc）
+MIN_SELF_DELEGATION="30000000000"  # 必须 >= 30k MC（= 3e10 umc，见 app/ante.go MinSelfDelegationLowerBound），否则 gentx 被 MinSelfDelegationDecorator 拒绝、创世失败
 
 echo "=============================================="
 echo " MC 公链 solo 创世节点一键部署"
@@ -80,7 +80,7 @@ if gp:
     as_["gov"] = gov
 if "depin" in as_:
     as_["depin"]["params"]["reward_denom"] = denom
-    as_["depin"]["params"]["initial_pool"] = "100000000000000"
+    as_["depin"]["params"]["initial_pool"] = "467500000000000"
 if "tokenomics" in as_:
     as_["tokenomics"]["denom"] = denom
     as_["tokenomics"]["total_supply_cap"] = 1000000000000000
@@ -93,6 +93,10 @@ if "edgeai" in as_ and "tokenomics" in as_:
     if team:
         as_["edgeai"]["params"]["arbitrator"] = team
 g["chain_id"] = "mcchain-mainnet-1"
+# 出块 gas 上限：防止单区块被超大交易/合约耗尽资源（零成本 DoS）。
+# 100_000_000 对 4s 出块周期足够宽松，同时封顶单块计算量。
+if "consensus" in as_ and "params" in as_["consensus"] and "block" in as_["consensus"]["params"]:
+    as_["consensus"]["params"]["block"]["max_gas"] = "100000000"
 json.dump(g, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 PY
 echo "    创世已规范化"

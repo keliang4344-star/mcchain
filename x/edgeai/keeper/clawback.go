@@ -3,6 +3,7 @@ package keeper
 import (
 	"fmt"
 
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"mcchain/x/edgeai/types"
 	tokenomicstypes "mcchain/x/tokenomics/types"
@@ -36,7 +37,10 @@ func (k Keeper) clawbackSubmitterReward(ctx sdk.Context, taskID string) {
 		return
 	}
 
-	clawCoin := sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(submitterAmount)))
+	// OVF-1：submitterAmount 由 task.Reward 推导（经 8500/10000），虽然
+	// CreateTask 校验过 Reward ≤ MaxInt64，但 genesis/迁移路径可能绕过；
+	// int64() 回绕会把回收额翻负。全程用 uint64 → Int。
+	clawCoin := sdk.NewCoins(sdk.NewCoin(types.EdgeAIDenom, sdkmath.NewIntFromUint64(submitterAmount)))
 	if err := k.bankKeeper.SendCoinsFromModuleToModule(
 		ctx, types.ModuleName, tokenomicstypes.StakingSecurityPoolName, clawCoin,
 	); err != nil {

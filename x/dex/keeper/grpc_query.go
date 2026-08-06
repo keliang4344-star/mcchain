@@ -61,7 +61,10 @@ func (k Keeper) EstimateSwap(goCtx context.Context, req *types.QueryEstimateSwap
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	amountOut := CalcSwapOutput(reserveIn, reserveOut, amountIn, pool.FeeRateBps)
+	// Quote through the same helper SwapExactIn uses. Pricing the quote with
+	// the full fee rate (while execution only removes the non-LP share from the
+	// reserve) made every quote systematically understate the real output.
+	amountOut, _ := CalcSwapOutputWithPoolFee(reserveIn, reserveOut, amountIn, pool.FeeRateBps)
 
 	// Calculate price impact in bps
 	priceImpact := sdk.ZeroInt()

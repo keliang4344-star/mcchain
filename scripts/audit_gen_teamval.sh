@@ -25,7 +25,7 @@ done
 
 echo "STEP4 build multisig"
 "$BIN" keys add teammultisig --multisig=team1,team2,team3,team4,team5 --multisig-threshold=3 --keyring-backend test --home "$HD" 2>&1 | tail -2
-echo "=== teammultisig address (expect mc105qnk0v3gn96naljmazvqjmnza08u5yn0vwpxz) ==="
+echo "=== teammultisig address (expect mc1psg2qr3d6vhtpcdhh56nd2wxfyted5an95s2c0 — 由 x/tokenomics/types/team_pubkeys_gen.go 的 5 个公钥派生；若重新生成团队密钥需同步更新此处) ==="
 "$BIN" keys show teammultisig -a --keyring-backend test --home "$HD"
 echo "multisig_rc=$?"
 

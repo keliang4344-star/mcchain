@@ -21,6 +21,9 @@ func TestMsgServerSettlementBatchFlow(t *testing.T) {
 	r1 := addrOfDex(t)
 	r2 := addrOfDex(t)
 
+	// 结算源模块账户预置可动用资金（清算需通过偿付能力校验）。
+	bk.setModuleBalance(types.ModuleName, "umc", 150_000_000)
+
 	submitRes, err := ms.SubmitSettlementBatch(goCtx, &types.MsgSubmitSettlementBatch{
 		Creator:    submitter,
 		BatchId:    "msg-batch-1",
@@ -46,6 +49,9 @@ func TestMsgServerSettlementBatchFlow(t *testing.T) {
 
 	require.Equal(t, int64(100_000_000), bk.balances[r1]["umc"].Amount.Int64())
 	require.Equal(t, int64(50_000_000), bk.balances[r2]["umc"].Amount.Int64())
+	// 模块账户被实际扣减，资金守恒。
+	require.True(t, bk.GetBalance(ctx,
+		sdk.MustAccAddressFromBech32(moduleAddrOf(types.ModuleName)), "umc").Amount.IsZero())
 
 	b, _ = k.GetBatch(ctx, "msg-batch-1")
 	require.Equal(t, "settled", b.Status)

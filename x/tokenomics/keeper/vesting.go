@@ -51,13 +51,24 @@ func ComputeVested(totalLocked uint64, startTime, endTime int64, now int64) (ves
 	elapsed := now - startTime
 	// 防溢出：totalLocked * elapsed 对大锁仓额（如 1.5e14 * 4.7e7 ≈ 7e21）会超过
 	// uint64 上限（1.8e19），必须先用 sdk.Int 做大数乘法再除，否则释放额静默错算。
-	vested = sdk.NewInt(int64(totalLocked)).Mul(sdk.NewInt(elapsed)).Quo(sdk.NewInt(span)).Uint64()
-	if vested > totalLocked {
-		vested = totalLocked
+	//
+	// totalLocked 是 uint64，必须用 NewIntFromUint64 而不是 NewInt(int64(...))：
+	// 后者在 totalLocked > MaxInt64 时回绕成负数，算出的 vested 为负，
+	// 随后的 Int.Uint64() 会 panic。
+	lockedInt := sdk.NewIntFromUint64(totalLocked)
+	vestedInt := lockedInt.Mul(sdk.NewInt(elapsed)).Quo(sdk.NewInt(span))
+	if vestedInt.GT(lockedInt) {
+		vestedInt = lockedInt
 	}
+	if vestedInt.IsNegative() {
+		vestedInt = sdk.ZeroInt()
+	}
+	vested = vestedInt.Uint64()
 	remaining = totalLocked - vested
 	if totalLocked > 0 {
-		progressBps = uint32(vested * 10000 / totalLocked)
+		// vested * 10000 同样在大额下会溢出 uint64，改为大数运算后再收窄。
+		// 结果天然落在 [0, 10000]，转 uint32 安全。
+		progressBps = uint32(vestedInt.MulRaw(10000).Quo(lockedInt).Uint64())
 	}
 	return vested, remaining, progressBps
 }

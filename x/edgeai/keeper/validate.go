@@ -23,23 +23,32 @@ import (
 // AntiCheatThresholdBps 默认 5000（50%），即多数派必须超过半数才触发自动判定。
 // 例：3 节点提交，2 个相同 hash（67%）→ 1 个少数派自动 slash；
 // 2 节点各不同 hash（各 50%）→ 不触发，留待争议窗口/仲裁者。
-func (k Keeper) detectCheatByConsensus(ctx sdk.Context) {
+//
+// FORK-4（上线前审计发现的致命项）：本函数会调用 SlashIfBad → RecordSlash，
+// 向链上 slash 记录列表按顺序追加条目，属于会写入共识状态的操作。
+// 原实现直接 range 两个 Go map（pendingByTask / hashGroups）来驱动这些写入，
+// 而 Go 的 map 迭代顺序是每进程随机化的——不同验证者会以不同顺序写入 slash 记录，
+// 算出的 AppHash 随之不同，最终导致链分叉/停块。
+//
+// 现在的实现全程不依赖 map 迭代序：
+//   - 任务顺序由 KVStore 前缀迭代（字典序）给出，全网一致；
+//   - 同一任务内的结果顺序由结果键（<taskID>/<submitter>）字典序给出，全网一致；
+//   - hash 分组按「首次出现顺序」这一确定性序列遍历，多数派并列时同样由该序列裁决。
+func (k Keeper) detectCheatByConsensus(ctx sdk.Context, taskIDs []string, byTask map[string][]*Result) {
 	params := k.GetParams(ctx)
 	threshold := params.AntiCheatThresholdBps
 	if threshold == 0 {
 		return // 阈值=0 表示禁用自动检测
 	}
 
-	// 按 taskId 分组所有 pending 结果
-	results := k.AllResults(ctx)
-	pendingByTask := make(map[string][]*Result)
-	for _, r := range results {
-		if r.Status == types.ResultStatusPending {
-			pendingByTask[r.TaskId] = append(pendingByTask[r.TaskId], r)
+	for _, taskID := range taskIDs {
+		// 只对 pending 结果做一致性投票（已结算/已拒绝的不再参与）。
+		resList := make([]*Result, 0, len(byTask[taskID]))
+		for _, r := range byTask[taskID] {
+			if r.Status == types.ResultStatusPending {
+				resList = append(resList, r)
+			}
 		}
-	}
-
-	for taskID, resList := range pendingByTask {
 		if len(resList) < 2 {
 			continue // 单结果无法一致性检测
 		}
@@ -50,19 +59,24 @@ func (k Keeper) detectCheatByConsensus(ctx sdk.Context) {
 			continue
 		}
 
-		// 按 ResultHash 分组，统计每组提交人数
+		// 按 ResultHash 分组；hashOrder 记录首次出现顺序，作为确定性遍历序列。
 		hashGroups := make(map[string][]*Result)
+		hashOrder := make([]string, 0, len(resList))
 		for _, r := range resList {
+			if _, ok := hashGroups[r.ResultHash]; !ok {
+				hashOrder = append(hashOrder, r.ResultHash)
+			}
 			hashGroups[r.ResultHash] = append(hashGroups[r.ResultHash], r)
 		}
 
 		total := uint32(len(resList))
 
-		// 找多数派（占比最高的 hash）
+		// 找多数派（占比最高的 hash）。严格大于才替换，
+		// 因此并列时取「首次出现」的那个 hash —— 确定性裁决，不依赖 map 序。
 		var majorityHash string
 		var majorityCount uint32
-		for h, group := range hashGroups {
-			c := uint32(len(group))
+		for _, h := range hashOrder {
+			c := uint32(len(hashGroups[h]))
 			if c > majorityCount {
 				majorityCount = c
 				majorityHash = h
@@ -75,11 +89,11 @@ func (k Keeper) detectCheatByConsensus(ctx sdk.Context) {
 		}
 
 		// 标记少数派为 cheat：slash + rejected
-		for h, group := range hashGroups {
+		for _, h := range hashOrder {
 			if h == majorityHash {
 				continue
 			}
-			for _, r := range group {
+			for _, r := range hashGroups[h] {
 				reason := fmt.Sprintf(
 					"anti-cheat consensus: hash %s deviates from majority %s (%d/%d submitters)",
 					truncateHash(r.ResultHash), truncateHash(majorityHash), majorityCount, total,
@@ -92,7 +106,10 @@ func (k Keeper) detectCheatByConsensus(ctx sdk.Context) {
 				// 声誉更新：作弊 → -10（白皮书行 497）
 				k.DecrementReputation(ctx, r.Submitter, types.ReputationCheatDecrease)
 				r.Status = types.ResultStatusRejected
-				_ = k.SetResult(ctx, r)
+				if err := k.SetResult(ctx, r); err != nil {
+					// ERR-1：写入失败不得静默吞掉（序列化异常属确定性故障，记录以便排障）。
+					ctx.Logger().Error("edgeai: SetResult failed", "err", err.Error())
+				}
 
 				ctx.EventManager().EmitEvent(
 					sdk.NewEvent("edgeai.CheatDetected",
@@ -160,18 +177,29 @@ func DeterminePayout(task *Task, params types.Params) uint64 {
 // 模块账户余额异常（如托管金不足）等错误仅记录事件、不阻塞出块。
 //
 // 每区块结算上限由 MaxTasksPerBlock 控制，防止 BeginBlock 过重阻塞出块。
+// SCALE-1：本函数不再做任何整库扫描。待结算结果取自 pending 索引的有界轮转批次，
+// 过期回收取自 open 任务索引的有界轮转批次，声誉衰减同样按固定预算轮转。
+// 每区块工作量恒定，与链上历史实体总量无关。
 func (k Keeper) BeginBlock(ctx sdk.Context) {
+	// 本区块的待办批次：至多 MaxTasksPerBlock 个任务，分组完整、顺序确定。
+	taskIDs, byTask := k.PendingResultBatch(ctx, int(types.MaxTasksPerBlock))
+
 	// Phase 0: 多节点结果一致性投票（AntiCheatThresholdBps 自动作弊检测）
-	k.detectCheatByConsensus(ctx)
+	k.detectCheatByConsensus(ctx, taskIDs, byTask)
 
 	// Phase 0.5: 节点声誉衰减（白皮书行 497）
 	// 连续 ReputationDecayBlocks 区块无贡献 → 声誉 -1
 	k.DecayReputation(ctx)
 
 	params := k.GetParams(ctx)
-	results := k.AllResults(ctx)
 	settledCount := uint64(0)
 	settledTaskIDs := make(map[string]bool) // 追踪已结算的任务，避免同一任务重复计数
+
+	// 展平为确定性有序结果列表：任务按索引字典序，任务内按提交者字典序。
+	results := make([]*Result, 0, len(taskIDs))
+	for _, tid := range taskIDs {
+		results = append(results, byTask[tid]...)
+	}
 
 	for _, r := range results {
 		if settledCount >= types.MaxTasksPerBlock {
@@ -233,7 +261,7 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 		// 拨付 submitter 80%
 		if err := k.bankKeeper.SendCoinsFromModuleToAccount(
 			ctx, types.ModuleName, addr,
-			sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(submitterAmount))),
+			sdk.NewCoins(sdk.NewCoin(types.EdgeAIDenom, sdkmath.NewIntFromUint64(submitterAmount))),
 		); err != nil {
 			k.Logger(ctx).Error("edgeai: payout failed", "task_id", r.TaskId, "submitter", r.Submitter, "err", err.Error())
 			ctx.EventManager().EmitEvent(
@@ -260,9 +288,15 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 		}
 
 		r.Status = types.ResultStatusValid
-		_ = k.SetResult(ctx, r)
+		if err := k.SetResult(ctx, r); err != nil {
+			// ERR-1：写入失败不得静默吞掉（序列化异常属确定性故障，记录以便排障）。
+			ctx.Logger().Error("edgeai: SetResult failed", "err", err.Error())
+		}
 		task.Status = types.TaskStatusDone
-		_ = k.SetTask(ctx, task)
+		if err := k.SetTask(ctx, task); err != nil {
+			// ERR-1：写入失败不得静默吞掉（序列化异常属确定性故障，记录以便排障）。
+			ctx.Logger().Error("edgeai: SetTask failed", "err", err.Error())
+		}
 
 		// ====================================================================
 		// V3 新增：推荐奖励 hook（白皮书行 528-540）
@@ -308,9 +342,10 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 	// Phase 2: 任务过期处理
 	// 遍历所有 open 状态的任务，超时未结算（TaskExpireBlocks）的标记为 expired，
 	// 退还托管金给任务创建者。
+	//
+	// SCALE-1：只遍历 open 任务索引的有界轮转批次，不再扫描全量任务表。
 	if settledCount < types.MaxTasksPerBlock {
-		taskIDs := k.AllTaskIDs(ctx)
-		for _, tid := range taskIDs {
+		for _, tid := range k.OpenTaskBatch(ctx, types.MaxOpenTaskScanPerBlock) {
 			if settledCount >= types.MaxTasksPerBlock {
 				break
 			}
@@ -336,21 +371,26 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 			}
 
 			task.Status = types.TaskStatusExpired
-			_ = k.SetTask(ctx, task)
+			if err := k.SetTask(ctx, task); err != nil {
+				// ERR-1：写入失败不得静默吞掉（序列化异常属确定性故障，记录以便排障）。
+				ctx.Logger().Error("edgeai: SetTask failed", "err", err.Error())
+			}
 
-			// 退还托管金给创建者
-			if task.Reward > 0 {
-				creatorAddr, addrErr := sdk.AccAddressFromBech32(task.Creator)
-				if addrErr == nil {
-					rewardCoins := sdk.NewCoins(sdk.NewInt64Coin(types.EdgeAIDenom, int64(task.Reward)))
-					if refundErr := k.bankKeeper.SendCoinsFromModuleToAccount(
-						ctx, types.ModuleName, creatorAddr, rewardCoins,
-					); refundErr != nil {
-						k.Logger(ctx).Error("edgeai: task expired refund failed",
-							"task_id", tid, "creator", task.Creator, "err", refundErr.Error())
+				// 退还托管金给创建者
+				if task.Reward > 0 {
+					creatorAddr, addrErr := sdk.AccAddressFromBech32(task.Creator)
+					if addrErr == nil {
+						// OVF-1：task.Reward 虽经 CreateTask 上界校验，但 genesis/迁移
+						// 路径可能绕过；int64() 回绕会让退款额翻负。全程用 uint64 → Int。
+						rewardCoins := sdk.NewCoins(sdk.NewCoin(types.EdgeAIDenom, sdkmath.NewIntFromUint64(task.Reward)))
+						if refundErr := k.bankKeeper.SendCoinsFromModuleToAccount(
+							ctx, types.ModuleName, creatorAddr, rewardCoins,
+						); refundErr != nil {
+							k.Logger(ctx).Error("edgeai: task expired refund failed",
+								"task_id", tid, "creator", task.Creator, "err", refundErr.Error())
+						}
 					}
 				}
-			}
 
 			ctx.EventManager().EmitEvent(
 				sdk.NewEvent("edgeai.TaskExpired",
@@ -374,7 +414,10 @@ func (k Keeper) BeginBlock(ctx sdk.Context) {
 func (k Keeper) resolveDispute(ctx sdk.Context, d *Dispute, resolution string) {
 	d.Status = "resolved"
 	d.Resolution = resolution
-	_ = k.SetDispute(ctx, d)
+	if err := k.SetDispute(ctx, d); err != nil {
+		// ERR-1：写入失败不得静默吞掉（序列化异常属确定性故障，记录以便排障）。
+		ctx.Logger().Error("edgeai: SetDispute failed", "err", err.Error())
+	}
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("edgeai.DisputeResolved",
 			sdk.NewAttribute("task_id", d.TaskId),

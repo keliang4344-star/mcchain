@@ -292,7 +292,7 @@ The payout splits two ways. Eighty-five percent goes to the node that performed 
 
 A dispute freezes settlement until arbitration resolves it. A ruling of fraud claws back the escrowed submitter share and routes it to the staking-security pool, where it is drip-distributed to honest nodes and validators, and the submitter is penalized separately. Single-task reward is capped at 1,000 MC, and the anti-cheat consensus threshold is fifty percent.
 
-Verifier selection is reputation-weighted and samples completed tasks after the fact, so a provider cannot know in advance which submissions will be checked.
+Verifier eligibility rests on real collateral. A verifier must be a bonded validator with at least 30,000 MC self-bonded (`VerifierMinStake`), registered in `phonenode`, holding a valid attestation, and heartbeating inside the offline grace window. The right to judge another node's work carries the same slashable stake as the right to order blocks: independent duties, identical exposure. Selection among eligible verifiers is reputation-weighted — weight equals the reputation score (0–100), so a node slashed down to zero drops out of the sampling queue entirely — and samples completed tasks after the fact, so a provider cannot know in advance which submissions will be checked.
 
 *Status: Live. On-chain recomputation serves as a second verification layer.*
 

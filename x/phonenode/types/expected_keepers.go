@@ -56,6 +56,13 @@ type StakingKeeper interface {
 	// distribution (BeforeValidatorSlashed), keeping delegator reward accounting
 	// correct — omitting this would let delegators over-withdraw after a slash.
 	Hooks() stakingtypes.StakingHooks
+	// GetBondedValidatorsByPower returns the bonded validator set ordered by
+	// descending power. The set is capped by the MaxValidators consensus
+	// parameter, which is what makes verifier selection bounded per block
+	// (see keeper.GetVerifierNodes / SCALE-2): we enumerate the small validator
+	// set and look each one up in phonenode, instead of scanning every
+	// registered device.
+	GetBondedValidatorsByPower(ctx sdk.Context) []stakingtypes.Validator
 }
 
 // SlashingKeeper B2 所需的 slashing 接口子集，只保留 Jail（吊销出块权）。

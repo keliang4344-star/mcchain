@@ -3,11 +3,13 @@ package keeper
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"mcchain/internal/safemath"
 	"mcchain/x/referral/types"
 )
 
@@ -69,29 +71,35 @@ func (k Keeper) setDailyNetwork(ctx sdk.Context, amount uint64) {
 // either the per-user daily cap or the network-wide daily cap.
 //
 // bonus is denominated in umc (the smallest unit).
+//
+// 上限比较必须在任意精度上做。此前用 `used + bonus.Uint64()` 比较，有两个致命问题：
+//   - bonus 超出 uint64 或为负时，Int.Uint64() 直接 panic —— DeliverTx 内 panic 会中止整个区块；
+//   - `used + bonus` 溢出 uint64 时结果回绕成一个很小的数，上限检查反而通过，
+//     日上限被完全绕过。二者都改为 sdkmath.Int 比较，不再有回绕与 panic 面。
 func (k Keeper) CheckDailyCaps(ctx sdk.Context, inviter string, bonus sdkmath.Int) error {
-	if bonus.IsZero() {
+	if bonus.IsNil() || !bonus.IsPositive() {
 		return nil
 	}
 	params := k.GetParams(ctx)
+	day := uint64(ctx.BlockHeight()) / uint64(BlockDayDivisor())
 
 	// Per-user cap
 	if params.DailyPerUserCap > 0 {
 		used := k.getDailyPerUser(ctx, inviter)
-		newUsed := used + bonus.Uint64()
-		if newUsed > params.DailyPerUserCap {
+		newUsed := sdkmath.NewIntFromUint64(used).Add(bonus)
+		if newUsed.GT(sdkmath.NewIntFromUint64(params.DailyPerUserCap)) {
 			return fmt.Errorf("referral reward exceeds daily-per-user cap: used=%d + bonus=%s > cap=%d (day=%d)",
-				used, bonus.String(), params.DailyPerUserCap, uint64(ctx.BlockHeight())/uint64(BlockDayDivisor()))
+				used, bonus.String(), params.DailyPerUserCap, day)
 		}
 	}
 
 	// Network cap
 	if params.DailyNetworkCap > 0 {
 		used := k.getDailyNetwork(ctx)
-		newUsed := used + bonus.Uint64()
-		if newUsed > params.DailyNetworkCap {
+		newUsed := sdkmath.NewIntFromUint64(used).Add(bonus)
+		if newUsed.GT(sdkmath.NewIntFromUint64(params.DailyNetworkCap)) {
 			return fmt.Errorf("referral reward exceeds daily-network cap: used=%d + bonus=%s > cap=%d (day=%d)",
-				used, bonus.String(), params.DailyNetworkCap, uint64(ctx.BlockHeight()) / uint64(BlockDayDivisor()))
+				used, bonus.String(), params.DailyNetworkCap, day)
 		}
 	}
 
@@ -99,16 +107,28 @@ func (k Keeper) CheckDailyCaps(ctx sdk.Context, inviter string, bonus sdkmath.In
 }
 
 // RecordDailyCapUsage records the bonus against the daily counters.
+//
+// 计数器是 uint64，累加必须做饱和处理：若溢出回绕，当日已用额度会被清零，
+// 同一天内可以反复领取而永远撞不到上限。饱和到 MaxUint64 会让后续检查一律失败，
+// 这是比「静默解除限额」安全得多的失败方向。
 func (k Keeper) RecordDailyCapUsage(ctx sdk.Context, inviter string, bonus sdkmath.Int) {
-	b := bonus.Uint64()
+	if bonus.IsNil() || !bonus.IsPositive() {
+		return
+	}
+	b := safemath.ClampUint64(bonus)
 	if b == 0 {
 		return
 	}
-	used := k.getDailyPerUser(ctx, inviter) + b
-	k.setDailyPerUser(ctx, inviter, used)
+	k.setDailyPerUser(ctx, inviter, saturatingAdd(k.getDailyPerUser(ctx, inviter), b))
+	k.setDailyNetwork(ctx, saturatingAdd(k.getDailyNetwork(ctx), b))
+}
 
-	totalUsed := k.getDailyNetwork(ctx) + b
-	k.setDailyNetwork(ctx, totalUsed)
+// saturatingAdd 返回 a+b，溢出时饱和到 MaxUint64（绝不回绕）。
+func saturatingAdd(a, b uint64) uint64 {
+	if sum, ok := safemath.AddUint64(a, b); ok {
+		return sum
+	}
+	return math.MaxUint64
 }
 
 // ResetDailyCaps clears all daily cap counters at the day boundary.

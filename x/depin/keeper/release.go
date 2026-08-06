@@ -3,9 +3,11 @@ package keeper
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+
+	"mcchain/internal/safemath"
 	"mcchain/x/depin/types"
 )
 
@@ -109,7 +111,9 @@ func (k Keeper) GetOrInitReleaseVault(ctx sdk.Context) (*ReleaseVault, error) {
 	denom := k.GetParams(ctx).RewardDenom
 	moduleAddr := k.getModuleAddress()
 	coins := k.bankKeeper.SpendableCoins(ctx, moduleAddr)
-	balance := coins.AmountOf(denom).Uint64()
+	// OVF-1：Int.Uint64() 在余额超出 uint64 或为负时直接 panic（DeliverTx panic = 全网停机）。
+	// RewardDenom 可由治理改参，模块账户也可能被外部注入任意 denom，故一律走饱和钳制。
+	balance := safemath.ClampUint64(coins.AmountOf(denom))
 
 	vault := &ReleaseVault{
 		StartTime:      ctx.BlockTime().Unix(),
@@ -191,8 +195,8 @@ func (k Keeper) CheckDailyReleaseCap(ctx sdk.Context, amount uint64) (allowed bo
 	// 日释放上限 = 当前余额 / 剩余天数
 	dailyCap = currentBalance / uint64(remainingDays)
 
-	// 读取当日已释放金额
-	todayDate := time.Now().UTC().Format("2006-01-02")
+	// 读取当日已释放金额（使用区块时间，保证各验证人推导一致、不出分叉）
+	todayDate := ctx.BlockTime().UTC().Format("2006-01-02")
 	store := ctx.KVStore(k.storeKey)
 
 	var todayReleased uint64
@@ -220,7 +224,7 @@ func (k Keeper) CheckDailyReleaseCap(ctx sdk.Context, amount uint64) (allowed bo
 
 // RecordDailyRelease 记录当日释放金额，在拨付成功之后调用。
 func (k Keeper) RecordDailyRelease(ctx sdk.Context, amount uint64) {
-	todayDate := time.Now().UTC().Format("2006-01-02")
+	todayDate := ctx.BlockTime().UTC().Format("2006-01-02")
 	store := ctx.KVStore(k.storeKey)
 
 	var rd ReleaseDaily
@@ -235,7 +239,10 @@ func (k Keeper) RecordDailyRelease(ctx sdk.Context, amount uint64) {
 	vault, err := k.GetOrInitReleaseVault(ctx)
 	if err == nil {
 		vault.TotalReleased += amount
-		_ = k.SaveReleaseVault(ctx, vault)
+		if err := k.SaveReleaseVault(ctx, vault); err != nil {
+			// ERR-1：写入失败不得静默吞掉（序列化异常属确定性故障，记录以便排障）。
+			ctx.Logger().Error("depin: SaveReleaseVault failed", "err", err.Error())
+		}
 	}
 
 	newBz, _ := json.Marshal(rd)
@@ -243,6 +250,9 @@ func (k Keeper) RecordDailyRelease(ctx sdk.Context, amount uint64) {
 }
 
 // getModuleAddress 返回 DePIN 模块账户地址。
+// 必须使用 authtypes.NewModuleAddress 派生，与创世时 tokenomics 拨付目标
+// （authtypes.NewModuleAddress(DepinModuleName)，见 x/tokenomics/types/genesis.go）
+// 保持一致；否则读到的是错误地址、余额恒为 0，导致 DePIN 挖矿奖励永久无法发放。
 func (k Keeper) getModuleAddress() sdk.AccAddress {
-	return sdk.AccAddress([]byte(types.ModuleName))
+	return authtypes.NewModuleAddress(types.ModuleName)
 }

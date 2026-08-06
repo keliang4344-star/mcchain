@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
+	"os"
 
 	bip39 "github.com/cosmos/go-bip39"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
@@ -13,7 +14,17 @@ import (
 // 目标：mcchaind keys add --recover 对 mnemonic 实际恢复出的公钥（base64 of 33 bytes）。
 const targetPubB64 = "A5SDVMSWyV0Wf8JAHxbOGXCLfwoK6IuHSaING/MXLgbO"
 
-var mnemonic = "mom merry morning skull behave memory door talent dove enough strike public squirrel play moral vibrant awesome day step scale luxury lab top science"
+// mnemonic 必须从环境变量 MC_TEAM_MNEMONIC 注入——本文件不再硬编码任何助记词
+// （KEY-1 安全修复：此前硬编码的助记词对应一把真实团队多签私钥，已泄漏）。
+var mnemonic string
+
+func init() {
+	mnemonic = os.Getenv("MC_TEAM_MNEMONIC")
+	if mnemonic == "" {
+		fmt.Fprintln(os.Stderr, "MC_TEAM_MNEMONIC not set; this dev script refuses to embed a secret")
+		os.Exit(1)
+	}
+}
 
 func derive(path string) []byte {
 	seed := bip39.NewSeed(mnemonic, "")

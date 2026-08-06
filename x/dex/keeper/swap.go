@@ -4,6 +4,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"mcchain/internal/safemath"
 	"mcchain/x/dex/types"
 )
 
@@ -34,16 +35,12 @@ func (k Keeper) SwapExactIn(
 		return sdk.ZeroInt(), err
 	}
 
-	// Calculate fee and the non-LP (burn) portion removed from pool reserves.
-	// The LP portion (FeeLPBps) stays in the reserve; the non-LP portion
-	// (burn + treasury) is extracted and burned via ProcessSwapFee. The swap's
-	// effective input is amountIn minus the non-LP fee, so amountOut and the
-	// reserve update stay consistent and preserve x*y=k.
-	feeTotal := amountIn.MulRaw(int64(pool.FeeRateBps)).QuoRaw(10000)
-	nonLPFee := feeTotal.MulRaw(nonLPFeeBps).QuoRaw(10000)
-
-	// Effective input added to the reserve = amountIn - nonLPFee.
-	amountOut := CalcSwapOutput(reserveIn, reserveOut, amountIn.Sub(nonLPFee), 0)
+	// Price the swap through the shared AMM helper. The LP fee share stays in
+	// the reserve; the non-LP share (burn + treasury) is extracted and routed
+	// by ProcessSwapFee, so the effective input is amountIn - nonLPFee and
+	// x*y=k is preserved. EstimateSwap calls the exact same helper, which is
+	// what guarantees a quote can never diverge from execution.
+	amountOut, nonLPFee := CalcSwapOutputWithPoolFee(reserveIn, reserveOut, amountIn, pool.FeeRateBps)
 	if amountOut.LTE(sdk.ZeroInt()) {
 		return sdk.ZeroInt(), types.ErrInsufficientLiquidity
 	}
@@ -60,7 +57,9 @@ func (k Keeper) SwapExactIn(
 	k.SetPool(ctx, pool)
 
 	telemetry.IncrCounter(1, "dex", "swap_count")
-	telemetry.IncrCounter(float32(amountIn.Int64()), "dex", "swap_volume_in")
+	// amountIn is user-supplied and may exceed the int64 range; Int.Int64()
+	// would panic and abort the block, so the metric saturates instead.
+	telemetry.IncrCounter(safemath.Float32(amountIn), "dex", "swap_volume_in")
 
 	// Transfer input from trader to module
 	traderAddr, err := sdk.AccAddressFromBech32(creator)

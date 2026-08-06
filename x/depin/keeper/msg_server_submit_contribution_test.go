@@ -141,7 +141,7 @@ func TestSubmitContribution_RegisteredPhonenode_Paid(t *testing.T) {
 	// 赏金 5% 销毁已撤销（白皮书 §24.6 否决清单）：设备劳动应得 100% 到手，链上零截留。
 	expectedBase := keeper.ComputeReward(80, keeper.TaskTypeInference)
 	require.Equal(t, 400, expectedBase)
-	expectedAdjusted := keeper.ComputeResonanceReward(expectedBase, 1, 0.0, 0.8)
+	expectedAdjusted := keeper.ComputeResonanceReward(expectedBase, 1, sdk.ZeroDec(), sdk.NewDecWithPrec(8, 1))
 	expected := sdk.NewCoins(sdk.NewCoin("umc", sdk.NewInt(int64(expectedAdjusted))))
 	require.Equal(t, types.ModuleName, bank.sentModule)
 	require.True(t, bank.sentTo.Equals(expectedAddr), "paid to %s, want %s", bank.sentTo, expectedAddr)

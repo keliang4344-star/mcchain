@@ -1,21 +1,24 @@
 package keeper
 
 import (
-	"math/rand"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"mcchain/x/edgeai/types"
 )
 
 // SelectNVerifierNodes 从合格验证者中选取 n 个（不重复）。
 // 当前按洗牌后截取前 n 个，未来可与 reputation 联动优先选取高声誉节点。
+//
+// FORK-3：洗牌必须使用由区块数据派生的确定性随机源（见 rand.go），
+// 绝不可使用 math/rand 全局源，否则各节点选出的验证者不同 → AppHash 分叉。
+// 输入 addrs 来自 store 前缀迭代，本身顺序确定，洗牌后依然全网一致。
 func (k Keeper) SelectNVerifierNodes(ctx sdk.Context, n int) []string {
 	addrs := k.phonenodeKeeper.GetVerifierNodes(ctx)
 	if len(addrs) == 0 {
 		return nil
 	}
 	// 洗牌避免同一批节点总是被选中
-	rand.Shuffle(len(addrs), func(i, j int) { addrs[i], addrs[j] = addrs[j], addrs[i] })
+	rng := newDeterministicRand(ctx, "edgeai/select-n-verifiers")
+	rng.Shuffle(len(addrs), func(i, j int) { addrs[i], addrs[j] = addrs[j], addrs[i] })
 	if len(addrs) < n {
 		return addrs
 	}
@@ -57,9 +60,18 @@ func (k Keeper) ScoreAndVerify(ctx sdk.Context) {
 		return
 	}
 
+	// SCALE-1：抽检候选取自定长「近期完成任务环」（DoneTaskRingSize 条），
+	// 一次读取供本轮全部验证者复用。原实现对每个验证者都做一次 AllTaskIDs
+	// 全表扫描（每区块 N×全量任务），在任务量增长后必然拖垮出块。
+	// 抽检的意义在于覆盖新近完成的任务，对远期历史采样并无收益，故定长环即足够。
+	recentDone := k.RecentDoneTaskIDs(ctx)
+	if len(recentDone) == 0 {
+		return
+	}
+
 	usedTaskIDs := make(map[string]bool)
 	for _, verifierAddr := range verifiers {
-		task := k.sampleTaskExcluding(ctx, verifierAddr, usedTaskIDs)
+		task := k.sampleTaskExcluding(ctx, recentDone, verifierAddr, usedTaskIDs)
 		if task == nil {
 			continue
 		}
@@ -80,9 +92,10 @@ func (k Keeper) ScoreAndVerify(ctx sdk.Context) {
 	}
 }
 
-// sampleTaskExcluding 选取一个已完成且未被 excluded 中的验证者检查过的任务。
-func (k Keeper) sampleTaskExcluding(ctx sdk.Context, verifierAddr string, excluded map[string]bool) *Task {
-	taskIDs := k.AllTaskIDs(ctx)
+// sampleTaskExcluding 从给定候选集中选取一个已完成、且未被该验证者检查过、
+// 也不在 excluded 中的任务。候选集由调用方一次性提供（近期完成任务环），
+// 其顺序来自 KVStore 迭代，全网确定性一致。
+func (k Keeper) sampleTaskExcluding(ctx sdk.Context, taskIDs []string, verifierAddr string, excluded map[string]bool) *Task {
 	candidates := make([]*Task, 0, len(taskIDs))
 	for _, tid := range taskIDs {
 		if excluded[tid] {
@@ -103,6 +116,9 @@ func (k Keeper) sampleTaskExcluding(ctx sdk.Context, verifierAddr string, exclud
 	if len(candidates) == 0 {
 		return nil
 	}
-	idx := rand.Intn(len(candidates))
+	// FORK-3：确定性随机源；domain 带上 verifierAddr，
+	// 使同一区块内为不同验证者抽到的任务互相独立而又全网可复现。
+	rng := newDeterministicRand(ctx, "edgeai/sample-task-excluding:"+verifierAddr)
+	idx := rng.Intn(len(candidates))
 	return candidates[idx]
 }

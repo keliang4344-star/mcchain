@@ -1,7 +1,5 @@
 package types
 
-import "time"
-
 // AttestationResult 预言机提交的单条设备 attestation 验证结果。
 type AttestationResult struct {
 	DeviceID      string `json:"device_id"`
@@ -17,10 +15,12 @@ type AttestationHistory struct {
 }
 
 // NewAttestationResult 构造一条验证结果。
-func NewAttestationResult(deviceID string, passed bool, reason, oracleAddr string) AttestationResult {
+// timestamp 必须传入 ctx.BlockTime().Unix()，由各验证人从同一区块时间推导，
+// 保证链上状态确定性（可复现、不出分叉）。切勿在此使用 time.Now()。
+func NewAttestationResult(deviceID string, passed bool, reason, oracleAddr string, timestamp int64) AttestationResult {
 	return AttestationResult{
 		DeviceID:      deviceID,
-		Timestamp:     time.Now().Unix(),
+		Timestamp:     timestamp,
 		Passed:        passed,
 		Reason:        reason,
 		OracleAddress: oracleAddr,

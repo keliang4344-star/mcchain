@@ -5,8 +5,8 @@
 
 ## 维度一 · 经济模型审计
 - [ ] 总量不变量：`minted_supply ≤ total_supply_cap`（1e15 umc）恒成立，crisis 每轮校验。
-- [ ] 三大池分配占比 = team 1500 / community 3500 / ecosystem 5000（合计 10000），拨付额与余额一致。
-- [ ] DePIN 初始池 1e14 umc 由 tokenomics 生态池 genesis 一次性拨付，运行期仅拨付不增发。
+- [ ] 五池分配占比 = 设备激励 5500 / 质押安全 1500 / 基金会 1300 / 团队 1200 / 早期开发 500（bps，合计 10000），拨付额与余额一致。
+- [ ] DePIN 初始池 4.675e14 umc（= 设备激励切片 5.5e14 − 推荐生态预算 8.25e13）由 tokenomics 创世经**模块间转账**注入 depin 模块账户；depin 无 `Minter` 权限，运行期仅拨付不增发。
 - [ ] 团队池 vesting 释放曲线（1y+3y）正确，无提前释放。
 - [ ] 贡献即挖矿奖励公式 `reward = score × rate`（capped 500，threshold 30）无整数溢出/除零。
 - 交付物：经济模型形式化说明 + 数值测试报告。通过标准：上述不变量在边界输入下均成立。

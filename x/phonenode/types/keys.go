@@ -42,7 +42,53 @@ var (
 	NodeAllowanceDayKeyPrefix = []byte("NodeAllowDay:")
 	// GlobalLastAllowanceDayKey 全局「当日已分发」标记，避免同日重复遍历。
 	GlobalLastAllowanceDayKey = []byte("NodeAllowGlobalDay:")
+
+	// ---- SCALE-1：有界扫描索引与游标 ----
+	// HeartbeatIndexKeyPrefix 是「按最近心跳高度排序」的节点索引前缀：
+	//   HeartbeatIndexKey(lastProofBlock, addr) = "HbIdx:" + be8(height) + addr
+	// 大端编码保证键的字典序等同高度的数值序，离线检测因此只需从索引头部扫到
+	// 「高度 < 当前高度 - 宽限期」的边界，命中的都是真正超时的节点，
+	// 不必像原实现那样每个区块把全量节点读进内存（5.5 亿设备下即为停块）。
+	HeartbeatIndexKeyPrefix = []byte("HbIdx:")
+	// OfflineScanCursorKey 离线检测的持久化轮转游标。
+	OfflineScanCursorKey = []byte("cursor:offline_scan")
+	// AllowanceScanCursorKey 节点资本津贴分发的持久化轮转游标。
+	AllowanceScanCursorKey = []byte("cursor:allowance_scan")
 )
+
+// SCALE-1：BeginBlock 有界扫描预算。
+// 硬约束：BeginBlock 内不得出现 O(全量节点) 的遍历，否则节点规模上量后直接停块。
+const (
+	// MaxOfflineScanPerBlock 每区块最多检查的心跳索引条目数。
+	MaxOfflineScanPerBlock int = 128
+	// MaxAllowancePerBlock 每区块最多处理的津贴发放节点数。
+	MaxAllowancePerBlock int = 128
+)
+
+// HeartbeatIndexKey 构造心跳索引键：前缀 + 8 字节大端高度 + 地址。
+// 负高度（不应出现）统一归零，保证编码单调。
+func HeartbeatIndexKey(height int64, addr string) []byte {
+	out := make([]byte, 0, len(HeartbeatIndexKeyPrefix)+8+len(addr))
+	out = append(out, HeartbeatIndexKeyPrefix...)
+	out = append(out, heightBE(height)...)
+	return append(out, []byte(addr)...)
+}
+
+// HeartbeatIndexBound 返回「高度 < height」在索引内（去前缀后）的排他上界。
+func HeartbeatIndexBound(height int64) []byte {
+	return heightBE(height)
+}
+
+func heightBE(height int64) []byte {
+	h := uint64(0)
+	if height > 0 {
+		h = uint64(height)
+	}
+	return []byte{
+		byte(h >> 56), byte(h >> 48), byte(h >> 40), byte(h >> 32),
+		byte(h >> 24), byte(h >> 16), byte(h >> 8), byte(h),
+	}
+}
 
 // NodeAllowanceDayKey 返回某节点最近领取日序号的存储 key。
 func NodeAllowanceDayKey(addr string) []byte {

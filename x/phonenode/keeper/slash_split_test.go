@@ -92,19 +92,30 @@ type mockSlashStaking struct {
 	val     stakingtypes.Validator
 	hooks   *noopHooks
 	removed sdk.Int
+	// notFound 模拟「该地址并非验证人」：Validator 返回 nil、GetValidator 返回 false。
+	notFound bool
 }
 
 func (m *mockSlashStaking) Validator(_ sdk.Context, _ sdk.ValAddress) stakingtypes.ValidatorI {
+	if m.notFound {
+		return nil
+	}
 	return m.val
 }
 
 func (m *mockSlashStaking) ValidatorByConsAddr(_ sdk.Context, _ sdk.ConsAddress) stakingtypes.ValidatorI {
+	if m.notFound {
+		return nil
+	}
 	return m.val
 }
 
 func (m *mockSlashStaking) BondDenom(sdk.Context) string { return "stake" }
 
 func (m *mockSlashStaking) GetValidator(_ sdk.Context, _ sdk.ValAddress) (stakingtypes.Validator, bool) {
+	if m.notFound {
+		return stakingtypes.Validator{}, false
+	}
 	return m.val, true
 }
 
@@ -116,6 +127,13 @@ func (m *mockSlashStaking) RemoveValidatorTokens(_ sdk.Context, validator stakin
 }
 
 func (m *mockSlashStaking) Hooks() stakingtypes.StakingHooks { return m.hooks }
+
+func (m *mockSlashStaking) GetBondedValidatorsByPower(_ sdk.Context) []stakingtypes.Validator {
+	if m.notFound {
+		return nil
+	}
+	return []stakingtypes.Validator{m.val}
+}
 
 type mockSlashSlashing struct{ jailed []string }
 
@@ -153,6 +171,10 @@ func newSlashSplitKeeper(t *testing.T, bank *mockSlashBank, stk *mockSlashStakin
 func TestSlashSplit40Burn60Security(t *testing.T) {
 	consPub := ed25519.GenPrivKey().PubKey()
 	valAddr := sdk.ValAddress(consPub.Address())
+	// VALADDR-1：phonenode 登记的是**账户地址**（mc1...），罚没路径必须能把它
+	// 换算成同字节的验证人操作地址。这里刻意用账户地址发起 slash，
+	// 复现生产真实调用形态——旧实现在此会静默跳过罚没。
+	nodeAddr := sdk.AccAddress(consPub.Address()).String()
 
 	val, err := stakingtypes.NewValidator(valAddr, consPub, stakingtypes.Description{Moniker: "v1"})
 	require.NoError(t, err)
@@ -165,7 +187,7 @@ func TestSlashSplit40Burn60Security(t *testing.T) {
 	k, ctx := newSlashSplitKeeper(t, bank, stk, slk)
 
 	// 罚没 20%：1000 × 20% = 200 → 销毁 80（40%）+ 安全池 120（60%）
-	require.NoError(t, k.SlashIfBad(ctx, valAddr.String(), "double_sign", 2000))
+	require.NoError(t, k.SlashIfBad(ctx, nodeAddr, "double_sign", 2000))
 
 	// 1) distribution 钩子必须在扣减 tokens 前被调用（否则委托人可超额提取历史奖励）
 	require.Equal(t, 1, stk.hooks.slashedCalls, "BeforeValidatorSlashed 必须被调用一次")

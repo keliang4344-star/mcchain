@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"mcchain/internal/safemath"
 	depinmoduletypes "mcchain/x/depin/types"
 	dexmoduletypes "mcchain/x/dex/types"
 	referralmoduletypes "mcchain/x/referral/types"
@@ -164,7 +165,7 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	return &types.GenesisState{
 		Denom:          types.DefaultDenom,
 		TotalSupplyCap: types.TotalSupplyCap,
-		MintedSupply:   k.GetMintedSupply(ctx).Uint64(),
+		MintedSupply:   safemath.ClampUint64(k.GetMintedSupply(ctx)),
 		Allocations:    k.GetAllocations(ctx),
 		Release:        k.GetReleaseSchedule(ctx),
 	}

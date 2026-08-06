@@ -112,8 +112,16 @@ func (k Keeper) CreatePool(
 		return types.Pool{}, types.ErrInvalidPoolID
 	}
 
+	// Fee rate bound (defence in depth — MsgCreatePool.ValidateBasic already
+	// rejects this, but CreatePool is also reachable from genesis and internal
+	// callers). A rate above MaxFeeRateBps wraps the unsigned subtraction in
+	// the AMM and lets a swap drain the pool; MaxPoolFeeRateBps additionally
+	// prevents a confiscatory owner-set rate. 0 means "use the module default".
 	if feeRateBps == 0 {
 		feeRateBps = params.DefaultFeeRateBps
+	}
+	if feeRateBps > types.MaxPoolFeeRateBps {
+		return types.Pool{}, types.ErrInvalidFeeRate
 	}
 
 	pool := types.Pool{
@@ -131,6 +139,11 @@ func (k Keeper) CreatePool(
 	reserveA := amountA
 	reserveB := amountB
 	lpMinted, _, _ := CalcAddLiquidity(reserveA, reserveB, amountA, amountB, sdk.ZeroInt())
+	if !lpMinted.IsPositive() {
+		// A pool holding reserves but zero LP supply is unredeemable; refuse to
+		// create it rather than stranding the creator's deposit.
+		return types.Pool{}, types.ErrInsufficientLiquidity
+	}
 	pool.TotalLp = lpMinted.String()
 
 	// Transfer assets from creator to dex module

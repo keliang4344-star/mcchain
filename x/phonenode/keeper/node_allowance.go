@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	tokenomicstypes "mcchain/x/tokenomics/types"
 	"mcchain/x/phonenode/types"
+	tokenomicstypes "mcchain/x/tokenomics/types"
 )
 
 // ---------------------------------------------------------------------------
@@ -84,23 +85,6 @@ func (k Keeper) setLastAllowanceDay(ctx sdk.Context, addr string, d uint64) {
 	ctx.KVStore(k.storeKey).Set(types.NodeAllowanceDayKey(addr), bz)
 }
 
-func (k Keeper) getGlobalLastAllowanceDay(ctx sdk.Context) (uint64, bool) {
-	bz := ctx.KVStore(k.storeKey).Get(types.GlobalLastAllowanceDayKey)
-	if bz == nil {
-		return 0, false
-	}
-	var d uint64
-	if err := json.Unmarshal(bz, &d); err != nil {
-		return 0, false
-	}
-	return d, true
-}
-
-func (k Keeper) setGlobalLastAllowanceDay(ctx sdk.Context, d uint64) {
-	bz, _ := json.Marshal(d)
-	ctx.KVStore(k.storeKey).Set(types.GlobalLastAllowanceDayKey, bz)
-}
-
 // PayNodeCapitalAllowance 向单个节点运营者拨付当日建设溢价。
 // 幂等：同「日序号」已发则跳过。资金来自设备激励池（depin 模块账户）。
 func (k Keeper) PayNodeCapitalAllowance(ctx sdk.Context, operator sdk.AccAddress, di uint64) error {
@@ -125,19 +109,52 @@ func (k Keeper) PayNodeCapitalAllowance(ctx sdk.Context, operator sdk.AccAddress
 	return nil
 }
 
-// DistributeNodeCapitalAllowances 每日（按 UTC 天）向所有活跃移动节点分发建设溢价。
-// 从 BeginBlock 调用：仅在「日序号」跨天时执行一次；节点级幂等为第二道保险。
+// DistributeNodeCapitalAllowances 每日（按 UTC 天）向活跃移动节点分发建设溢价。
+//
+// SCALE-1（上线前审计发现的致命项）：原实现在「跨天」的那一个区块里一次性
+// 遍历全量节点并逐个转账。节点规模上量后，这一个区块要做数以百万计的转账，
+// 必然超时停块——把工作量堆在单块上，本身就是不可上线的设计。
+//
+// 现改为有界轮转：每区块从持久化游标处取至多 MaxAllowancePerBlock 个节点处理，
+// 扫到末尾自动回到开头。发放的正确性由「节点级日幂等」保证
+// （PayNodeCapitalAllowance 内按日序号去重），因此同一节点在一天内被轮转命中
+// 多次也只会领到一份；轮转在一天内跑完全网即可，不要求集中在某一个区块完成。
+// 游标是链上状态的一部分，全网批次一致，不引入非确定性。
 func (k Keeper) DistributeNodeCapitalAllowances(ctx sdk.Context) error {
 	cfg := k.GetNodeAllowanceConfig(ctx)
 	if !cfg.Enabled || cfg.PerDay == 0 {
 		return nil
 	}
 	di := dayIndex(ctx)
-	if lastRun, ok := k.getGlobalLastAllowanceDay(ctx); ok && lastRun == di {
-		return nil
+
+	root := ctx.KVStore(k.storeKey)
+	ps := prefix.NewStore(root, NodeKeyPrefix)
+
+	// 先取批次再关闭迭代器，避免转账写入与迭代交错。
+	it := ps.Iterator(root.Get(types.AllowanceScanCursorKey), nil)
+	batch := make([]NodeState, 0, types.MaxAllowancePerBlock)
+	scanned := 0
+	for ; it.Valid() && scanned < types.MaxAllowancePerBlock; it.Next() {
+		scanned++
+		var st NodeState
+		if err := json.Unmarshal(it.Value(), &st); err != nil {
+			continue
+		}
+		batch = append(batch, st)
+	}
+	var next []byte
+	if it.Valid() {
+		next = append([]byte(nil), it.Key()...)
+	}
+	it.Close()
+
+	if next != nil {
+		root.Set(types.AllowanceScanCursorKey, next)
+	} else {
+		root.Delete(types.AllowanceScanCursorKey) // 一轮走完，下区块从头继续
 	}
 
-	for _, node := range k.AllNodes(ctx) {
+	for _, node := range batch {
 		if !node.Registered {
 			continue
 		}
@@ -155,6 +172,5 @@ func (k Keeper) DistributeNodeCapitalAllowances(ctx sdk.Context) error {
 			continue
 		}
 	}
-	k.setGlobalLastAllowanceDay(ctx, di)
 	return nil
 }

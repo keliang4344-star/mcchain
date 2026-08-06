@@ -11,7 +11,7 @@
 | 链 ID | `mcchain-mainnet-1` |
 | 地址前缀 | `mc`（账户/验证人：`mc...`；模块账户同样 `mc...`） |
 | 基础 denom | `umc`（微 MC）。奖励、质押、转账均用 `umc`，**不存在 `stake`** |
-| 代币换算 | 30k MC = `100000000000` umc（3e10 umc）；DePIN 初始池默认 `1e14` umc（=1e8 MC） |
+| 代币换算 | 1 MC = 1e6 umc；30k MC = `30000000000` umc（3e10 umc，验证人最低自抵押下限）；DePIN 初始池默认 `467500000000000` umc（4.675e14 umc = 4.675 亿 MC） |
 | gRPC 端口 | 默认 `9090`（app.toml `grpc.enable = true`） |
 | REST(grpc-gateway) 端口 | 默认 `1317`（app.toml `api.enable = true`） |
 
@@ -134,7 +134,7 @@ grpcurl -plaintext localhost:9090 mcchain.depin.Query/Params
 ```json
 {
   "params": {
-    "initial_pool": "100000000000000",
+    "initial_pool": "467500000000000",
     "reward_denom": "umc"
   }
 }
@@ -153,7 +153,7 @@ grpcurl -plaintext localhost:9090 mcchain.phonenode.Query/Params
 mcchaind q bank total
 # 或仅看 depin 模块账户
 mcchaind q bank balances $(mcchaind q auth module-address depin -o json | jq -r .address)
-# 初始应有 initial_pool (=1e14) umc
+# 初始应有 initial_pool (=467500000000000 umc = 4.675 亿 MC)
 ```
 
 ## 6. 移动端接入提示

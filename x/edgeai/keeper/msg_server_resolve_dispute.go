@@ -60,7 +60,10 @@ func (k msgServer) ResolveDispute(goCtx context.Context, msg *types.MsgResolveDi
 		// 回收托管中的提交者 80% 奖励（销毁 / 回退模块池）。
 		k.Keeper.clawbackSubmitterReward(ctx, msg.TaskId)
 		task.Status = types.TaskStatusCheated
-		_ = k.Keeper.SetTask(ctx, task)
+		// ERR-1：作弊标记落盘失败必须回滚，否则奖励已被回收、任务却仍显示可拨付。
+		if err := k.Keeper.SetTask(ctx, task); err != nil {
+			return nil, err
+		}
 	}
 
 	k.Keeper.resolveDispute(ctx, dispute, msg.Resolution)

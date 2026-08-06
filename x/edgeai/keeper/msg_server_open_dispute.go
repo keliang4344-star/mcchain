@@ -45,7 +45,11 @@ func (k msgServer) OpenDispute(goCtx context.Context, msg *types.MsgOpenDispute)
 		return nil, err
 	}
 	task.Status = types.TaskStatusDisputed
-	_ = k.Keeper.SetTask(ctx, task)
+	// ERR-1：状态写入失败必须让整笔交易回滚，否则会留下
+	// 「争议已建档、任务却仍是 Open」的不一致状态。
+	if err := k.Keeper.SetTask(ctx, task); err != nil {
+		return nil, err
+	}
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("edgeai.DisputeOpened",

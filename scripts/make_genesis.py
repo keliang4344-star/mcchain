@@ -6,6 +6,80 @@
 #   python make_genesis.py --genesis <base.json> --out <prod.json> --config <genesis-config.json>
 import json, sys, argparse
 
+# ── 链上常量镜像（与 x/tokenomics/types/keys.go、x/depin/types/params.go 一一对应）──
+# 任一处改动必须同步本文件，否则 CHECK_INVARIANTS 会 fail-fast 阻断创世生成。
+TOTAL_SUPPLY_CAP = 1_000_000_000_000_000        # 1e15 umc = 10 亿 MC（硬顶）
+DEPIN_INITIAL_POOL_SLICE = 550_000_000_000_000  # 设备激励池 55% 切片
+REFERRAL_ECOSYSTEM_BUDGET = 82_500_000_000_000  # 推荐生态预算（= 55% 的 15%）
+DEPIN_DEFAULT_INITIAL_POOL = DEPIN_INITIAL_POOL_SLICE - REFERRAL_ECOSYSTEM_BUDGET  # 4.675e14
+
+# 五池分配 bps（合计 10000）：设备激励 55% / 质押安全 15% / 基金会 13% / 团队 12% / 早期开发 5%
+POOL_BPS = {
+    "device_incentive": 5500,
+    "staking_security": 1500,
+    "foundation": 1300,
+    "team": 1200,
+    "early_dev": 500,
+}
+
+
+def _die(msg):
+    sys.stderr.write("[FATAL] %s\n" % msg)
+    sys.exit(1)
+
+
+def check_invariants(as_, cap, depin_pool):
+    """创世不变量前置校验（对齐 x/tokenomics/keeper/genesis.go 的链上校验）。
+
+    在生成阶段 fail-fast，避免主网 InitChain 才 panic 导致启动失败。
+    """
+    # I1: 总量上限必须等于链上硬编码 cap
+    if int(cap) != TOTAL_SUPPLY_CAP:
+        _die("tokenomics_cap=%s != 链上 TotalSupplyCap=%d（1e15 umc）" % (cap, TOTAL_SUPPLY_CAP))
+
+    # I2: DePIN 初始池必须等于「设备激励切片 − 推荐生态预算」
+    if int(depin_pool) != DEPIN_DEFAULT_INITIAL_POOL:
+        _die("depin_initial_pool=%s != DepinInitialPoolSlice(%d) - ReferralEcosystemBudget(%d) = %d"
+             % (depin_pool, DEPIN_INITIAL_POOL_SLICE, REFERRAL_ECOSYSTEM_BUDGET,
+                DEPIN_DEFAULT_INITIAL_POOL))
+
+    tk = as_.get("tokenomics")
+    if not tk:
+        return
+    allocs = tk.get("allocations") or []
+    if not allocs:
+        _die("tokenomics.allocations 为空——五池未分配，链启动后资金无处可去")
+
+    by_name = {}
+    for a in allocs:
+        name = a.get("name")
+        if name in by_name:
+            _die("tokenomics.allocations 出现重名分配: %s" % name)
+        by_name[name] = a
+
+    # I3: 五池齐备，且每池金额 == cap * bps / 10000
+    total = 0
+    for name, bps in POOL_BPS.items():
+        a = by_name.get(name)
+        if a is None:
+            _die("tokenomics.allocations 缺失池: %s" % name)
+        want = TOTAL_SUPPLY_CAP * bps // 10000
+        got = int(a.get("amount", 0))
+        if got != want:
+            _die("分配 %s = %d，应为 cap*%dbps/10000 = %d" % (name, got, bps, want))
+        if not a.get("address"):
+            _die("分配 %s 缺少 address（不可为占位空值）" % name)
+        total += got
+
+    # I4: 五池之和恰好等于 cap（无遗漏、无超发）
+    if total != TOTAL_SUPPLY_CAP:
+        _die("五池合计 %d != TotalSupplyCap %d" % (total, TOTAL_SUPPLY_CAP))
+
+    # I5: 出现非五池的额外分配 → 会打破 I4，直接拒绝
+    extra = set(by_name) - set(POOL_BPS)
+    if extra:
+        _die("tokenomics.allocations 含未知分配 %s（会破坏总量不变量）" % sorted(extra))
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -66,15 +140,19 @@ def main():
         as_["gov"] = gov
 
     # 2) DePIN 初始池 + 奖励 denom
+    # 兜底默认值必须等于链上 depin.DefaultInitialPool，否则 config 漏项会静默写入
+    # 错误池额，直到 InitChain 才因不变量校验失败而 panic（GEN-2）。
+    depin_pool = int(cfg.get("depin_initial_pool", DEPIN_DEFAULT_INITIAL_POOL))
     if "depin" in as_:
         as_["depin"]["params"]["reward_denom"] = denom
-        as_["depin"]["params"]["initial_pool"] = str(cfg.get("depin_initial_pool", 100000000000000))
+        as_["depin"]["params"]["initial_pool"] = str(depin_pool)
 
     # 3) tokenomics 上限 + denom（结构: tokenomics.{denom,total_supply_cap,allocations,release}）
+    tk_cap = int(cfg.get("tokenomics_cap", TOTAL_SUPPLY_CAP))
     if "tokenomics" in as_:
         as_["tokenomics"]["denom"] = denom
         if "total_supply_cap" in as_["tokenomics"]:
-            as_["tokenomics"]["total_supply_cap"] = int(cfg.get("tokenomics_cap", 1000000000000000))
+            as_["tokenomics"]["total_supply_cap"] = tk_cap
 
     # 3.5) edgeai 仲裁者地址（B3.1）：默认取 tokenomics 的「团队」分配地址
     # （权威来源，与链上 TeamAddress 由同一组多签公钥推导，必然一致），
@@ -101,12 +179,18 @@ def main():
     if cfg.get("chain_id"):
         g["chain_id"] = cfg["chain_id"]
 
+    # 6) 不变量前置校验（fail-fast，绝不产出一个会让主网 InitChain panic 的 genesis）
+    check_invariants(as_, tk_cap, depin_pool)
+
     json.dump(g, open(args.out, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
     print("PROD GENESIS OK -> %s" % args.out)
     print("  bond_denom        = %s" % as_["staking"]["params"]["bond_denom"])
     print("  mint_denom        = %s" % as_["mint"]["params"]["mint_denom"])
-    print("  depin.initial_pool= %s umc" % as_["depin"]["params"]["initial_pool"])
-    print("  tokenomics.cap    = %s umc" % as_["tokenomics"]["total_supply_cap"])
+    # 守卫：depin / tokenomics 可能不在 app_state 中（GEN-5：原代码此处直接 KeyError 崩溃）
+    if "depin" in as_:
+        print("  depin.initial_pool= %s umc" % as_["depin"]["params"]["initial_pool"])
+    if "tokenomics" in as_:
+        print("  tokenomics.cap    = %s umc" % as_["tokenomics"].get("total_supply_cap"))
     print("  gov.voting_period = %s" % gp.get("voting_period"))
     print("  gov.quorum/threshold/veto = %s / %s / %s" % (
         gp.get("quorum"), gp.get("threshold"), gp.get("veto_threshold")))
