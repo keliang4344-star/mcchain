@@ -84,8 +84,10 @@ mcchaind start
 
 | Document | Description |
 |----------|-------------|
-| [Whitepaper](./WHITEPAPER.md) | Full technical exposition and core philosophy of MC |
-| [Whitepaper (Chinese, print edition PDF)](./docs/MobileChain白皮书_完整典藏版.pdf) | Complete collector's edition, A4, with bookmarks |
+| [Whitepaper](./WHITEPAPER.md) | The English edition, corresponding to the Chinese edition chapter by chapter |
+| [Whitepaper · Print Edition](./docs/MobileChain-Whitepaper-Collector-Edition.pdf) | English collector's edition, A4, with bookmarks |
+| [Whitepaper · Chinese](./WHITEPAPER_CN.md) | The Chinese original, from which this translation is made |
+| [Whitepaper · Chinese Print Edition](./docs/MobileChain白皮书_完整典藏版.pdf) | Chinese collector's edition, A4, with bookmarks |
 | [Token Allocation](./docs/TOKEN_ALLOCATION.md) | Total supply, pools, unlocking rules |
 | [Protocol Parameters](./docs/PROTOCOL_PARAMS.md) | Authoritative reference for block, economic and governance parameters |
 | [DAO Roadmap](./docs/dao_roadmap.md) | Phased decentralized governance plan |
@@ -97,7 +99,7 @@ mcchaind start
 go test ./...
 ```
 
-Module test coverage: depin (14) · phonenode (7) · tokenomics (~7) · edgeai (17) · mcchain (5) · dex (in development)
+Module test cases: depin 36 · dex 48 · edgeai 81 · liquidstaking 18 · mcchain 15 · phonenode 48 · referral 30 · tokenomics 31 · app 10 · internal 22 — 339 in total.
 
 Key modules target ≥ 70% coverage (CI gate: `.github/workflows/ci.yml`).
 

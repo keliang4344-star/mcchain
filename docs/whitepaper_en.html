@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MobileChain Philosophy Whitepaper — An Epic of "The Return of Ownership"</title>
+<style>
+:root {
+  --bg: #0a0a0a;
+  --bg-panel: #111111;
+  --gold: #c9a84c;
+  --gold-dim: #a88a3a;
+  --gold-muted: #7a6a3a;
+  --text: #cccccc;
+  --text-dim: #888888;
+  --text-bright: #e0e0e0;
+  --border: #1a1a1a;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.85;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar TOC */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0;
+  width: 260px;
+  height: 100vh;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 24px 0 32px 0;
+  z-index: 10;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold-muted) var(--bg-panel);
+}
+
+.sidebar::-webkit-scrollbar { width:4px; }
+.sidebar::-webkit-scrollbar-track { background:var(--bg-panel); }
+.sidebar::-webkit-scrollbar-thumb { background:var(--gold-muted); border-radius:2px; }
+
+.sidebar-header {
+  padding: 0 20px 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.sidebar-header a {
+  color: var(--gold);
+  text-decoration: none;
+  font-size: 0.8em;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-header a:hover { color: var(--text-bright); }
+
+.sidebar a.toc-h1 {
+  display: block;
+  color: var(--gold);
+  font-size: 0.82em;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 6px 20px;
+  line-height: 1.4;
+  transition: color 0.2s;
+}
+
+.sidebar a.toc-h2 {
+  display: block;
+  color: var(--text-dim);
+  font-size: 0.78em;
+  font-weight: 400;
+  text-decoration: none;
+  padding: 4px 20px;
+  line-height: 1.5;
+  transition: color 0.2s;
+}
+
+.sidebar a.toc-h3 {
+  display: block;
+  color: var(--text-dim);
+  font-size: 0.73em;
+  font-weight: 400;
+  text-decoration: none;
+  padding: 3px 20px;
+  line-height: 1.5;
+  transition: color 0.2s;
+}
+
+.sidebar a.toc-h4 {
+  display: block;
+  color: var(--text-dim);
+  font-size: 0.7em;
+  font-weight: 400;
+  text-decoration: none;
+  padding: 2px 20px;
+  line-height: 1.5;
+  transition: color 0.2s;
+}
+
+.sidebar a:hover { color: var(--gold) !important; }
+
+/* Main content */
+.main {
+  margin-left: 260px;
+  flex: 1;
+  max-width: 820px;
+  padding: 60px 48px 80px;
+}
+
+h1 {
+  color: var(--gold);
+  font-size: 2.2em;
+  font-weight: 800;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+h2 {
+  color: var(--gold);
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 48px 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+h3 {
+  color: var(--gold-dim);
+  font-size: 1.2em;
+  font-weight: 700;
+  margin: 40px 0 12px;
+}
+
+h4 {
+  color: var(--gold);
+  font-size: 1em;
+  font-weight: 700;
+  margin: 32px 0 8px;
+}
+
+p {
+  margin: 10px 0;
+  color: var(--text);
+  font-size: 0.95em;
+}
+
+strong { color: var(--text-bright); font-weight: 600; }
+em { color: var(--gold-dim); font-style: italic; }
+
+code {
+  background: #1a1a1a;
+  color: var(--gold-dim);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.9em;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+}
+
+pre {
+  background: #111;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  margin: 16px 0;
+  font-size: 0.85em;
+}
+
+pre code {
+  background: none;
+  color: var(--text);
+  padding: 0;
+}
+
+blockquote {
+  border-left: 3px solid var(--gold);
+  padding: 12px 20px;
+  margin: 20px 0;
+  background: rgba(201,168,76,0.04);
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+blockquote strong { color: var(--gold-dim); }
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 40px 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88em;
+}
+
+th {
+  background: #1a1a1a;
+  color: var(--gold);
+  font-weight: 600;
+  padding: 10px 14px;
+  text-align: left;
+  border: 1px solid var(--border);
+}
+
+td {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+tr:nth-child(even) td {
+  background: rgba(255,255,255,0.02);
+}
+
+a { color: var(--gold); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+div[align="center"] {
+  text-align: center;
+  margin: 20px 0;
+}
+
+div[align="center"] h3 {
+  color: var(--gold-dim);
+  font-size: 1em;
+  font-weight: 400;
+  margin: 4px 0;
+}
+
+div[align="center"] p {
+  color: var(--text-dim);
+  font-size: 0.85em;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .sidebar { display:none; }
+  .main { margin-left:0; padding: 32px 20px; }
+  h1 { font-size: 1.5em; }
+}
+
+/* 印刷 / PDF 输出（A4）。保留深色典藏配色，并保证章节与表格不被分页截断。 */
+@media print {
+  @page { size: A4; margin: 15mm 14mm 16mm; }
+  html, body { background: #0a0a0a !important; }
+
+  /* 字体必须钉死。正文栈里的 "Noto Sans SC" 在无头打印时会被逐字回退成
+     Type3 字形或映射到康熙部首码位（U+2F00 区），导致 PDF 文本层无法复制
+     与检索；下面的字体在本机可解析为 Type0 复合字体，文本层完整。 */
+  body, h1, h2, h3, h4, h5, h6, p, li, td, th, blockquote, pre, code,
+  a, span, strong, em, div, nav {
+    font-family: "Microsoft YaHei", "PingFang SC", "Source Han Sans SC",
+                 "Noto Sans CJK SC", sans-serif !important;
+  }
+
+  body {
+    display: block;
+    min-height: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .sidebar, .sidebar-header { display: none !important; }
+  .main {
+    margin-left: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+  h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+  p, li, blockquote { orphans: 3; widows: 3; }
+  .table-wrap, table, pre, blockquote { break-inside: avoid; page-break-inside: avoid; }
+  tr, th, td { break-inside: avoid; page-break-inside: avoid; }
+  a { color: inherit; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a href="index.html">&larr; Back to Home</a>
+  </div>
+<a class="toc-h1" href="#mobilechain-philosophy-whitepaper" style="padding-left:0px">MobileChain Philosophy Whitepaper</a>
+<a class="toc-h3" href="#an-epic-of-the-return-of-ownership" style="padding-left:32px">An Epic of "The Return of Ownership"</a>
+<a class="toc-h1" href="#prologue-an-unfinished-history-of-the-return" style="padding-left:0px">Prologue. An Unfinished History of the Return</a>
+<a class="toc-h1" href="#volume-one-the-long-river-the-repeated-transfer-of-economic-power" style="padding-left:0px">Volume One. The Long River: The Repeated Transfer of Economic Power</a>
+<a class="toc-h2" href="#chapter-one-the-vessel-of-value-a-brief-history-of-human-economic-power" style="padding-left:16px">Chapter One. The Vessel of Value: A Brief History of Human Economic Power</a>
+<a class="toc-h2" href="#chapter-two-the-paradox-of-the-platform-age-we-created-the-data-yet-lost-the-ownership" style="padding-left:16px">Chapter Two. The Paradox of the Platform Age: We Created the Data, Yet Lost the Ownership</a>
+<a class="toc-h2" href="#chapter-three-the-inevitability-of-technological-iteration-every-cost-reduction-triggers-a-redistribution-of-power" style="padding-left:16px">Chapter Three. The Inevitability of Technological Iteration: Every Cost Reduction Triggers a Redistribution of Power</a>
+<a class="toc-h3" href="#further-evidence-how-cost-crushed-technologies-redrew-the-map-of-power-again-and-again" style="padding-left:32px">Further Evidence: How Cost-Crushed Technologies Redrew the Map of Power, Again and Again</a>
+<a class="toc-h2" href="#chapter-four-the-missing-step-why-the-value-of-a-network-belongs-to-its-participants-has-not-happened-to-this-day" style="padding-left:16px">Chapter Four. The Missing Step: Why "The Value of a Network Belongs to Its Participants" Has Not Happened to This Day</a>
+<a class="toc-h2" href="#chapter-five-the-silent-majority-in-our-pockets-five-billion-devices-the-forgotten-means-of-production" style="padding-left:16px">Chapter Five. The Silent Majority in Our Pockets: Five Billion Devices, the Forgotten Means of Production</a>
+<a class="toc-h2" href="#chapter-six-all-under-heaven-belongs-to-all-under-heaven-a-political-philosophy-of-ownership" style="padding-left:16px">Chapter Six. "All under Heaven Belongs to All under Heaven": A Political Philosophy of Ownership</a>
+<a class="toc-h1" href="#volume-two-the-return-how-mobilechain-completes-this-transfer" style="padding-left:0px">Volume Two. The Return: How MobileChain Completes This Transfer</a>
+<a class="toc-h2" href="#chapter-seven-one-phone-one-node-handing-participation-back-to-the-pocket" style="padding-left:16px">Chapter Seven. One Phone, One Node: Handing Participation Back to the Pocket</a>
+<a class="toc-h2" href="#chapter-eight-scarcity-written-into-code-from-scarcity-by-promise-to-scarcity-locked-by-fact" style="padding-left:16px">Chapter Eight. Scarcity Written into Code: From Scarcity by Promise to Scarcity Locked by Fact</a>
+<a class="toc-h2" href="#chapter-nine-the-five-pools-as-contract-the-largest-share-goes-to-the-real-builders" style="padding-left:16px">Chapter Nine. The Five Pools as Contract: The Largest Share Goes to the Real Builders</a>
+<a class="toc-h2" href="#chapter-ten-displacing-trust-from-trust-in-institutions-to-trust-in-mathematics" style="padding-left:16px">Chapter Ten. Displacing Trust: From Trust in Institutions to Trust in Mathematics</a>
+<a class="toc-h2" href="#chapter-eleven-resonance-distribution-keeping-incentives-in-step-with-real-contribution" style="padding-left:16px">Chapter Eleven. Resonance Distribution: Keeping Incentives in Step with Real Contribution</a>
+<a class="toc-h2" href="#chapter-twelve-edge-compute-returning-the-means-of-production-of-the-ai-age-to-its-users" style="padding-left:16px">Chapter Twelve. Edge Compute: Returning the Means of Production of the AI Age to Its Users</a>
+<a class="toc-h2" href="#chapter-thirteen-security-without-inflation-an-incentive-structure-that-does-no-evil" style="padding-left:16px">Chapter Thirteen. Security Without Inflation: An Incentive Structure That Does No Evil</a>
+<a class="toc-h1" href="#volume-three-co-governance-the-world-will-be-returned-to-all" style="padding-left:0px">Volume Three. Co-Governance: The World Will Be Returned to All</a>
+<a class="toc-h2" href="#chapter-fourteen-where-governance-ends-above-the-rules-no-one-stands" style="padding-left:16px">Chapter Fourteen. Where Governance Ends: Above the Rules, No One Stands</a>
+<a class="toc-h2" href="#chapter-fifteen-symbiosis-by-consensus-incentives-come-from-real-contribution-not-headcount" style="padding-left:16px">Chapter Fifteen. Symbiosis by Consensus: Incentives Come from Real Contribution, Not Headcount</a>
+<a class="toc-h2" href="#chapter-sixteen-a-faith-in-transparency-verifiable-by-anyone-and-only-then-truly-transparent" style="padding-left:16px">Chapter Sixteen. A Faith in Transparency: Verifiable by Anyone and Only Then Truly Transparent</a>
+<a class="toc-h2" href="#chapter-seventeen-laying-the-network-outward-a-return-from-near-to-far" style="padding-left:16px">Chapter Seventeen. Laying the Network Outward: A Return from Near to Far</a>
+<a class="toc-h2" href="#chapter-eighteen-the-self-governing-community-a-network-that-no-longer-needs-a-master" style="padding-left:16px">Chapter Eighteen. The Self-Governing Community: A Network That No Longer Needs a Master</a>
+<a class="toc-h1" href="#volume-four-the-distance-imagining-the-endgame-of-economy-and-politics" style="padding-left:0px">Volume Four. The Distance: Imagining the Endgame of Economy and Politics</a>
+<a class="toc-h2" href="#chapter-nineteen-the-distant-horizon-of-commercial-value-infrastructure-for-the-age-of-decentralised-ai" style="padding-left:16px">Chapter Nineteen. The Distant Horizon of Commercial Value: Infrastructure for the Age of Decentralised AI</a>
+<a class="toc-h2" href="#chapter-twenty-every-point-in-the-data-economy-the-return-of-rights-and-returns" style="padding-left:16px">Chapter Twenty. Every "Point" in the Data Economy: The Return of Rights and Returns</a>
+<a class="toc-h2" href="#chapter-twenty-one-stages-and-roadmap-three-phases-not-a-pie-in-the-sky" style="padding-left:16px">Chapter Twenty-One. Stages and Roadmap: Three Phases, Not a Pie in the Sky</a>
+<a class="toc-h2" href="#chapter-twenty-two-the-vision-one-phone-one-world-returned" style="padding-left:16px">Chapter Twenty-Two. The Vision: One Phone, One World Returned</a>
+<a class="toc-h1" href="#volume-five-the-engineering-fabric" style="padding-left:0px">Volume Five. The Engineering Fabric</a>
+<a class="toc-h2" href="#chapter-twenty-three-verifier-nodes-the-honest-scorer" style="padding-left:16px">Chapter Twenty-Three. Verifier Nodes: The Honest Scorer</a>
+<a class="toc-h2" href="#chapter-twenty-four-the-native-exchange-where-liquidity-is-born-and-deflation-is-driven" style="padding-left:16px">Chapter Twenty-Four. The Native Exchange: Where Liquidity Is Born and Deflation Is Driven</a>
+<a class="toc-h2" href="#chapter-twenty-five-referral-incentives-symbiosis-without-skimming" style="padding-left:16px">Chapter Twenty-Five. Referral Incentives: Symbiosis Without Skimming</a>
+<a class="toc-h2" href="#chapter-twenty-six-off-chain-services-and-oracles-a-constrained-messenger" style="padding-left:16px">Chapter Twenty-Six. Off-Chain Services and Oracles: A Constrained Messenger</a>
+<a class="toc-h2" href="#chapter-twenty-seven-product-philosophy-keep-the-complexity-in-the-code-keep-the-simplicity-for-the-user" style="padding-left:16px">Chapter Twenty-Seven. Product Philosophy: Keep the Complexity in the Code, Keep the Simplicity for the User</a>
+<a class="toc-h2" href="#chapter-twenty-eight-the-initial-ecosystem-development-fund-and-bug-bounty" style="padding-left:16px">Chapter Twenty-Eight. The Initial Ecosystem Development Fund and Bug Bounty</a>
+<a class="toc-h2" href="#chapter-twenty-nine-the-roadmap-in-full" style="padding-left:16px">Chapter Twenty-Nine. The Roadmap in Full</a>
+<a class="toc-h2" href="#chapter-thirty-value-capture-beyond-scarcity-usefulness-is-needed" style="padding-left:16px">Chapter Thirty. Value Capture: Beyond Scarcity, Usefulness Is Needed</a>
+<a class="toc-h2" href="#chapter-thirty-one-diffusion-and-acquisition-budget-writing-growth-as-auditable-arithmetic" style="padding-left:16px">Chapter Thirty-One. Diffusion and Acquisition Budget: Writing Growth as Auditable Arithmetic</a>
+<a class="toc-h2" href="#chapter-thirty-two-risk-disclosure-and-limitations-a-document-that-lists-only-strengths-is-not-an-engineering-document" style="padding-left:16px">Chapter Thirty-Two. Risk Disclosure and Limitations: A Document That Lists Only Strengths Is Not an Engineering Document</a>
+<a class="toc-h3" href="#i-risks-of-the-launch-state" style="padding-left:32px">I. Risks of the Launch State</a>
+<a class="toc-h3" href="#ii-economic-risks" style="padding-left:32px">II. Economic Risks</a>
+<a class="toc-h3" href="#iii-technical-risks" style="padding-left:32px">III. Technical Risks</a>
+<a class="toc-h3" href="#iv-governance-risks" style="padding-left:32px">IV. Governance Risks</a>
+<a class="toc-h3" href="#v-external-risks" style="padding-left:32px">V. External Risks</a>
+<a class="toc-h2" href="#chapter-thirty-three-legal-and-regulatory-posture-verifiability-in-place-of-guarantees" style="padding-left:16px">Chapter Thirty-Three. Legal and Regulatory Posture: Verifiability in Place of Guarantees</a>
+<a class="toc-h1" href="#appendix-the-sanctum-of-parameters-auditable-line-by-line-against-the-source-code" style="padding-left:0px">Appendix. The Sanctum of Parameters (Auditable Line by Line Against the Source Code)</a>
+<a class="toc-h2" href="#a1-chain-level-base-parameters" style="padding-left:16px">A.1 Chain-Level Base Parameters</a>
+<a class="toc-h2" href="#a2-tokenomics" style="padding-left:16px">A.2 Tokenomics</a>
+<a class="toc-h2" href="#a3-device-incentives-depin" style="padding-left:16px">A.3 Device Incentives (depin)</a>
+<a class="toc-h2" href="#a4-phone-node-security-phonenode" style="padding-left:16px">A.4 Phone Node Security (phonenode)</a>
+<a class="toc-h2" href="#a5-edge-ai-edgeai" style="padding-left:16px">A.5 Edge AI (edgeai)</a>
+<a class="toc-h2" href="#a6-consensus-security-threshold-ante" style="padding-left:16px">A.6 Consensus Security Threshold (ante)</a>
+<a class="toc-h2" href="#a7-module-and-code-structure-inventory" style="padding-left:16px">A.7 Module and Code Structure Inventory</a>
+<a class="toc-h2" href="#a8-liquid-staking-and-off-chain-settlement" style="padding-left:16px">A.8 Liquid Staking and Off-Chain Settlement</a>
+<a class="toc-h1" href="#appendix-b-how-to-verify-every-claim-in-this-document" style="padding-left:0px">Appendix B. How to Verify Every Claim in This Document</a>
+</nav>
+<main class="main">
+<div align="center">
+
+<h1 id="mobilechain-philosophy-whitepaper">MobileChain Philosophy Whitepaper</h1>
+
+<h3 id="an-epic-of-the-return-of-ownership">An Epic of "The Return of Ownership"</h3>
+
+<p><strong>A Public Chain That Puts a Full Node in Every Phone</strong></p>
+<p>Chain ID <code>mcchain-mainnet-1</code> · Native coin MC (smallest unit umc, precision 6) · Fixed supply 1 billion · Zero inflation</p>
+</div>
+
+<hr>
+<blockquote>
+<p><strong>The Three Unwritten Conventions of This Whitepaper</strong></p>
+<p>One. This document tells only of our own road. Every key figure — supply, distribution ratios, slashing rules, attestation validity — corresponds to a real constant on a line of source code, which anyone can read on-chain and verify in the code. We do not write "vision numbers", only "code numbers".</p>
+<p>Two. Any capability not yet implemented on mainnet is marked "in planning"; we never write an intention up as an accomplished fact.</p>
+<p>Three. Wherever this document and the code disagree, the code prevails. This document is an explanation of the code, not a promise about it.</p>
+<p>Chapter Thirty-Two lists the known limits of this design and of the present launch state. It is part of the argument, not a disclaimer appended after the argument — the reader who skips it has not finished reading this document.</p>
+</blockquote>
+
+<hr>
+<h1 id="prologue-an-unfinished-history-of-the-return">Prologue. An Unfinished History of the Return</h1>
+
+<p>Humanity has two histories. One is written in the chronicles, and tells of wars, dynasties and heroes; the other is written in the ledger, and tells of who owns what, who produces value, and who takes the returns. The second is rarely spoken of, yet it is the more lethal — because it decides whether an ordinary person is the master of his own labour, or a priced line in someone else's ledger.</p>
+<p>This history of the ledger has one motif running through all of it: <strong>every iteration of technology has redistributed some capability once monopolised by the few back to the many.</strong> Writing carried knowledge out of the priest's inner chamber; printing carried books out of the monastery; the steam engine freed human muscle from repetitive toil; electricity brought motive power into every household; the internet pressed the marginal cost of information down to almost nothing. Each time, technology did the same thing — it lowered the threshold of "participation" and raised the cost of "monopoly".</p>
+<p>Yet when the digital age arrived, this history developed a crack.</p>
+<p>We invented the internet and delivered information to every hand for free; we invented the smartphone and put a networked, computing machine into every pocket; we invented artificial intelligence and, for the first time, drew the scarcest thing of all — "intelligence" — out of the human brain and turned it into a service that can be called and priced. And yet, when all of this happened, those who truly took the value were not the people who lit their phone screens late at night, produced data at their fingertips, and supplied compute from their pockets. The value flowed to a handful of platforms, a handful of machine rooms, a handful of companies holding the servers and the sovereignty over data.</p>
+<p>This is an absurd and entirely real paradox: for the first time in human history, ordinary people hold the means of production in their hands all at once — the phone, the data, the idle compute — and are yet structurally excluded from ownership.</p>
+<p>MobileChain wants to supply the step that this crack is missing. It does not claim to have invented much that is new; it wants only to do one thing that is far too long overdue — <strong>to make the person whose screen glows in a pocket once again the master of what he produces; to make the network woven from billions of phones truly belong to those billions of people.</strong></p>
+<p>This is the story this whitepaper sets out to tell. It does not begin with code; it begins with a longer history of the ledger. For to understand why MobileChain exists, you must first understand this: the return of ownership has always been the foot that carries human civilisation forward.</p>
+<hr>
+<h1 id="volume-one-the-long-river-the-repeated-transfer-of-economic-power">Volume One. The Long River: The Repeated Transfer of Economic Power</h1>
+
+<p><em>This volume does not discuss a single line of code. It discusses MobileChain's coordinates within the whole of human economic history — why its arrival is not a technical speculation, but the necessity of a technical iteration.</em></p>
+<hr>
+<h2 id="chapter-one-the-vessel-of-value-a-brief-history-of-human-economic-power">Chapter One. The Vessel of Value: A Brief History of Human Economic Power</h2>
+
+<p>To understand today, pull the lens back five thousand years.</p>
+<p>The way humanity organises value has passed through several total changes in the nature of its vessel. Each change was not a smooth improvement but an earthquake of power — the old vessel locked value in the hands of the few, the new vessel let value flow to more people.</p>
+<p><strong>The first vessel was physical goods.</strong> Shells, grain and livestock all once served as the prototypes of money. What they had in common: value was bound to matter, hard to divide and hard to move over distance. In a society that prices things in cattle, wealth gathers by nature in the hands of those who can raise cattle.</p>
+<p><strong>The second vessel was metal.</strong> Around 600 BC, the Lydians of Asia Minor began to mint standardised coins of gold and silver. Metal money abstracted "value" out of concrete matter for the first time, making it divisible, storable and transportable across regions. It gave birth to the first true "markets" and the first "merchant class" in history — power passed, in part, from the landowners to the traders.</p>
+<p><strong>The third vessel was paper.</strong> The jiaozi of Northern Song China (around AD 1024) was the world's earliest paper money, and behind it "credit" replaced "matter" as the bearer of value for the first time. Paper money cut the cost of moving value down to the weight of a sheet of paper, and for the first time made the "right of issue" one of the state's most essential powers. Whoever prints the notes holds the tap of wealth.</p>
+<p><strong>The fourth vessel was bank credit.</strong> By the twentieth century, money had broken entirely free of its metal anchor — in 1971 the Bretton Woods system collapsed, the dollar came off gold, and humanity entered the age of pure credit money. The overwhelming majority of the "money" in your account today is nothing but a line of digits in a bank's database, conjured out of nothing by a commercial bank through a loan. The vessel of value moved out of the vault and into the centralised database.</p>
+<p><strong>The fifth vessel is being born.</strong> The blockchain raised a startling question: if the recording and transfer of value need no longer depend on any central database, but on a public ledger anyone can verify, then can the "right of issue" and the "right to keep the books" also be returned from institutions to the network itself? Bitcoin answered that "bookkeeping" can be decentralised; what MobileChain wants to answer is the more concrete and more ordinary half — <strong>can the right to participate and the right to the returns also be decentralised?</strong></p>
+<p>The succession of these five vessels reveals a rule: <strong>whenever the vessel of value grows smaller, lighter and cheaper, the old structure of power is pried loose once more.</strong> Metal pried at the land, paper pried at the vault, credit pried at gold, and what the blockchain means to pry at is the central database. But mark the second layer of the rule — after the vessel changes hands, power tends to disperse briefly and is then recaptured by a new centre: paper money gave rise to central-bank centralisation, credit money gave rise to commercial-bank centralisation, the internet gave rise to platform centralisation. MobileChain stands at the very end of this thread, and what it means to do is not merely to pry, but to <strong>use the distribution rules written hard into the code to lock the power released this time permanently in the hands of the participants, so that it is not quietly absorbed by the next centre</strong> — to hand this vessel back, one last time, to the hand that holds the phone. This is what most fundamentally sets it apart from the five vessel-changes before it, and it is the ground on which it dares to call itself "the return of ownership" rather than "yet another transfer".</p>
+<hr>
+<h2 id="chapter-two-the-paradox-of-the-platform-age-we-created-the-data-yet-lost-the-ownership">Chapter Two. The Paradox of the Platform Age: We Created the Data, Yet Lost the Ownership</h2>
+
+<p>In the last two decades of the twentieth century, humanity passed through a silent revolution. The internet sent information out for free, the smartphone put a networked computer into every pocket, and Web 2.0 handed the ability to "produce content" to every user.</p>
+<p>By the script of history, this should have been another moment when ordinary people took back power — just as printing taught commoners to read and the internet gave commoners a voice. But this time the script went astray.</p>
+<p>The platforms appeared. They did one thing, shrewd and hidden: <strong>they took the user's output and gathered it back into the platform's own possession.</strong> Every post you write, every video you shoot, every click you leave behind, every record in your phone of where you went and what you did, becomes raw material for the platform to train its algorithms, place its ads and raise its valuation. What you get in return is a "free" right of use, and a terms-of-service agreement you will never finish reading and will never be able to change.</p>
+<p>This is a new kind of owner—producer separation. In the agrarian age it appeared as the farmer and the land; in the industrial age, as the worker and the machine; in the digital age, it appears as the user and the data. The only difference is this: the first two separations were visible (the deed, the factory), while this separation is invisible — your data, which you can neither see, nor touch, nor take a share of the returns from.</p>
+<p>The deeper paradox is this: the most important "means of production" of this age is no longer land or machines, but <strong>data, and the compute that processes data</strong>. And these two things lie precisely in the pocket of every ordinary person — your phone is generating data at every moment, and leaving its compute idle at every moment. Yet these "means of production" are requisitioned without payment by the platforms in the name of "free service", and then sold back to you at double the price in the form of "advertising" and "subscriptions".</p>
+<p>This is the fundamental injustice of the platform age: <strong>the means of production and the labourer have never been so close, and the distance of ownership has never been so far.</strong> A farmer at least knows where the land he tills is; a user does not know where the data he produces has gone, what it is worth, or who has earned from it.</p>
+<p>This pattern of "requisition—withholding" is almost written into the genes of every giant platform, and a few examples that everyone has lived through make it plain: ride-hailing platforms turn the driving traces and supply-demand heat maps of millions of drivers into their own dispatch algorithms and valuation, while the driver is merely a temp paid by the trip, sharing nothing of the platform's rise in value; short-video platforms train the creations, dwell times and interactions of hundreds of millions of users into a recommendation engine, and what the creator receives is a sliver of traffic allotted by the algorithm, while the platform receives the wealth of advertising and a public listing; map and navigation apps turn users' real-time locations and traffic contributions into the most precise traffic database in existence, and what the user receives is "free navigation". Every time, the user is an unpaid "data tenant" and the platform is a "digital lord" collecting rent without lifting a hand.</p>
+<p>A subtler and more hidden layer: <strong>the platform buys out your bargaining power with "free".</strong> Because you did not pay for the service, you have no ground to claim ownership; because your data is collected without payment in the name of "terms of use", you cannot even ask what you have been paid. This is an ingeniously designed evaporation of ownership — not a seizure by force, but a sugar coating of "free" that makes you hand over the means of production of your own will, and be grateful besides.</p>
+<p>This is why MobileChain must break through head-on. What it sets out to answer is precisely this question that has been set aside for twenty years. It does not rely on persuading platforms to be good — goodness is unreliable and unverifiable. It relies on writing "output is priced, and priced output is rewarded" into the code, so that the producer of data can, for the first time, take back what is his own in technical fact, and not only in moral claim.</p>
+<hr>
+<h2 id="chapter-three-the-inevitability-of-technological-iteration-every-cost-reduction-triggers-a-redistribution-of-power">Chapter Three. The Inevitability of Technological Iteration: Every Cost Reduction Triggers a Redistribution of Power</h2>
+
+<p>Lift your gaze a little higher, and you will find a regularity that is almost like a law of physics:</p>
+<blockquote>
+<p><strong>Every technology that presses the cost of producing or acquiring some key resource down by an order of magnitude will, in the end, trigger a redistribution of power.</strong></p>
+</blockquote>
+
+<p>The evidence is everywhere you look:</p>
+<ul>
+<li><strong>Printing (Gutenberg, c. 1440).</strong> Before it, copying out a single book took months, and knowledge was monopolised by the church and the nobility. Printing pressed the cost of reproducing a book down by hundreds, even thousands, of times. The result was not simply that "books became cheaper" — it set off the Reformation, the Scientific Revolution, the unification of national tongues. The ownership of knowledge spread from the few to the literate many. Power moved with it.</li>
+<li><strong>The steam engine (Watt's improvements, 1769).</strong> It freed "motive power" from the geographically bounded resources of water and animal muscle and carried it into any factory at all. The result: production no longer depended on land and rivers; capital and the factory owner replaced the landlord as the new centre of power. This was a redistribution from "ownership of land" to "ownership of capital."</li>
+<li><strong>Electricity (late 19th century).</strong> It turned motive power into a general-purpose commodity that could be sent long distances over a grid, letting factories be sited anywhere and household appliances enter the home. The result: productive capacity spread further, the middle class grew, and the consumer society took shape.</li>
+<li><strong>The internet (ARPANET in 1969, the World Wide Web in 1991).</strong> It pressed the marginal cost of "transmitting information" down towards zero. The result: the right to disseminate information shifted partly away from newspapers and television stations to anyone who could post. A redistribution from "ownership of the media" to "the right of expression."</li>
+</ul>
+
+<p>Note the other half of this regularity: <strong>a resource whose cost has been crushed will in the end be recaptured by a new power structure, unless an institution locks it into the hands of the many.</strong> The internet drove the cost of information to zero, but platforms, through the model of "free service in exchange for data," concentrated informational power all over again. This is history's usual script — technology loosens the bonds, power spreads briefly, and then a new centre absorbs it back.</p>
+<p>What MobileChain is betting on is breaking that second half of the script. What it sets out to do, in essence, is to press the cost of "participating in a public chain, contributing real compute and data, and being rewarded accordingly" down from "a mining rig, a server, a million in stake" to "a phone." By that law, when the cost of participation drops by an order of magnitude, power should be redistributed once more — and this time, MobileChain, through allocation rules written hard into code, tries to lock power <strong>permanently, and beyond any quiet recapture,</strong> into the hands of participants.</p>
+<p>This is not idealism. It is one more application of the law of technological iteration — only this time, the object is the phone in your pocket.</p>
+<hr>
+<h3 id="further-evidence-how-cost-crushed-technologies-redrew-the-map-of-power-again-and-again">Further Evidence: How Cost-Crushed Technologies Redrew the Map of Power, Again and Again</h3>
+
+<p>That regularity stated above — "a technology that presses the cost of a key resource down by an order of magnitude will in the end trigger a redistribution of power" — is not an isolated claim resting on four or five cases. Widen the lens and you will see it, like a hidden thread running through modern history, playing out again and again. For every further case, MobileChain's arrival takes on another shade of "inevitability."</p>
+<p><strong>The telegraph and the telephone (mid-to-late 19th century).</strong> Before the telegraph, long-distance communication was expensive enough that only states and great trading houses could afford it, and informational power was concentrated in the postal and diplomatic apparatus. The telegraph cut transcontinental transmission from weeks to seconds, and the telephone made it an everyday thing for ordinary people. The result: commercial decision-making sank from head office down to the local agent; the news media turned from "relaying the official line" into "independent reporting"; even the shape of war changed — for the first time, command could extend to the front in real time. The collapse in the cost of communication redrew the map of informational power.</p>
+<p><strong>The shipping container (McLean's first standardised voyage, 1956).</strong> It looks like an unremarkable steel box, yet it may be the most underrated power-shifting device of the 20th century. Before the container, cargo was loaded and unloaded by the shoulders and hands of hundreds of dockworkers, and the bottleneck of trade lay in the ports, in manpower, in the unions. The container standardised and mechanised loading and unloading, cut a single ship's turnaround from weeks to hours, and sent unit logistics costs plummeting by more than ninety percent. The result: the global supply chain took shape in earnest for the first time, and manufacturing power moved on a vast scale from Europe and America to lower-wage East Asia — a redistribution from "the barrier of manpower" to "capital and location," which laid the ground directly for the later shape of the "workshop of the world."</p>
+<p><strong>GPS (first satellite in 1978, fully opened to civilian use in 2000).</strong> It began as a purely military asset, its positioning accuracy deliberately degraded (the SA policy), so that civilian users could only receive a watered-down signal. In 2000 the United States switched SA off and opened high-precision positioning to all humanity, free of charge. That single act turned "knowing your precise position on Earth" from a military privilege into the default right of every phone user. Today's food delivery, ride-hailing, logistics and autonomous farm machinery all rest on this "freely released" capability. A textbook case of "a centre voluntarily letting go of its monopoly" — the motive may not have been pure, but the outcome confirms the law: when a key capability approaches zero cost, power will in the end spill outward.</p>
+<p><strong>Banking deregulation and electronic clearing (late 20th century).</strong> Credit-card networks and electronic clearing turned a "transfer" from a physical errand that required a trip to the counter into a set of signals travelling down a telephone line. It pressed the marginal cost of financial services extremely low, allowing banks to serve ordinary savers and small merchants who had previously been overlooked — the threshold of financial power sank, for the first time, from "the large depositor" to "anyone." The price was that financial power concentrated further into a handful of clearing networks, which in turn illustrates the second half of the law: once technology loosens the bonds, power spreads briefly, then is recaptured by a new centre, until the next round of technological iteration.</p>
+<p><strong>The World Wide Web (1991) and the smartphone (the iPhone, 2007).</strong> The former liberated "publishing" from the hands of newspapers and television stations and gave it to anyone who could write HTML; the latter pushed the "networked computer" off the desk and into every pocket. Stacked together, they produced what Chapter One called "users becoming content producers" — and yet, as Chapter Two related, they were recaptured by platforms through "free service in exchange for data." This is the second half of the law playing out once more, and it is precisely the link that MobileChain sets out to break.</p>
+<p>Set these seven or eight cases side by side and a clear line emerges: <strong>printing liberated knowledge, the steam engine liberated motive power, electricity liberated energy, the telegraph and the telephone liberated communication, the container liberated logistics, GPS liberated position, the internet liberated information, the smartphone liberated the terminal — each time, some key capability was handed from the few to the many; and after each time, the old power structure was prised open, and a new centre tried to absorb it back.</strong> MobileChain stands at the far end of this line, and what it means to hand over is the last and the nearest of them all: the capacity to "participate in a network of value and, on that basis, hold ownership of it" — from mining rigs, servers and a million in stake, to a single phone. History is not yet finished here, and this time the rules of allocation are written into the code.</p>
+<hr>
+<h2 id="chapter-four-the-missing-step-why-the-value-of-a-network-belongs-to-its-participants-has-not-happened-to-this-day">Chapter Four. The Missing Step: Why "The Value of a Network Belongs to Its Participants" Has Not Happened to This Day</h2>
+
+<p>Economists have long been clear about one thing: the value of a network comes from its participants. Metcalfe's Law says that the value of a network is proportional to the square of its users. A social network is worth a fortune not because it has handsome servers, but because billions of people produce content and form connections on it every day.</p>
+<p>And yet the distribution of value across almost every large network runs counter to this law: <strong>those who create the value (the users) do not receive it; those who take the value (the shareholders, the platforms) are often not its creators.</strong> Every post you publish lifts this company's valuation, and your reward is a free service — and advertising sold to you with growing precision and at a growing price.</p>
+<p>Why is it that "the value of a network belongs to its participants," a slogan cried out for so many years, has still never truly come to pass? Three structural reasons:</p>
+<p><strong>First, the threshold of the means of production.</strong> On the traditional internet, when you "participate" in a network you merely contribute data; you do not "own" a fragment of the network. To truly own it you would have to be an employee, a shareholder, a node operator — and each of these has a threshold. The ordinary user is forever kept outside the door of the "owner" and left to be a mere "contributor."</p>
+<p><strong>Second, the centralisation of the right to keep the books.</strong> Even if someone wanted a fair distribution, a traditional centralised database cannot supply a trustworthy, tamper-proof record of it. The platform says who gets what and how much; it sets the rules and it keeps the accounts, and you have no way to verify them. Trust falls back, once more, on dependence on the platform.</p>
+<p><strong>Third, the paradox of scale and fairness.</strong> A small community can distribute by personal favour, but a network of billions that tried to do so would inevitably collapse. To distribute fairly among billions, there must be a set of automatic, trustworthy rules that no one can quietly alter — and before the blockchain, no such rules existed.</p>
+<p>These three points map exactly onto the three things the blockchain can solve: lowering the threshold of the means of production with a phone, providing tamper-proof record-keeping with a public ledger, and achieving large-scale automatic distribution with rules in code. That is to say, <strong>"the value of a network belongs to its participants" has been so long in coming not because it ought not to happen, but because the technical conditions only became complete for the first time once the blockchain matured.</strong></p>
+<p>MobileChain's arrival rests on this judgement: the conditions are already ripe, and all that is missing is a chain that treats "a phone" as the means of production and "real contribution" as the basis of distribution. It does not conjure a concept out of thin air; it gathers technical conditions that are already ripe and converges them, for the first time, onto "the phone in your pocket."</p>
+<hr>
+<h2 id="chapter-five-the-silent-majority-in-our-pockets-five-billion-devices-the-forgotten-means-of-production">Chapter Five. The Silent Majority in Our Pockets: Five Billion Devices, the Forgotten Means of Production</h2>
+
+<p>Let us bring the camera down from the five-thousand-year river and focus it on the phone in your pocket at this very moment.</p>
+<p>There are more than five billion smartphones on Earth. That is a larger number than any "means of production" in history—it exceeds the world's total automobiles, exceeds the total number of industrial machines, and even exceeds the number of people who have received a higher education. Each of these five billion devices contains:</p>
+<ul>
+<li>a chip capable of running neural-network inference;</li>
+<li>a continuous supply of grid power and a wireless connection;</li>
+<li>a sensor array that can be read at any moment (positioning, microphone, camera, motion);</li>
+<li>and a real human user, who spends hours with it every day.</li>
+</ul>
+
+<p>Yet for 99% of the time, the computing power of these devices idles, their data is collected without payment, and their connections are consumed for nothing. They are the most widely distributed, and yet the most underestimated, "silent means of production" in human history.</p>
+<p>Let us do a rough reckoning (only to illustrate the order of magnitude, not as a precise prediction): if even one-tenth of them—five hundred million phones—contributed a portion of their idle compute and online time to a decentralised network, the resulting total compute would far exceed the marginal redundancy of any single cloud provider; the data annotation, inference, and verification tasks they generated would be enough to sustain a genuine edge-AI market; and their character—distributed across the globe, dependent on no central data centre—is precisely the resilience that a centralised cloud can never replicate.</p>
+<p>The problem was never "this compute does not exist," but "it has never been priced, never been rewarded, never been owned by its owner." It is quietly requisitioned by platforms in exchange for free services, yet never entered onto any balance sheet belonging to the user.</p>
+<p>What MobileChain sets out to do is precisely to issue these five billion silent devices a balance sheet of their own. When a phone, for the first time, receives a reward—written into a public ledger, belonging to its owner—for a task it truly completed, an online presence it truly provided, data it truly produced, that device becomes for the first time not "a requisitioned means of production" but "an autonomous producer."</p>
+<p>This is the largest re-confirmation of the means of production in economic history; only its vehicle is no longer land or machines, but the faintly warm pane of glass in everyone's pocket.</p>
+<p>To explain this fully requires a little economics. Traditional economics has always measured "factors of production" as land, labour, and capital. In the digital age, more and more economists acknowledge that a fourth is missing: <strong>data, and the compute that processes data</strong>. Every swipe you make, every location you fix, every time you speak to a voice assistant, you are producing data; the chip in your phone is supplying compute. These two are precisely the scarcest inputs of the modern AI economy.</p>
+<p>The paradox is this: under the platform model, this fourth factor of production is requisitioned for free. You supply the data; the platform uses the data to train models and lift its valuation. You supply idle compute and online presence; the platform uses your activity to prop up its network effects. In return you receive "free" services—services whose cost has long since been collected back, doubled, through advertising and subscriptions. This is a hidden "data labour": you have laboured, yet you are not recognised as a labourer; you have produced, yet you are entered onto no balance sheet that is yours.</p>
+<p>What MobileChain seeks to correct is precisely this missing price on the fourth factor of production. It does not make moral appeals; it makes technical arrangements: it turns acts such as "providing online presence," "completing inference," and "generating verifiable data" into real contributions that are measurable, priceable, and rewardable on-chain. When the idle compute of a phone is, for the first time, written—because of a task it truly completed—into a ledger belonging to its owner, the fourth factor of production acquires, for the first time, a price that belongs to the producer.</p>
+<p>Going further, this is the repricing of a long-undervalued "idle asset." Economics holds a plain truth: an asset that is neither used nor priced has a social value of zero, even if it truly exists. The idle compute of five billion phones worldwide is exactly such a piece of social wealth—"existing, yet zeroed." What MobileChain does is, in essence, to build price discovery for this wealth—not through some central pricing, but through buyers and sellers transacting spontaneously on-chain. The demand side bids, the supply side takes the order, and the price is formed by the market. When this wealth is priced, traded, and rewarded, it turns from "the silent means of production" into "an active factor of production," and the total compute supply of society gains an entire order of magnitude out of thin air.</p>
+<p>This is the precise economic meaning of "All under Heaven belongs to all under Heaven": the largest and most underestimated means of production belongs not to any one company, but to the billions of people holding phones; and its returns, too, should flow back along the path of true contribution to those billions, rather than pouring into a handful of data centres.</p>
+<hr>
+<h2 id="chapter-six-all-under-heaven-belongs-to-all-under-heaven-a-political-philosophy-of-ownership">Chapter Six. "All under Heaven Belongs to All under Heaven": A Political Philosophy of Ownership</h2>
+
+<p>Here is an ancient political proposition, worth setting down with due gravity in this document:</p>
+<blockquote>
+<p><strong>All under Heaven ought always to belong to all under Heaven.</strong></p>
+</blockquote>
+
+<p>The meaning of this sentence, translated into the language of modern political economy, is: <strong>an infrastructure that is jointly participated in, jointly built, and jointly contributed to by countless people must, in the end, return its ownership and its right to returns to those participants themselves, rather than being permanently intercepted by a tiny centre.</strong></p>
+<p>This is no idle fancy. It is a direction that human political history has repeatedly verified. In the feudal age, land and power belonged to the sovereign; the bourgeois revolutions returned power in part to the propertied; universal suffrage and constitutionalism gradually returned political rights to a broader populace. Each time, "All under Heaven" moved one step closer to "all under Heaven's people"—slowly, and incompletely, but it moved.</p>
+<p>But in the digital age, this step has gone into reverse. We have created networks built jointly by all their users, the like of which never existed before, and then locked the property rights to those networks inside the shares of a few listed companies. Billions of people build them daily, use them, contribute data to them, and yet own not a cent of them. This is a new form of "digital feudalism"—the lord replaced by the platform, the serf replaced by the user, the land rent replaced by data and attention.</p>
+<p>MobileChain's political position stands on the negation of this layer of "digital feudalism." It holds that:</p>
+<ul>
+<li>the value of a network jointly constituted by billions of phones should belong not to the shareholders of some company, but to its true contributors;</li>
+<li>every "point" that contributes online presence, compute, and data to the ecosystem is one of the genuine owners of this network, and deserves rights and returns commensurate with its contribution;</li>
+<li>such rights and returns cannot be entrusted to the goodwill of an operator, but must be written into code that no one can secretly alter, jointly verified and jointly guarded by all participants.</li>
+</ul>
+
+<p>This is the deeper reason MobileChain treats "open-source and auditable, parameters written into code" as its very lifeblood—it is not merely a technical principle but a political bottom line: <strong>only when no one can stand above the rules does ownership truly return to all under Heaven.</strong></p>
+<p>At this point, the argument of Volume One closes: seen historically, the return of ownership is the march of civilisation; seen politically, "all under Heaven returning to all its people" is a digital revolution yet unfinished; seen economically, five billion phones are a forgotten means of production. The three converge on a single conclusion—<strong>it is time for participants to become, once again, the owners of what they produce.</strong> And MobileChain is an engineering practice aimed straight at that conclusion.</p>
+<hr>
+<h1 id="volume-two-the-return-how-mobilechain-completes-this-transfer">Volume Two. The Return: How MobileChain Completes This Transfer</h1>
+
+<p><em>This volume discusses technology, but every section returns to the conclusion of Volume One: every mechanism of MobileChain exists to make ownership and the right to returns flow back, from the centre, into the hand that holds the phone.</em></p>
+<hr>
+<h2 id="chapter-seven-one-phone-one-node-handing-participation-back-to-the-pocket">Chapter Seven. One Phone, One Node: Handing Participation Back to the Pocket</h2>
+
+<p>Volume One said that the injustice of the platform age has its root in the "threshold of the means of production." MobileChain's first cut is to chop that threshold away.</p>
+<p>Running a full node on a phone means that "becoming a real part of a public chain" no longer requires mining rigs, servers, or a million in staking—only an ordinary phone that has passed attestation. This is a drop of an order of magnitude in the cost of participation—and by the law stated in Chapter Three, when the cost of participation falls by an order of magnitude, power must be redistributed once more. What MobileChain wants is precisely this redistribution.</p>
+<p>But a phone is not a server. It goes offline, it can be counterfeited, its compute is limited. The <code>phonenode</code> module does not pretend that a phone is a server; instead it <strong>accepts the nature of the phone, and designs its security rules around that nature</strong>:</p>
+<ul>
+<li><strong>Attestation is required and valid for 30 days</strong>—without valid attestation you cannot participate in device incentives; once it expires you must re-attest, which both blocks bare emulators and squeezes the window for counterfeit returns.</li>
+<li><strong>Sybil device binding is enabled</strong>—one real device identity corresponds to one unit of incentive eligibility, driving the cost of counterfeiting "one server pretending to be ten thousand phones" up exponentially.</li>
+<li><strong>Offline grace and tiered slashing</strong>—going offline is the lightest (5%), cheating on contributions is heavier (10%), forging attestation is the heaviest (20%); being offline is no crime, attacking the foundation of trust is.</li>
+</ul>
+
+<div class="table-wrap"><table>
+<tr><th>Parameter</th><th>Value</th><th>Meaning</th></tr>
+<tr><td><code>AttestationValidity</code></td><td>2,592,000 seconds (30 days)</td><td>attestation validity</td></tr>
+<tr><td><code>OfflineGraceBlocks</code></td><td>100 blocks</td><td>offline grace window</td></tr>
+<tr><td><code>OfflineSlashBps</code></td><td>500 (5%)</td><td>slashing for going offline</td></tr>
+<tr><td><code>ContribSlashBps</code></td><td>1000 (10%)</td><td>slashing for cheating on contributions</td></tr>
+<tr><td><code>AttestSlashBps</code></td><td>2000 (20%)</td><td>slashing for forging attestation</td></tr>
+<tr><td><code>SlashCooldownBlocks</code></td><td>43200 blocks (about 12 hours)</td><td>cooldown before re-attestation after slashing</td></tr>
+</table></div>
+
+<p><strong>A boundary that must be made clear:</strong> phone nodes participate in device incentives (DePIN), and their threshold is very low; validators participate in consensus block production, and require at least 30,000 MC of self-bonded stake, a high threshold and a heavy responsibility. MobileChain is extremely tolerant of "the breadth of participation" and extremely strict about "the responsibility for security." Breadth rests on numbers of people, security rests on weight of responsibility; two sets of thresholds, each safeguarding its own.</p>
+<p>This step is the most concrete engineering landing point of "all under Heaven returning to all its people": <strong>to let ordinary people who do not have 30,000 MC also participate truly, through a single phone, and receive returns from it.</strong> When a phone, on a nightstand in the small hours, quietly produces a block, completes an AI inference, and collects a modest sum of MC, the belated return of ownership from Volume One takes place, truly, by one inch, in this ordinary person.</p>
+<hr>
+<h2 id="chapter-eight-scarcity-written-into-code-from-scarcity-by-promise-to-scarcity-locked-by-fact">Chapter Eight. Scarcity Written into Code: From Scarcity by Promise to Scarcity Locked by Fact</h2>
+
+<p>Volume One recounted how the vessel of value moved out of the vault and into the central database, and how "the right to issue" became the core power. What MobileChain does is hand over this last remnant of central power as well.</p>
+<p>The supply model in three sentences:</p>
+<ol>
+<li><strong>Total supply = 1 billion MC</strong> (<code>1,000,000,000,000,000 umc</code>, precision 6);</li>
+<li><strong>Minted in full once at genesis</strong>, after which the block reward is forever 0 and the <code>x/mint</code> inflation rate is forced to 0;</li>
+<li><strong>Never any further issuance</strong> — the ceiling is a constant hard-wired into the code, <code>TotalSupplyCap = uint64(1e15)</code>, and it does not enter the governable parameter space. To change it, you would have to change the source, recompile, and persuade the entire validator set to hard-fork.</li>
+</ol>
+
+<pre><code>// x/tokenomics/types/keys.go
+DefaultDenom   = "umc"
+TotalSupplyCap = uint64(1e15)   // = 1 billion MC, an on-chain constant with genesis verification as a second lock; not governance-changeable
+</code></pre>
+
+<p>A political stance hides here: <strong>scarcity should not be a promise that can be abandoned at any moment, but a fact that no one can abandon.</strong> "The team promises not to issue more" depends on goodwill; "the supply ceiling is an on-chain constant that governance cannot alter" depends on mathematics. MobileChain replaces trust in "people" with trust in "code" — because history has proved again and again that whoever holds the right to issue will, sooner or later, be unable to resist turning on that tap.</p>
+<p>Why 1 billion? Too small (on the order of millions) and everyday micro-incentives cannot be expressed in whole numbers; too large (on the order of trillions) and it whispers "print at will." 1 billion with precision 6 is the balance point between engineering usability and the psychological sense of scarcity.</p>
+<p>And beyond a fixed supply, MobileChain also builds in permanent deflation, drawn only from two sources — "protocol usage fees" and "slashing for misbehaviour" — and never touching the labour income of participants: 7% of gas fees burned each period, half of all DEX trading fees burned permanently (equivalent to 0.15% of traded volume), and 40% of validator slashing burned permanently — all sent to a black-hole address with no corresponding private key. The three classes of participant earnings — device task bounties, referral rewards, and EdgeAI task settlement — are subject to no burn deduction on-chain and arrive 100% in full. Burn = shrinking supply = benefit to holders = more nodes participating = more tasks = more burns, a positive-feedback flywheel. Scarcity, therefore, is not merely "no further issuance" but "continuously reinforced through real use."</p>
+<hr>
+<h2 id="chapter-nine-the-five-pools-as-contract-the-largest-share-goes-to-the-real-builders">Chapter Nine. The Five Pools as Contract: The Largest Share Goes to the Real Builders</h2>
+
+<p>At genesis the 1 billion MC is allocated once across the Five Pools. These are not arbitrary proportions; they are the final version derived directly from the positioning of "phone full node, fixed supply":</p>
+<div class="table-wrap"><table>
+<tr><th>Pool</th><th>Share</th><th>Amount (MC)</th><th>Custody</th><th>Release Cadence</th></tr>
+<tr><td><strong>Device Incentive DePIN</strong></td><td><strong>55%</strong></td><td>550 million</td><td>depin module account</td><td>Paid out task by task, against real tasks</td></tr>
+<tr><td><strong>Staking / Network Security</strong></td><td><strong>15%</strong></td><td>150 million</td><td>staking_security module account</td><td>Governance drip-feeds on schedule</td></tr>
+<tr><td><strong>Team</strong></td><td><strong>12%</strong></td><td>120 million</td><td>3-of-5 multisig vesting</td><td>1-year cliff + 3-year linear</td></tr>
+<tr><td><strong>Foundation</strong></td><td><strong>13%</strong></td><td>130 million</td><td>Custodian address overridden by explicit public key (multisig/cold wallet; takes effect once the placeholder is replaced)</td><td>50 million at once at T0 (including 5 million into the DEX initial pool) + 80 million linear over 2 years</td></tr>
+<tr><td><strong>Early Development</strong></td><td><strong>5%</strong></td><td>50 million</td><td>Custodian address overridden by explicit public key (same as above)</td><td>Released for substantive contribution before and after mainnet</td></tr>
+</table></div>
+
+<pre><code>DeviceIncentivePercentBps = uint32(5500)   // Device Incentive 55%
+StakingSecurityPercentBps = uint32(1500)   // Staking Security 15%
+TeamPercentBps            = uint32(1200)   // Team 12%
+FoundationPercentBps      = uint32(1300)   // Foundation 13%
+EarlyDevPercentBps        = uint32(500)    // Early Development 5%
+</code></pre>
+
+<p>Genesis verification forces the five basis points to sum to exactly 10000 and the number of allocations to be exactly 5 — one too many, one too few, or a wrong proportion, and the chain will not start.</p>
+<p><strong>The Device Incentive Pool is the only block in the entire allocation that exceeds half, and it is 3.6 times the Staking Pool.</strong> This "share so high it is rare in the industry" is a logical necessity: MobileChain's "community" is the people who run phone nodes. A chain that sells itself on the "phone full node" cannot expect anyone to show up if a phone cannot mine a meaningful share. So the largest share must go to the real builders — and this is precisely the numerical expression of the political stance in Chapter Six: <strong>the principal builders of the network should receive the principal share of the network.</strong></p>
+<p>By contrast, the Team Pool takes only 12%, locked into a 3-of-5 multisig with a 1-year cliff plus 3-year linear release, binding the team's interests to the network's for at least 4 years. <strong>How much a team keeps for itself is the strongest signal it sends to the community.</strong> The restraint a system shows toward its own creators' appetites is the proof of its sincerity toward every participant.</p>
+<hr>
+<h2 id="chapter-ten-displacing-trust-from-trust-in-institutions-to-trust-in-mathematics">Chapter Ten. Displacing Trust: From Trust in Institutions to Trust in Mathematics</h2>
+
+<p>Volume One pointed out that when we entrust our data to institutions in the platform age, we are in essence entrusting our trust to "people." MobileChain systematically displaces that trust with trust in "code":</p>
+<ul>
+<li>The Device Incentive Pool has no minting authority; it can only pay out of the 550 million already in existence, each payment leaving one fewer, openly visible and verifiable;</li>
+<li>The Foundation and Early Development shares are held in custodian addresses overridden by explicit public keys (multisig/cold wallet), and release is executed by code according to an on-chain timetable; the governance goal is that "every drawdown passes through an on-chain proposal and a community vote," and the machine-enforced execution of that constraint (timelock/governance treasury) is on the roadmap, as honestly disclosed in Chapter Thirty-Two, Section One;</li>
+<li>EdgeAI arbitration is carried by a multisig at deployment and can become governance-driven in the future;</li>
+<li>The validator minimum self-bond (30,000 MC) is enforced at the chain level by <code>app/ante.go</code>, and no one can bypass it.</li>
+</ul>
+
+<blockquote>
+<p><strong>A healthy system should not ask participants to believe in the goodwill of some person or some team; it should make the rules themselves worthy of trust.</strong></p>
+</blockquote>
+
+<p>This is not a distrust of people, but this: <strong>a system that does not depend on trusting any particular individual is the only kind that can truly endure.</strong> When trust is displaced from "some name" onto "a piece of code anyone can read," power completes its last and quietest return — not to another centre, but to a public ledger that everyone can verify.</p>
+<hr>
+<h2 id="chapter-eleven-resonance-distribution-keeping-incentives-in-step-with-real-contribution">Chapter Eleven. Resonance Distribution: Keeping Incentives in Step with Real Contribution</h2>
+
+<p>Many projects are zero-sum games at their core: one person's gain comes from another's loss, and the system creates no real value. MobileChain rejects that path and names its distribution philosophy <strong>Resonance Distribution</strong> — the rhythm of incentives should "resonate" with the rhythm of the network's real contribution, not with the mechanical passage of time.</p>
+<p>Concretely:</p>
+<ul>
+<li><strong>Paid per real task</strong> — triggered only when a verifiable task is actually completed (proof of being online, edge AI inference, and the like);</li>
+<li><strong>Paid only after attestation</strong> — checking attestation validity, sybil binding, and slashing cooldown;</li>
+<li><strong>Linear vesting to avoid sell pressure</strong> — released linearly over several years, rather than dumped onto the market all at once.</li>
+</ul>
+
+<p>The core of "resonance": <strong>the more active the network and the more real contribution there is, the more fully incentives are released; when things are quiet and there is no contribution, the vault automatically slows its own depletion.</strong> Incentives stay in step with real value, not with speculation.</p>
+<p>Anti-farming is the lifeline. The 550 million MC is guarded by seven layers of defence: identity threshold, unique binding, attestation validity, task proof, tiered slashing, slashing cooldown, oracle verification. Any farming script would have to break through all seven at once, each layer more expensive than the last, exponentially so. <strong>A low threshold for real users, a high cost for cheaters</strong> — this is the confidence that lets MobileChain hand 55% to device incentives.</p>
+<p>A single MC in circulation should correspond to some real-world contribution — the uptime of a phone, the compute of one AI inference, the value of a real transaction. This is the engineering of the thesis in Chapter Six: your output is priced; your price is rewarded; your reward is written into the ledger and belongs to you.</p>
+<hr>
+<h2 id="chapter-twelve-edge-compute-returning-the-means-of-production-of-the-ai-age-to-its-users">Chapter Twelve. Edge Compute: Returning the Means of Production of the AI Age to Its Users</h2>
+
+<p>If DePIN makes a phone's "being online" valuable, EdgeAI makes a phone's "computing" valuable — and this is the sharpest cut MobileChain makes on the proposition of "returning the means of production."</p>
+<p>Two trends unfold at once: demand for AI inference grows exponentially, while compute supply is highly monopolised by a handful of cloud vendors — expensive, gated, and centralised. At the same time, the compute power of billions of phones sits idle most of the time. The idea behind EdgeAI: <strong>organise scattered phone compute into a decentralised edge AI compute market</strong> — those with compute sell their idle capacity to those who need it, and the two sides settle on-chain, verifiably and with recourse to arbitration.</p>
+<p>It uses a <strong>payer-funded escrow model plus optimistic settlement</strong>: the payer locks the bounty into on-chain escrow when posting a task; the compute provider commits to the computation only after seeing the money locked; once the result passes and the dispute window elapses, the bounty is released automatically. The money is locked first, and the code releases it once the work is done — neither side has to trust the other, only the escrow contract.</p>
+<p>Each settled EdgeAI task bounty is split 85% (executing node) / 15% (reserved for verifier nodes), with no burn deduction on-chain — the bounty escrowed by the payer flows in full to those who compute and to those who verify execution; disputes rest on optimistic settlement — the result is presumed honest by default unless someone objects within a 100-block window. The great majority of honest tasks take the fast lane of "zero dispute, automatic settlement," consuming no arbitration resources.</p>
+<p>The significance of EdgeAI is that it brings the argument of Volume One, Chapter Five down into commercial reality: <strong>those 5 billion forgotten means of production can, for the first time, technically be priced, be rewarded, and be owned by their owners.</strong> Once payer-funded fees reach scale, phone-node income no longer depends only on the 550 million pre-minted vault, but acquires a cash flow from real AI compute demand — this is the key bridge from "pre-minted" to "real income" for device incentives, and the most concrete economic proof of "returning the means of production to their users."</p>
+<p>Seen politically, EdgeAI touches a sharper proposition still: <strong>compute sovereignty.</strong> Today, the AI inference of a country, a company, or an ordinary person must often travel thousands of miles back to a handful of data centres located in particular jurisdictions, be computed by the GPUs there, and only then be sent back. Your data, the moment it is created, leaves your jurisdiction and leaves your boundary of control. This is an invisible surrender of sovereignty — every day you outsource your most sensitive "intelligent activity" to servers thousands of kilometres away that belong to someone else.</p>
+<p>MobileChain's edge compute model offers another possibility: inference is completed on your phone, in your jurisdiction, under your physical control; the raw data need not leave the border, and only the verifiable result is settled on-chain. For an actor that values data sovereignty and is unwilling to entrust the intelligent activity of its citizens wholesale to overseas data centres, this edge compute network made of domestic users' phones is itself a sovereign asset at the level of infrastructure. It scatters "intelligence" back out of the monopoly of a few data centres and into the palm of every user and the boundary of every community. This layer of meaning goes beyond commerce and enters the territory of politics — <strong>when compute is no longer monopolised by a few data centres, the means of production of the AI age can, for the first time, return to users themselves, into the hands of users' own jurisdictions.</strong> This may be MobileChain's most far-sighted footnote, in the political dimension, to "All under Heaven belongs to all under Heaven."</p>
+<hr>
+<h2 id="chapter-thirteen-security-without-inflation-an-incentive-structure-that-does-no-evil">Chapter Thirteen. Security Without Inflation: An Incentive Structure That Does No Evil</h2>
+
+<p>The last mechanism answers a question that seems to contradict itself: with no new issuance, what feeds the validators?</p>
+<p>A traditional inflationary chain feeds its security by issuing new tokens, and the price is that every holder is continuously diluted — you have done nothing, and yet your share keeps shrinking. MobileChain chooses zero inflation, and it stands on three legs:</p>
+<ol>
+<li><strong>The pre-minted Staking Security Pool (15% = 150 million MC)</strong> — the main force in the launch phase, drip-released to validators by governance;</li>
+<li><strong>Fee recirculation</strong> — the main force in the mature phase: the net value of on-chain gas flows back to the security pool, so the more the chain is used, the thicker its security;</li>
+<li><strong>Slashing distribution</strong> — of the tokens slashed for wrongdoing, 40% is burned permanently (deflation across the whole network, to everyone's benefit) and 60% flows back to the Staking Security Pool, so that wrongdoing subsidises honesty.</li>
+</ol>
+
+<p>The relay logic: the launch phase leans on the first leg, the mature phase on the second, and the third fine-tunes throughout. And so MobileChain achieves what seems contradictory — <strong>zero inflation (diluting no one) and, over the long run, a sustained validator incentive (a network that keeps itself secure).</strong></p>
+<p>A healthy dynamic: <strong>the wrongdoer's loss becomes the honest participant's gain.</strong> The more the network is attacked, the more its honest participants stand to gain, and attack becomes economically unsustainable. It is an echo of ancient wisdom written into code: if a community is to last, those who keep the rules must profit and those who break them must eat their own fruit — except that this time the enforcer is not the clan elder but mathematics.</p>
+<hr>
+<h1 id="volume-three-co-governance-the-world-will-be-returned-to-all">Volume Three. Co-Governance: The World Will Be Returned to All</h1>
+
+<p><em>This volume is about governance. Technology releases power from the centre; governance decides whose hands it finally falls into.</em></p>
+<hr>
+<h2 id="chapter-fourteen-where-governance-ends-above-the-rules-no-one-stands">Chapter Fourteen. Where Governance Ends: Above the Rules, No One Stands</h2>
+
+<p>The endpoint of a chain is not a successful company but a self-governing network that no longer needs any single actor. MobileChain's direction is clear: <strong>those who created it should gradually give way to those who use it.</strong></p>
+<p>Between the governable and the ungovernable runs a red line:</p>
+<div class="table-wrap"><table>
+<tr><th>Category</th><th>Example</th><th>Governance-changeable</th></tr>
+<tr><td><strong>Root-of-trust parameter</strong></td><td>Total supply cap <code>TotalSupplyCap</code> (1 billion)</td><td><strong>No</strong> — hard-written as an on-chain constant</td></tr>
+<tr><td><strong>Security parameters</strong></td><td>Slashing basis points, attestation validity, dispute window</td><td>Yes — adjusted by governance proposal</td></tr>
+<tr><td><strong>Use of funds</strong></td><td>Foundation Pool spending</td><td>Yes — governance proposal + vote</td></tr>
+<tr><td><strong>Protocol evolution</strong></td><td>Module upgrades, parameter optimisation</td><td>Yes — approved by governance</td></tr>
+</table></div>
+
+<p>This red line: <strong>some things must be able to change (or the chain cannot adapt to reality), and some must never change (or the promise of scarcity is empty words).</strong> Placing the total supply cap on the "never change" side is MobileChain's hardest promise to every holder — even if governance is one day swayed by some party, it cannot quietly issue more and dilute you.</p>
+<p>Governance is on-chain voting on a one-stake-one-weight basis, never any headcount-recruiting design. Voting power comes from your real stake in the network, giving the greatest voice to those who care most about long-term health.</p>
+<p>When the key parameters are voted on by the community, the Foundation's funds are held by the community, arbitration is handed over to governance, and validators are sufficiently dispersed, this chain no longer belongs to a team or a foundation but to <strong>everyone who has taken part with real devices, real compute and real contribution</strong>. The world has never been any group's private property — it belongs to the world itself, to everyone who has spent real strength on its behalf. This is the code-made fulfilment of that line from Chapter Six: "All under Heaven belongs to all under Heaven."</p>
+<p>Self-governance is not disorder — quite the opposite: <strong>it is the state in which the rules are written into code and no one (including the founding team) can stand above them.</strong> It is precisely because the core rules are fixed in code that the "order" of self-governance holds. This is also why "open-source and auditable, parameters written into code" is the political precondition of self-governance.</p>
+<hr>
+<h2 id="chapter-fifteen-symbiosis-by-consensus-incentives-come-from-real-contribution-not-headcount">Chapter Fifteen. Symbiosis by Consensus: Incentives Come from Real Contribution, Not Headcount</h2>
+
+<p>MobileChain has a community referral incentive, but it rests on one unshakeable foundation: <strong>incentives come from real device contribution and network security, not from recruited headcount.</strong></p>
+<p>Five points of difference from "recruiting headcount": no skimming (rewards are paid out additionally from the Device Incentive Pool budget); the referee's income is unchanged; there are caps (500 MC per person per day / a network-wide daily circuit breaker of 20,600 MC / a ten-generation depth ceiling, in which non-nodes enjoy only the first 5 generations); it is governance-adjustable; and it is sybil-resistant (protected by hardware attestation). The referral budget's 15% sits inside the Device Incentive's 55%, roughly 82.5 million MC in total budget, enough at full speed to support about 11 years, and actual consumption is tied to real activity.</p>
+<p>The fundamental difference: a traditional ponzi's returns come from the principal of downline members, whereas MobileChain's referral rewards come from a pre-minted budget that has already been set aside. The referee's income is not reduced, the system's budget has a ceiling, and the community can close it by governance at any time. Symbiosis is not layer upon layer of extraction but ring within ring of mutual fulfilment, born of real contribution.</p>
+<hr>
+<h2 id="chapter-sixteen-a-faith-in-transparency-verifiable-by-anyone-and-only-then-truly-transparent">Chapter Sixteen. A Faith in Transparency: Verifiable by Anyone and Only Then Truly Transparent</h2>
+
+<p>Transparency cannot stop at "the data is on-chain"; it must reach "anyone can look it up." MobileChain provides a Web block explorer, so that anyone can query the business data of the eight modules without running a node. Behind the explorer are each module's gRPC-gateway REST interfaces — merely one layer of visualisation over public on-chain data, which anyone can rebuild for themselves and cross-verify.</p>
+<p><strong>True transparency is when anyone can verify independently, rather than relying on some official page.</strong> When every ordinary person can check with their own hands that "the whitepaper's numbers = the code's constants", power has completed its last and quietest homecoming.</p>
+<hr>
+<h2 id="chapter-seventeen-laying-the-network-outward-a-return-from-near-to-far">Chapter Seventeen. Laying the Network Outward: A Return from Near to Far</h2>
+
+<p>MobileChain's network rollout follows "from near to far, from easy to hard", with Southeast Asia as the first wave:</p>
+<div class="table-wrap"><table>
+<tr><th>Region</th><th>Priority</th><th>Reason</th><th>Strategy</th></tr>
+<tr><td>Southeast Asia (Vietnam / Indonesia / the Philippines / Thailand)</td><td>First wave</td><td>High phone penetration, a mature "earn with your phone" culture</td><td>Localised app + TikTok/KOL</td></tr>
+<tr><td>South Asia (India / Bangladesh)</td><td>First wave</td><td>The largest population base, the fastest phone growth</td><td>English interface + faucet</td></tr>
+<tr><td>Latin America (Brazil / Argentina)</td><td>Second wave</td><td>Severe inflation, strong demand for inflation-resistant assets</td><td>Spanish / Portuguese localisation</td></tr>
+<tr><td>Africa (Nigeria / Kenya)</td><td>Second wave</td><td>The concept of phone mining has already been taught</td><td>Positioned as "a truly decentralised alternative"</td></tr>
+<tr><td>Middle East (Türkiye / Saudi Arabia)</td><td>Third wave</td><td>A young population + high phone penetration</td><td>Arabic / Turkish localisation</td></tr>
+<tr><td>Europe and North America</td><td>Third wave</td><td>Focus on attracting AI project teams</td><td>English-language technical community</td></tr>
+</table></div>
+
+<p>The multilingual cadence: mainnet launch supports Chinese and English; month 1 adds Vietnamese / Indonesian / Hindi; month 3 adds Spanish / Portuguese / Arabic; month 6 adds Japanese / Korean / Turkish / Russian.</p>
+<p>The judgement behind it: <strong>technological neutrality does not mean undifferentiated promotion.</strong> An idle phone in Jakarta may create far more value than one in Silicon Valley — because the former is scarcer and more needed. MobileChain lights its first fire in the hands of those who need it most and know best how to treasure it. This is itself the geographical unfolding of "all under Heaven returning to all its people": the homecoming begins with the forgotten majority.</p>
+<hr>
+<h2 id="chapter-eighteen-the-self-governing-community-a-network-that-no-longer-needs-a-master">Chapter Eighteen. The Self-Governing Community: A Network That No Longer Needs a Master</h2>
+
+<p>MobileChain's long-term direction: the team gradually gives way to the community. When the key parameters are voted on by the community, the Foundation is held by the community, arbitration is handed over to governance, and validators are sufficiently dispersed, true self-governance draws near.</p>
+<p>Self-governance has three economic foundations: an asset that is scarce and undilutable (a fixed 1 billion, with no governance-permitted issuance); distribution driven by real contribution (value flowing to builders); and public funds held by the community (the 13% Foundation Pool, spent through governance).</p>
+<p><strong>Decentralised self-governance is not ruleless chaos but the state in which the rules are written into code and no one can stand above them.</strong> Every core rule (supply, distribution, slashing, thresholds, escrow, arbitration) is already fixed in code, and the "order" of self-governance comes precisely from code that anyone can audit and no one can secretly alter. This is the endgame form of the political philosophy of Chapter Six: when no one can stand above the rules, ownership returns truly and utterly to all under Heaven.</p>
+<hr>
+<h1 id="volume-four-the-distance-imagining-the-endgame-of-economy-and-politics">Volume Four. The Distance: Imagining the Endgame of Economy and Politics</h1>
+
+<p><em>This volume is about the future. It is not a promised endpoint but a road marked by real progress, and an endgame in which "every contribution deserves its reward".</em></p>
+<hr>
+<h2 id="chapter-nineteen-the-distant-horizon-of-commercial-value-infrastructure-for-the-age-of-decentralised-ai">Chapter Nineteen. The Distant Horizon of Commercial Value: Infrastructure for the Age of Decentralised AI</h2>
+
+<p>If the preceding chapters spoke of "why" and "how", this chapter speaks of "how much it is worth" — not the token price, but a structural opportunity that has been underestimated.</p>
+<p>Humanity is moving into an age of acute hunger for AI compute. Demand for training and inference grows exponentially, while supply is locked by a handful of cloud vendors inside expensive data centres. It is a bridge with steep tolls, growing steeper. What MobileChain wants to do is to lay, alongside that bridge, a scattered, low-cost side road of compute built from billions of phones — it may not carry every workload, but it can carry that part of inference demand which "can be split into fragmented tasks and is not extremely latency-sensitive", at a price far below that of centralised cloud.</p>
+<p>The commercial logic is clear: the demand side obtains inference compute at lower cost, and through on-chain escrow and arbitration gets settlement more transparent than a centralised API; the supply side (phone nodes) monetises idle compute, turning from "device holders" into "compute providers" for the first time; and as both sides grow, fees flow back to the security pool and real revenue takes the baton from the pre-minted vault — a self-consistent economy takes shape.</p>
+<p>This is MobileChain's place in the "decentralised AI infrastructure" narrative: not to replace the cloud but to be its complement and its rival, scattering compute out of a few data centres and back into human pockets. Once this holds, "every phone is part of the infrastructure" turns from a slogan into a commercial reality that can be priced, verified and joined.</p>
+<p>Let us spread this commercial ledger out a little further. The global cloud inference market is expanding at a double-digit rate each year, and the gross margins of the leading cloud vendors stay high year after year — and a large part of that excess is the premium of "centralisation": data must travel back to a central data centre, be computed on expensive GPUs, and then be sent back to the edge, and the bandwidth, latency and data-centre costs in between are all ultimately paid for by the demand side. A phone, however, is already where the data is produced, already in the user's hand, and when it completes a lightweight inference it saves precisely that whole "send back — compute — send back" chain. This means that for inference of equal quality, the theoretical cost on the edge can be far below that of central cloud — provided only that these scattered phones are organised into a trustworthy, settleable network. MobileChain's EdgeAI does exactly this work of "organisation".</p>
+<p>The demand side has real pull as well. A great many AI tasks are not extremely latency-sensitive and can be broken into fragmented sub-tasks: image labelling, speech transcription, lightweight classification, data cleaning, sample generation for model fine-tuning… These are exactly the long-tail demands that phone compute is good at and that cloud vendors, finding them too "fragmentary", are unwilling to price carefully. When MobileChain connects this long-tail demand with the global supply of idle phones, it is not entering a red ocean monopolised by giants but a blue ocean that the giants cannot be bothered to stoop and pick up, yet which genuinely exists.</p>
+<p>And so MobileChain's commercial story does not depend on a token-price narrative but on a plain chain of logic: real demand exists → edge supply exists → on-chain escrow and arbitration press the trust cost between the two sides to a minimum → once scale arrives, fees flow back to the security pool and real revenue takes the baton from the pre-minted vault → a self-consistent, sustainable economy whose ownership belongs to its participants takes shape. This, and only this, is the economic proof that "all under Heaven returning to all its people" can stand on its own feet.</p>
+<hr>
+<h2 id="chapter-twenty-every-point-in-the-data-economy-the-return-of-rights-and-returns">Chapter Twenty. Every "Point" in the Data Economy: The Return of Rights and Returns</h2>
+
+<p>This is the central proposition of the entire paper, and it deserves a chapter of its own, set down with deliberation.</p>
+<p>MobileChain accepts a plain and firm premise: <strong>in a network woven from billions of devices, every "point" that contributes presence, compute and data to the ecosystem is one of the true owners of that network, and deserves rights and returns commensurate with its contribution.</strong></p>
+<p>This is not rhetoric; it is a hard constraint at the level of MobileChain's code:</p>
+<ul>
+<li><strong>Rights</strong>: every phone that passes attestation and is genuinely online is an equal node of the network; its eligibility for DePIN device incentives depends not on anyone's approval but on its own real contribution. The attestation and sybil binding of <code>phonenode</code> protect exactly this: "one real device = one eligibility that cannot be claimed by another".</li>
+<li><strong>Returns</strong>: for every verifiable task completed and every edge inference provided, the reward is paid out from the 550 million vault task by task according to real contribution, written into the public ledger, and belongs to the device owner. The design in which <code>depin</code> has no minting authority and only distributes guarantees that these returns come from real value, not from diluting others out of thin air.</li>
+<li><strong>Not intercepted</strong>: the distribution rules are written into code, verified at genesis, and auditable by anyone; any use of Foundation funds goes through governance; the total supply cannot be inflated by governance. This means no centre can quietly move the participants' share into its own pocket.</li>
+</ul>
+
+<p>Put these three layers together and you have the most concrete technical translation of that line from Chapter Six, "All under Heaven belongs to all under Heaven": <strong>every measure of value in the network flows back along the path of real contribution to the very "point" that created it.</strong> The data you produce is priced; the compute you provide is repaid; the presence you maintain is acknowledged. You are no longer a figure priced for free on a platform's ledger, but the owner of what you produce.</p>
+<p>This is precisely the fundamental divide between MobileChain and the "digital feudalism" condemned in Volume One: there, users are the source of the means of production but not the destination of the returns; here, every "point" is both source and destination. A return of ownership, long overdue, is thus written into code.</p>
+<p>It is worth taking this chapter one layer deeper, because it bears on MobileChain's highest value proposition. In the long history of humanity's struggle for workers' rights, every advance has meant drawing "the overlooked contributor" back into distribution: the Industrial Revolution freed workers from dependence on the guild master into free labourers, yet for a long time refused to recognise their right to organise and to share in profits; the labour movement of the 20th century won industrial workers the minimum wage, social insurance and collective bargaining. But when history entered the digital age, a more hidden kind of "labour" appeared — every output of yours on a platform is labour, yet it is not recognised as labour; the value you produce is measured, monetised and taken public, and only you have no share in it.</p>
+<p>MobileChain does not claim to be a "digital labour movement", but what it does is structurally of the same origin: <strong>to reconnect overlooked data labour to distribution.</strong> The only difference is that it relies not on strikes and legislation but on code — writing "contribution is priced, pricing is repayment, repayment is booked" into a chain that no one can secretly alter. This is a quieter and far harder-to-reverse way of confirming rights.</p>
+<p>Therefore, "every point that creates the data economy should receive its rights and returns" is not a marketing slogan but the design origin of every one of MobileChain's mechanisms. It shows up in:</p>
+<ul>
+<li><strong>In distribution</strong> — 55% of the total supply is reserved for device incentives, the largest share aimed at the largest group of contributors;</li>
+<li><strong>In mechanism</strong> — Resonance Distribution keeps incentives in step with real contribution, ruling out both "reward without work" and "work without reward";</li>
+<li><strong>Against tampering</strong> — the total supply cannot be inflated by governance, any use of Foundation funds goes through governance, and parameters are auditable, ensuring that no centre can quietly move the participants' share away;</li>
+<li><strong>In ownership</strong> — rewards are written into the public ledger and belong to the device owner, not to a platform's internal points.</li>
+</ul>
+
+<p>When these four hold at once, the person whose phone screen lights up late at night becomes, for the first time and in both technical and institutional senses, the master of what they produce. And when billions of such "points" come together, they become the modern echo of that ancient proposition from Chapter Six — <strong>all under Heaven will at last return to the hands of all its people.</strong> This time, not by declaration, but by code.</p>
+<hr>
+<h2 id="chapter-twenty-one-stages-and-roadmap-three-phases-not-a-pie-in-the-sky">Chapter Twenty-One. Stages and Roadmap: Three Phases, Not a Pie in the Sky</h2>
+
+<p>MobileChain does not believe in "getting there in one step", only in "advancing in stages, verifiably".</p>
+<p><strong>Phase One: Launch (roughly years 1–2)</strong> — roll out the network, hold up security. The Device Incentive vault pays out against real tasks, and the first goal is to spread the phone node network across the globe; validator incentives come almost 100% as drip release from the Staking / Network Security Pool; governance has the team multisig carrying more of the coordination duties. An honest note: decentralisation in the launch phase is not yet sufficient, and MobileChain does not conceal this — decentralisation is a goal that takes time, not a state achieved the moment the chain goes live.</p>
+<p><strong>Phase Two: Network Effect (roughly year 3)</strong> — real revenue takes over, governance is handed over. Real EdgeAI tasks generate payer payments, and device node income shifts from "purely pre-minted" toward "pre-minted + real revenue"; fees flow back to replenish the security pool; governance is progressively and verifiably taken over from the team multisig.</p>
+<p><strong>Phase Three: Maturity (roughly years 4–5 and beyond)</strong> — the real economy drives on two wheels, the community governs itself. The pre-minted vault winds down; income comes mainly from real economic activity; fees become a major pillar of security; governance is essentially led by the community, and the team returns to being "ordinary participants + builders".</p>
+<p>"Which year" is an indication of tempo, not a promise. MobileChain judges phase transitions by "milestone events" (such as fees first exceeding the security pool's drip release, or governance first autonomously approving Foundation spending). <strong>Speak with real progress, not with a timetable that draws a pie.</strong></p>
+<p>As for the real progress along this road, Chapter Twenty-Nine sets out the full three-tier list (done / in progress / planned), each item matching auditable code and on-chain state.</p>
+<hr>
+<h2 id="chapter-twenty-two-the-vision-one-phone-one-world-returned">Chapter Twenty-Two. The Vision: One Phone, One World Returned</h2>
+
+<p>MobileChain's vision can be compressed into a single sentence:</p>
+<blockquote>
+<p><strong>Let every phone in the world, at the lowest possible threshold, become a real part of an auditable public chain — and be rewarded for its own real contribution.</strong></p>
+</blockquote>
+
+<p>The goal is plain — it talks of no disruption, no replacement; and it is vast — "every phone" means billions of people have, for the first time, the chance to truly take part in a public chain, and share in its value, without mining rigs, servers or great capital.</p>
+<p>If MobileChain succeeds, we believe we will see: millions of phones forming a real decentralised device network; countless ordinary people earning transparent, verifiable returns from their real contribution through one phone's presence and compute; an economy that is zero-inflation, credibly scarce and yet durably secure, running on and on; idle compute becoming the infrastructure of a decentralised AI age; and control passing progressively and verifiably into the community's hands, as a genuinely self-governing network grows to maturity.</p>
+<p>We must be equally clear about <strong>what is not promised</strong>: no promise of price, of rate of return, of an exact timetable, or that planned features will necessarily be delivered. We promise only one thing — <strong>to advance honestly, to write every step into auditable code and documents, so that you can always verify for yourself how far MobileChain has come.</strong></p>
+<p>A project worth lasting does not live on how loudly it trumpets the future, but on how solidly it builds the present. When that phone, on the bedside table late at night, quietly produces a block, completes an AI inference, and receives a modest payment of MC that comes from real contribution — the returning has already happened. And when tens of thousands upon thousands of such returns are stacked together, they become the modern echo of that ancient proposition from Chapter Six — <strong>all under Heaven will at last return to the hands of all its people.</strong></p>
+<p>If we pull the camera back to that "vessel of value" from the opening of this paper: from substance to metal, from paper to credit, from the centralised database to the public ledger, it has taken humanity five thousand years to make the recording and distribution of value, for the first time, capable of escaping the grip of any single centre. What MobileChain wants to do is press this final step into everyone's pocket — so that the hand holding the phone is at once the creator of value, the recorder of value, and the owner of value.</p>
+<p>This may be the page that this history of the ledger has waited five thousand years for. It will not necessarily be finished by MobileChain — but MobileChain is willing to be the one that writes this page in earnest.</p>
+<hr>
+<h1 id="volume-five-the-engineering-fabric">Volume Five. The Engineering Fabric</h1>
+
+<p><em>The first two volumes set out, at the macro and mechanism levels, MobileChain's "why" and "how the ownership returns". This volume expands the engineering detail that was condensed in Volume Two, for readers and auditors who wish to check it point by point. Every figure corresponds to a constant in the source code; wherever anything conflicts with the code, the code prevails.</em></p>
+<hr>
+<h2 id="chapter-twenty-three-verifier-nodes-the-honest-scorer">Chapter Twenty-Three. Verifier Nodes: The Honest Scorer</h2>
+
+<p>Verification of DePIN task results is carried out by the verifier node role. It is the last gate on MobileChain's promise that "only real contribution is rewarded".</p>
+<p>The power to score must have a price. If a role that can judge whether another's labour is up to standard has no collateral of its own that can be slashed, then cheating is free for it. So verifier eligibility is built on real collateral:</p>
+<ul>
+<li><strong>Collateral requirement</strong>: self-bonded stake ≥ 30,000 MC, in the bonded state (<code>VerifierMinStake</code>) — the same collateral and the same slashing channel as a consensus validator, so a misjudgement or cheating directly cuts into principal;</li>
+<li><strong>Registration requirement</strong>: node registration completed in <code>phonenode</code>, device attestation in the valid state, and heartbeat falling inside the offline grace window;</li>
+<li><strong>Slashing reach</strong>: principal deduction (40% burned / 60% returned to the Staking / Network Security Pool) is triggered only for verifiers in the bonded state; if a registered node that holds no verifier self-bonded stake misbehaves, the protocol merely revokes its device attestation and records a slashing entry, without deducting any principal — what rides on it is only the eligibility to keep receiving tasks, not on-chain assets.</li>
+<li><strong>Duties</strong>: receive randomly assigned task submissions, re-run off-chain the verification script provided by the AI project, and submit the resulting hash on-chain, for comparison against the submitter's result hash in the on-chain judgement;</li>
+<li><strong>Selection</strong>: drawn from the candidate set meeting the above conditions, weighted by reputation (weight = reputation score 0–100), with the randomness derived from block data and determined network-wide; a node whose reputation is deducted to 0 has its weight set to zero and drops out of the sampling queue automatically;</li>
+<li><strong>Returns</strong>: each verification earns 15% of that task's bounty (escrowed by the payer when the task is posted and paid out from the escrow amount at settlement, without touching the device vault).</li>
+</ul>
+
+<p><strong>Duties independent of block production</strong>: verifier nodes judge whether task results are right or wrong, while consensus validators decide the order of blocks. Both are carried by the same pool of stakers, yet they are two independent duties that do not substitute for each other — collateral is the shared foundation of responsibility, judgement is the separated power.</p>
+<p><strong>Verification script spec</strong>: Python 3.10+, runtime ≤ 30s, no network requests permitted, standard JSON output; the script hash is stored on-chain against tampering (checked when results are submitted); the judgement logic is settled by the on-chain module according to hard-coded rules, and verifier nodes cannot tamper with it.</p>
+<p><strong>Division-of-labour chain</strong>: AI project posts a task → phone nodes claim it, run inference, and submit → N verifier nodes are randomly assigned (3 per round by default) → each re-runs the verification script off-chain and submits a result hash → the chain compares the verifier hashes with the submitter's hash (match = pass / mismatch = cheating, entering dispute) → on pass, settlement proceeds (executing node 85% / verifier nodes reserve 15%, with no burn deduction); on a ruling of cheating, payment is refused and the executing node's reputation is deducted.</p>
+<hr>
+<h2 id="chapter-twenty-four-the-native-exchange-where-liquidity-is-born-and-deflation-is-driven">Chapter Twenty-Four. The Native Exchange: Where Liquidity Is Born and Deflation Is Driven</h2>
+
+<p>MobileChain ships with a native AMM module, <code>x/dex</code>, built on the constant-product (x×y=k) market-making model, supporting pool creation, token swaps, and the addition and removal of liquidity.</p>
+<div class="table-wrap"><table>
+<tr><th>Parameter</th><th>Value</th></tr>
+<tr><td>Initial liquidity pool</td><td>5 million MC + 100,000 USDT (the MC/USDT primary pair)</td></tr>
+<tr><td>Initial price</td><td>0.02 USDT/MC</td></tr>
+<tr><td>Trading fee</td><td>0.30% (half of it goes to the burn address, equal to 0.15% of the trade; the other half goes to liquidity providers)</td></tr>
+<tr><td>Liquidity incentive (first 6 months)</td><td>5,000 MC/day (drawn from the Device Incentive Pool, governance-adjustable)</td></tr>
+<tr><td>Minimum LP lock-up period</td><td>100,800 blocks (about 4.7 days at ~4-second blocks)</td></tr>
+</table></div>
+
+<p>The MC side of the initial liquidity pool is drawn as 5 million MC from the Foundation's T0 unlock, while the USDT side is provided by a market-maker partner. An initial price of 0.02 USDT/MC corresponds to an initial circulating market capitalisation of roughly $2 million. The DEX is not only where MC is discovered in price; it is also a deflationary engine — half of the 0.30% fee on every trade (0.15% of the trade) is burned forever, while the other half stays in the pool as the reward of liquidity providers, with the treasury taking no cut. The arrival of liquidity means that, for the first time, the MC earned by this phone can be exchanged for its fiat equivalent on a real market; and deflation quietly makes every holder heavier with each trade.</p>
+<hr>
+<h2 id="chapter-twenty-five-referral-incentives-symbiosis-without-skimming">Chapter Twenty-Five. Referral Incentives: Symbiosis Without Skimming</h2>
+
+<p>MobileChain's referral incentives use a <strong>ten-generation tiering</strong> model, already delivered as a native module (<code>x/referral</code>): the reward source is never deducted from the referee's earnings, but paid out additionally from a budget set aside in the Device Incentive Pool.</p>
+<p><strong>Ten-generation tiering</strong>:</p>
+<div class="table-wrap"><table>
+<tr><th>Parameter</th><th>Value</th><th>Notes</th></tr>
+<tr><td>First-generation reward (direct invitation)</td><td>10%</td><td>10% of the referee's DePIN earnings, paid by the system to the referrer on top</td></tr>
+<tr><td>Second-generation reward (one level of indirect referral)</td><td>5%</td><td>the person invited by the referrer's referrer</td></tr>
+<tr><td>Third-generation reward (two levels of indirect referral)</td><td>3%</td><td>one level deeper still</td></tr>
+<tr><td>Fourth-generation reward</td><td>2%</td><td>the fourth level</td></tr>
+<tr><td>Fifth-generation reward</td><td>1%</td><td>the fifth level</td></tr>
+<tr><td>Sixth- to tenth-generation reward</td><td>0.5% each</td><td>the sixth through tenth levels, 0.5% per level</td></tr>
+<tr><td><strong>Total ten-generation weight</strong></td><td><strong>23.5%</strong></td><td>the ceiling on what the network pays to acquire one participant</td></tr>
+<tr><td>Mining node earnings depth</td><td><strong>a full 10 generations</strong></td><td>nodes registered + with valid attestation + heartbeat within the offline grace window</td></tr>
+<tr><td>Non-mining node earnings depth</td><td><strong>the first 5 generations</strong></td><td>accounts that have not become mining nodes enjoy only generations 1-5</td></tr>
+<tr><td>Per-person daily reward ceiling</td><td>500 MC</td><td>to prevent any single referrer from profiting excessively</td></tr>
+<tr><td>Network-wide daily total ceiling</td><td>20,600 MC</td><td>a global circuit breaker</td></tr>
+<tr><td>Referral budget share (within the Device Incentive 55%)</td><td>15%</td><td>governance-adjustable</td></tr>
+<tr><td>Relationship binding</td><td>permanent and irrevocable</td><td>to prevent the buying and selling of relationships</td></tr>
+</table></div>
+
+<p><strong>The ten-generation weight table</strong> (generations 1-10 at 10%/5%/3%/2%/1%/0.5%×5, in basis points <code>1000/500/300/200/100/50×5</code>, totalling 23.5%) is the ceiling on the network's cost of acquisition: when a referee generates earnings, the system traces up the referral chain as far as ten generations, paying the corresponding share as an <strong>additional</strong> reward from a separate budget pool to each upstream referrer; the referee keeps 100% of their own earnings, and no referral commission is ever deducted from the referee's earnings or eats into their share.</p>
+<p><strong>Node identity determines earnings depth</strong>: mining nodes (registered on phonenode, with valid device attestation, and a heartbeat within the offline grace window) enjoy the full 10 generations of earnings; accounts that have not become mining nodes enjoy only the first 5. This design makes "actually connecting a device to the network and keeping it online" the precondition for unlocking the deeper generations — deep-generation rewards flow only to real builders.</p>
+<p>The 15% referral budget sits within the 55% Device Incentive share, a total budget of roughly 82.5 million MC; the daily ceiling of 20,600 MC would sustain it for about eleven years even at full speed, and actual consumption tracks real activity. The referral module has no minting authority, and rewards are triggered in step with DePIN / EdgeAI settlement: trace the relationship chain (up to 10 generations) → compute by generational weight → verify node identity and the circuit breaker → allocate from the separate budget pool → the referrer receives 100% of the full amount, with no burn deduction on-chain. The fundamental difference from the traditional model: the reward source is a pre-minted, separately set-aside independent budget, the referee's own earnings are untouched to the last fraction, the system budget has a ceiling, and the community can adjust rates and depth by governance at any time.</p>
+<hr>
+<h2 id="chapter-twenty-six-off-chain-services-and-oracles-a-constrained-messenger">Chapter Twenty-Six. Off-Chain Services and Oracles: A Constrained Messenger</h2>
+
+<p>A blockchain is good at recording and verifying, yet it cannot directly perceive the off-chain world. Many of MobileChain's core judgements depend on off-chain facts: whether a device is truly online, whether an AI inference was truly completed, whether an attestation can be trusted. These facts are produced off-chain and must be brought on-chain in a secure and auditable way.</p>
+<p>Oracle service hardening: Bearer token authentication (only legitimate data sources holding a valid token may submit), rate limiting (to prevent high-frequency malicious submission), and optional TLS (transport-layer encryption). The role boundary is clear: <strong>it only submits verifiable off-chain facts on-chain in a controlled way; the final issuance, slashing, and settlement are still executed by on-chain modules under hard-coded rules.</strong> An oracle is not a centre of power, but a constrained messenger.</p>
+<p>For high-frequency, small-value scenarios such as device incentives and AI settlement, putting every transaction on the main chain is both expensive and congesting. MobileChain is <strong>planning</strong> to explore off-chain channels and batch settlement: high-frequency interaction off-chain, with net results periodically settled on-chain in batches, balancing efficiency and security, while final settlement is still guaranteed fair by on-chain escrow and rules.</p>
+<hr>
+<h2 id="chapter-twenty-seven-product-philosophy-keep-the-complexity-in-the-code-keep-the-simplicity-for-the-user">Chapter Twenty-Seven. Product Philosophy: Keep the Complexity in the Code, Keep the Simplicity for the User</h2>
+
+<p>However ingenious a chain may be, if ordinary people cannot use it, it cannot deliver on "returning it to the majority". MobileChain's product principle: <strong>on-chain logic may be very complex, but the operations a user sees must be as simple as possible.</strong></p>
+<p>Components already in place: the command-line tool <code>mcchaind</code>, a Web dashboard (wallet + block explorer), a read-only query gateway (gRPC-gateway REST), a transaction helper (the front end generates a copyable <code>mcchaind tx</code> command), and wallet interoperability (standard Keplr registration, prefix <code>mc</code>, SLIP-44 = 118).</p>
+<p><strong>MC Miner APP interaction design</strong> (a phone full-node APP for ordinary users):</p>
+<ul>
+<li><strong>Home — a live-globe node heat map</strong>: a 3D rotating globe covered in points of light, flashing once every 4 seconds (the birth of a new block), showing the network's node count, today's total DePIN earnings, the current block height, and statistics by region. A huge "Start Mining" button draws you in — the scene itself is the marketing material.</li>
+<li><strong>A 5-minute onboarding (zero jargon)</strong>: create a wallet → claim 100 MC from the faucet → complete your first DePIN task (1 minute of AI inference) → "Congratulations! You rank No. XX among nodes worldwide", with the words "blockchain / BFT / private key / consensus" never appearing along the way.</li>
+<li><strong>Smart notifications</strong>: instant reach for DePIN completion, a referrer earning money, a rise in ranking, a new governance proposal, MC price movement, a node going offline, milestones, and the like.</li>
+<li><strong>A social honour system</strong>: achievement badges (Genesis Miner / Compute Pioneer / Evangelist / Top-100 Node / Loyal Guardian) and team leaderboards.</li>
+<li><strong>USD-equivalent display</strong>: the USD equivalent shown in real time beneath the balance, lowering the cognitive threshold.</li>
+<li><strong>In-app FAQ</strong>: setting "the truth" against "common misconceptions".</li>
+</ul>
+
+<p>The mobile SDK integration guide walks developers through device attestation, keeping a node alive, submitting task contributions, and securely managing keys — the last mile that carries "phone full node" from on-chain capability into users' hands.</p>
+<hr>
+<h2 id="chapter-twenty-eight-the-initial-ecosystem-development-fund-and-bug-bounty">Chapter Twenty-Eight. The Initial Ecosystem Development Fund and Bug Bounty</h2>
+
+<p>What a chain lacks most in its early days is not a vision, but the resources to push that vision into reality. The fund comes mainly from the <strong>Foundation Pool (13% = 130 million MC)</strong>, used for developer incentives and ecosystem grants, security audits, mobile and infrastructure building, and community education and operations.</p>
+<p>MobileChain plans to launch a public bug bounty (through platforms such as Immunefi) on the day the mainnet goes live: critical (theft of funds / unlimited minting) up to 50,000 USDC, high (halting or forking the chain) 25,000 USDC, medium (bypassing limits / forging data) 5,000 USDC, low 1,000 USDC. The bounty pool is drawn from the Foundation's T0 unlock.</p>
+<p>An iron rule: <strong>every use of the Foundation Pool should go through an on-chain governance proposal and a community vote.</strong> A centralised vault free of governance constraints, however good its intentions, violates "open-source and auditable". Handing the right to deploy 13% to governance means the money ultimately belongs to the community, serves the community, and is overseen by the community — it is an "Initial Ecosystem Development Fund", not "the team's slush fund". The Early Development Pool (5%) rewards, with precision, the substantive contributors before and after mainnet, standing alongside the Foundation Pool to cover both ends of the ecosystem.</p>
+<hr>
+<h2 id="chapter-twenty-nine-the-roadmap-in-full">Chapter Twenty-Nine. The Roadmap in Full</h2>
+
+<p>In keeping with the principle of "truth on-chain", the roadmap is marked honestly in three tiers:</p>
+<ul>
+<li><strong>Completed ✅</strong>: the eight native modules (including liquid staking, the native AMM, referrals, and the gradual handover of governance), end-to-end verification of the Five Pools economy (55/15/12/13/5), the zero-inflation model, the phone node security system (attestation / sybil binding / offline grace / tiered slashing / cooldown), the full EdgeAI flow (publication / escrow / optimistic settlement / arbitration), the validator threshold (a 30,000 MC ante), oracle hardening (Bearer + rate limiting + TLS), the Web dashboard, complete documentation, IBC interoperability and the CosmWasm contract layer, and off-chain batch settlement.</li>
+<li><strong>In progress 🔄</strong>: mainnet launch preparation (genesis / seed nodes, validator recruitment, final audit), configurable Web RPC and experience optimisation, and polishing the mobile SDK.</li>
+<li><strong>Planned 📋</strong>: scaling the EdgeAI compute marketplace (all remaining protocol-layer capabilities are already delivered).</li>
+</ul>
+
+<p>The roadmap is updated with real progress and measures advancement by "the achievement of milestone events" rather than "promised dates" — always take the on-chain state and the open-source code as your reference.</p>
+<hr>
+<h2 id="chapter-thirty-value-capture-beyond-scarcity-usefulness-is-needed">Chapter Thirty. Value Capture: Beyond Scarcity, Usefulness Is Needed</h2>
+
+<p>MC is not a claim on the earnings of any entity, and it promises no returns. What it has is a total supply locked by code, and those places in the network's own operation where it must be consumed.</p>
+<p><strong>Structural demand comes from four channels that cannot be bypassed.</strong> Every transaction pays gas in MC; every validator stakes 30,000 MC in self-delegation, and every mobile node stakes collateral that can be slashed; every enterprise-grade AI task escrows its budget on-chain in MC before a phone takes the order; and one side of every liquidity position on the native exchange is MC. None of these four is an initiative; each is a cost of using this network.</p>
+<p><strong>Structural reduction has only three paths, and all are hard-coded in constants.</strong></p>
+<div class="table-wrap"><table>
+<tr><th>Path</th><th>Ratio</th><th>Charging basis</th><th>Source constant</th></tr>
+<tr><td>Gas fee</td><td>7.00% of the fee</td><td>every transaction</td><td><code>GasBurnRatioBps = 700</code></td></tr>
+<tr><td>Exchange</td><td>half of the 0.30% fee, i.e. 0.15% of the trade</td><td>every swap</td><td><code>FeeBurnBps = 5000</code></td></tr>
+<tr><td>Slashing</td><td>40% of the slashed amount</td><td>validator misbehaviour</td><td><code>SlashBurnRatioBps = 4000</code></td></tr>
+</table></div>
+
+<p>Burned MC goes to a deterministic, unspendable address. It does not stay in the treasury, and governance cannot take it back.</p>
+<p><strong>What is deliberately not burned: the earnings of labour.</strong> Device rewards, referral rewards, and EdgeAI settlement arrive in full at the participants; no share is taken from the fruits of work. Deflation is supplied by protocol usage and misbehaviour, not by anyone's labour.</p>
+<p><strong>What the protocol does not do.</strong> There is no treasury buyback, no market-making promise, no dividend right, and no staking yield propped up by issuance. The drip-feed yield comes from a pre-designated 150 million MC Staking / Network Security Pool; when the pool is exhausted, the yield it supports ends with it. A renewal mechanism can lower the rate to extend the years, but it cannot conjure supply out of nothing.</p>
+<p>The honest statement is this: how much value MC captures depends on how far this network is used. The supply side has been settled by code; the demand side is not something a document can settle.</p>
+<hr>
+<h2 id="chapter-thirty-one-diffusion-and-acquisition-budget-writing-growth-as-auditable-arithmetic">Chapter Thirty-One. Diffusion and Acquisition Budget: Writing Growth as Auditable Arithmetic</h2>
+
+<p>The growth section states only the budget and the gates, because those two things can be checked from the outside.</p>
+<p><strong>Where the acquisition budget comes from, and its ceiling.</strong> The referral incentive is carried by an 82.5 million MC budget cut out separately from within the Device Incentive Pool — an independent budget, paid to the referrer (the upline), and never deducted from the earnings of the referee (the downline). The ten-generation weights are 10%, 5%, 3%, 2%, 1%, 0.5%×5 (<code>DefaultLevel1..10RewardRateBps</code>, 23.5% in total), so <strong>23.5% is the ceiling on what the network pays to acquire one participant</strong>, and it is disbursed from the 82.5 million pool, independent of that participant's own earnings; non-mining nodes enjoy only the first 5 generations (21% in total).</p>
+<p>Two circuit breakers constrain the spend rate: 500 MC per referrer per day, and 20,600 MC across the network per day (<code>DefaultDailyNetworkCap</code>). In the extreme case of full utilisation, the network-wide cap alone spreads the 82.5 million budget over 82,500,000 ÷ 20,600 ≈ 4,005 days, roughly eleven years. No single growth pulse can drain it — that conclusion is a division between constants, not a promise.</p>
+<p><strong>The scale the device budget can support.</strong> 467.5 million MC covers the twelve-year drip-release floor, an average of about 106,700 MC per day. Against this, the node capital allowance is paid at 30 MC per day for each registered node with valid attestation that has not been jailed (<code>DefaultNodeCapitalAllowancePerDay</code>). The two numbers are joined by a single governance dial: the allowance is a per-node constant, total spending grows linearly with the number of nodes, and so the per-node amount ought to be lowered as the network expands. It is a governance parameter, not a fixed right; its consequences are stated plainly in Section II of Chapter Thirty-Two.</p>
+<p><strong>The payment structure on the demand side.</strong> A single enterprise task is escrowed at a maximum of 1000 MC (<code>MaxTaskReward</code>); on settlement, 85% goes to the device that submitted the result and 15% goes into the verification reserve, with a further 1.50% settlement fee split 40% to node operators and 60% to the protocol treasury. The treasury therefore receives 0.90% of enterprise settlement volume. This is linear arithmetic, and the reader can substitute any magnitude they accept: at a daily settlement volume of 1 million MC, the treasury takes in 9,000 MC per day. This is arithmetic, not a forecast.</p>
+<p><strong>Gates in place of dates.</strong></p>
+<ul>
+<li><em>First gate: genesis integrity.</em> The validator set is large enough that the failure of any single member is not fatal, and the 30,000 MC self-bond is enforced by an ante decorator on every create/edit-validator transaction. Measure it by the on-chain validator set, not by announcements.</li>
+<li><em>Second gate: real demand.</em> Enterprise settlement fees become recurring revenue for the treasury, so that the treasury is fed by "use" rather than by genesis unlocks. Measure it by the composition of the treasury balance at any given height.</li>
+<li><em>Third gate: the handover of power.</em> The operational keys held by the team diminish, parameters are transferred item by item to on-chain voting, and the treasury withdrawal timelock is enabled. Measure it by "what has already been handed over", not by "what has been announced as going to be handed over".</li>
+</ul>
+
+<hr>
+<h2 id="chapter-thirty-two-risk-disclosure-and-limitations-a-document-that-lists-only-strengths-is-not-an-engineering-document">Chapter Thirty-Two. Risk Disclosure and Limitations: A Document That Lists Only Strengths Is Not an Engineering Document</h2>
+
+<p>Every one of the following is a currently known and genuinely existing limitation.</p>
+<h3 id="i-risks-of-the-launch-state">I. Risks of the Launch State</h3>
+
+<p><strong>Genesis key material.</strong> The team share is held by a 3-of-5 multisig, with member public keys injected at build time. The early development address and the two foundation addresses use the same mechanism, resolved through explicit public key overrides. If an override is missing, the build falls back to a deterministic address derived from a fixed seed — a placeholder address that anyone reading the source can reproduce, <strong>and which must therefore never hold assets</strong>. Replacing every placeholder address with a real public key is a blocking precondition for the genesis ceremony. Until the replacement results can be verified in the genesis file, no share figure in the appendix should be understood as a statement about the state of custody.</p>
+<p><strong>External audit.</strong> The protocol is covered by the test suite in the repository (if an economic constant drifts, the tests fail) and has been through internal review. <strong>A third-party security audit report is not yet complete.</strong> Until the audit report is public, treat this code as not independently audited by a third party.</p>
+<p><strong>Validator concentration.</strong> At genesis the validator set is necessarily small. The smaller the set, the easier it is to coordinate, and the easier to capture. The 30,000 MC self-bond threshold raises the cost of "spinning up a validator on a whim", but no parameter can substitute for a genuinely decentralised set, and decentralisation takes time — a stretch of time the protocol cannot compress.</p>
+<h3 id="ii-economic-risks">II. Economic Risks</h3>
+
+<p><strong>The allowance grows with the network; the pool does not.</strong> The node capital allowance is a fixed payment per node per day, funded from the fixed 467.5 million device pool. Total spending grows linearly with the number of nodes, while the pool is a fixed quantity. If the node count grows faster than governance lowers the per-node amount, the pool will run dry before the twelve-year floor. The mitigation is a governance parameter that must actually be used — it does not take effect automatically, and the protocol will not throttle itself.</p>
+<p><strong>The endgame of the drip release.</strong> The staking drip release targets 5% annualised on bound MC, funded from a finite pool of 150 million MC, over a twelve-year floor. A renewal band can lower the target to 1.00%–2.00% in order to extend the term. Both ends are reductions in yield, and neither adds to supply. Any modelling of staking returns should be built as "declining year over year".</p>
+<p><strong>Zero inflation means the security budget cannot expand elastically.</strong> Zero inflation is a deliberate constraint, and its cost is that the security budget cannot be enlarged by a stroke of a resolution. The long-run validator economy depends on fee volume and the balance of the security pool; if both decline at once, the willingness to validate declines with them.</p>
+<p><strong>The inherent cost of the referral mechanism.</strong> Any mechanism that rewards referrals will attract participants whose only activity is referring. The per-person daily cap, the network-wide daily cap, the ten-generation depth ceiling (the first 5 generations for non-nodes), the maximum of 100 referees per account, the minimum payout threshold — these circuit breakers bound the scale of the damage, not the disappearance of the behaviour itself.</p>
+<h3 id="iii-technical-risks">III. Technical Risks</h3>
+
+<p><strong>The off-chain surface of trust.</strong> Device attestation and online status are facts the chain itself cannot observe. The oracle reports under constraints — Bearer token authentication, rate limiting, fail-closed verification against the hardware root of trust, mandatory public keys in production. Constraints are not elimination: once oracle credentials leak, that is a real attack surface. The honest description of the boundary is this: the oracle is responsible for reporting, and the on-chain module is responsible for adjudicating.</p>
+<p><strong>The exchange settlement operator.</strong> High-frequency micro-payments go through off-chain batching and a single on-chain settlement. Both the submission and the clearing of a batch are restricted to authorised addresses (by default the governance module account), and governance holds a circuit-breaker switch across the entire path. At submission, each batch commits a SHA-256 digest to the set of entries; at clearing, the digest is recomputed and payment is refused on any mismatch, so that "the entries that were cleared" are provably equal to "the entries that were submitted". The residual risk lies in the availability of the authorised submitter: if it stops submitting, micro-settlement halts until governance appoints a new submitter.</p>
+<p><strong>Liquid staking.</strong> The ulmc voucher is a claim on a pooled delegation, not a deposit, and is priced by redemption rate rather than face value. Compounded staking yield lifts that rate; slashing of a validator depresses it. The write-down is completed at the instant <code>x/staking</code> reports a slash, earlier than any redemption is processed — deliberately so: the loss is shared across all holders rather than landing on whoever redeems last. In the extreme case of a full write-down, only unbacked shares remain in the pool, and in that state new deposits are refused until governance disposes of the pool.</p>
+<p><strong>Smart contract execution.</strong> CosmWasm runs only on CGO-enabled builds (the WebAssembly runtime is linked into that build). Contracts are third-party code, and the protocol makes no statement whatsoever about any contract deployed on it.</p>
+<p><strong>Cross-chain transfer.</strong> IBC connects MobileChain to counterparty chains, and the security of those counterparty chains is not guaranteed by MobileChain. Assets that cross in carry the risk of their origin.</p>
+<h3 id="iv-governance-risks">IV. Governance Risks</h3>
+
+<p>Treasury spending requires the governance multisig, and that is already enforced and in effect today. <strong>The withdrawal timelock is still on the roadmap and not yet enabled</strong>: in v1 there is no mandatory delay between approval and the movement of funds. Until the timelock goes live, the only control is the multisig itself.</p>
+<p>Governance capture is an inherent risk of any token-weighted voting system. The supply cap and the permanent tombstone for malfeasance sit beyond the reach of governance; most other parameters do not.</p>
+<h3 id="v-external-risks">V. External Risks</h3>
+
+<p>Jurisdictions differ in how they characterise network tokens, and the characterisations are still changing. Exchange availability, custody, taxation and the legality of participation itself all lie outside the control of the protocol. Market liquidity may be thin, and the price of MC may go to zero.</p>
+<hr>
+<h2 id="chapter-thirty-three-legal-and-regulatory-posture-verifiability-in-place-of-guarantees">Chapter Thirty-Three. Legal and Regulatory Posture: Verifiability in Place of Guarantees</h2>
+
+<p><strong>What MC is.</strong> MC is the native unit of account of a public, permissionless network. It pays gas, serves as the bond for validators and nodes, escrows EdgeAI tasks, and forms one side of liquidity on the native exchange. Its utility ends with these functions.</p>
+<p><strong>What MC is not.</strong> MC does not represent equity, does not represent ownership of any entity, and carries no dividend, interest, claim on earnings or right to repayment of principal. Holding MC creates no relationship with any issuing entity. The various rewards described in this document are protocol-level distributions executed by on-chain rules against pre-delineated pools; they are not returns on investment, and no one stands behind them.</p>
+<p><strong>This document is not an offer.</strong> This document is a descriptive document of technology and economics, and in no jurisdiction does it constitute an offer to sell, an invitation to make an offer to buy, or a recommendation regarding any asset. This document does not constitute investment, legal, accounting or tax advice.</p>
+<p><strong>Participants are responsible for their own participation.</strong> The protocol is software. It does not screen participants, and it cannot determine whether participation is lawful in the place where a given participant is located. Exchanges, custodians, front ends and other intermediaries bear their own obligations under their own regulatory regimes; running a node, deploying a contract or trading MC may be restricted or prohibited in certain jurisdictions. Compliance and tax obligations rest with each participant.</p>
+<p><strong>A commitment to transparency in place of a commitment to guarantees.</strong> The team and foundation shares are released on an on-chain schedule, enforced by code rather than by promise; the balance of every pool is queryable at any height; and every constant in the appendix is annotated with the file that defines it. Wherever this document and the code disagree, the code prevails — and that rule is itself the compliance posture: everything stated about MobileChain should be verified against on-chain state, not accepted from a document.</p>
+<p><strong>Forward-looking statements.</strong> Statements about the roadmap, diffusion or future capabilities express intent, not promise. They depend on engineering outcomes, governance decisions and external conditions, and may not come to pass.</p>
+<hr>
+<h1 id="appendix-the-sanctum-of-parameters-auditable-line-by-line-against-the-source-code">Appendix. The Sanctum of Parameters (Auditable Line by Line Against the Source Code)</h1>
+
+<p>This appendix gathers every key parameter cited in the main text and marks its source location. Auditors can use it to check, item by item, that "the whitepaper numbers = the code numbers". <strong>Where anything differs from the code, the code prevails.</strong></p>
+<h2 id="a1-chain-level-base-parameters">A.1 Chain-Level Base Parameters</h2>
+
+<div class="table-wrap"><table>
+<tr><th>Parameter</th><th>Value</th><th>Source Location</th></tr>
+<tr><td>Consensus engine</td><td>CometBFT v0.37.6</td><td><code>go.mod</code></td></tr>
+<tr><td>Application framework</td><td>Cosmos SDK v0.47.14</td><td><code>go.mod</code></td></tr>
+<tr><td>Language</td><td>Go 1.21</td><td><code>go.mod</code></td></tr>
+<tr><td>Mainnet chain ID</td><td><code>mcchain-mainnet-1</code></td><td>Genesis configuration</td></tr>
+<tr><td>Account address prefix</td><td><code>mc</code></td><td><code>app/app.go</code></td></tr>
+<tr><td>Smallest unit of the base coin</td><td><code>umc</code></td><td><code>x/tokenomics/types/keys.go</code></td></tr>
+<tr><td>Precision</td><td>6 (1 MC = 1,000,000 umc)</td><td>Chain configuration</td></tr>
+<tr><td>Additional issuance inflation</td><td>0 (<code>x/mint</code> forced to zero)</td><td>Genesis/mint configuration</td></tr>
+</table></div>
+
+<h2 id="a2-tokenomics">A.2 Tokenomics</h2>
+
+<div class="table-wrap"><table>
+<tr><th>Parameter</th><th>Value (umc)</th><th>Value (MC)</th><th>Source Constant</th></tr>
+<tr><td>Total supply cap</td><td>1,000,000,000,000,000 (1e15)</td><td>1 billion</td><td><code>TotalSupplyCap</code></td></tr>
+<tr><td>Device incentives 55%</td><td>550,000,000,000,000</td><td>550 million</td><td><code>DeviceIncentivePercentBps=5500</code></td></tr>
+<tr><td>— of which referral ecosystem budget</td><td>82,500,000,000,000</td><td>82.5 million</td><td><code>ReferralEcosystemBudget</code></td></tr>
+<tr><td>— of which device reward vault</td><td>467,500,000,000,000</td><td>467.5 million</td><td><code>DepinInitialPoolSlice - ReferralEcosystemBudget</code></td></tr>
+<tr><td>Staking security 15%</td><td>150,000,000,000,000</td><td>150 million</td><td><code>StakingSecurityPercentBps=1500</code></td></tr>
+<tr><td>Team 12%</td><td>120,000,000,000,000</td><td>120 million</td><td><code>TeamPercentBps=1200</code></td></tr>
+<tr><td>Foundation 13%</td><td>130,000,000,000,000</td><td>130 million</td><td><code>FoundationPercentBps=1300</code></td></tr>
+<tr><td>— genesis instant unlock</td><td>50,000,000,000,000</td><td>50 million</td><td><code>FoundationT0Unlock</code></td></tr>
+<tr><td>Early development 5%</td><td>50,000,000,000,000</td><td>50 million</td><td><code>EarlyDevPercentBps=500</code></td></tr>
+<tr><td>Device pool slice (before split)</td><td>550,000,000,000,000</td><td>550 million</td><td><code>DepinInitialPoolSlice</code></td></tr>
+<tr><td>DEX initial liquidity</td><td>5,000,000,000,000</td><td>5 million</td><td><code>DexInitialLiquidityMC</code></td></tr>
+<tr><td>Protocol treasury genesis balance</td><td>0</td><td>0</td><td><code>ProtocolTreasuryPoolName</code></td></tr>
+<tr><td>Team multisig threshold</td><td>3-of-5</td><td>—</td><td><code>TeamMultisigThreshold=3</code></td></tr>
+<tr><td>Team release</td><td>1-year cliff + 3-year linear</td><td>—</td><td><code>x/tokenomics/keeper/genesis.go</code></td></tr>
+</table></div>
+
+<h2 id="a3-device-incentives-depin">A.3 Device Incentives (depin)</h2>
+
+<div class="table-wrap"><table>
+<tr><th>Parameter</th><th>Value</th><th>Source Constant</th></tr>
+<tr><td>Initial vault</td><td>467,500,000,000,000 umc (467.5 million MC)</td><td><code>DefaultInitialPool</code></td></tr>
+<tr><td>Reward denom</td><td><code>umc</code></td><td><code>DefaultRewardDenom</code></td></tr>
+<tr><td>Minting authority</td><td>None (distribution only, no minting)</td><td>maccPerms (no Minter)</td></tr>
+<tr><td>Contribution quality threshold</td><td>30</td><td><code>ContributionThreshold</code></td></tr>
+<tr><td>Consistency with tokenomics</td><td><code>DepinInitialPoolSlice - ReferralEcosystemBudget == DefaultInitialPool</code> (genesis assertion)</td><td><code>x/tokenomics/keeper/genesis.go</code></td></tr>
+</table></div>
+
+<h2 id="a4-phone-node-security-phonenode">A.4 Phone Node Security (phonenode)</h2>
+
+<div class="table-wrap"><table>
+<tr><th>Parameter</th><th>Value</th><th>Meaning</th><th>Source</th></tr>
+<tr><td><code>AttestationRequired</code></td><td>true</td><td>Attestation required to participate</td><td><code>x/phonenode/types/params.go</code></td></tr>
+<tr><td><code>AttestationValidity</code></td><td>2,592,000 seconds (30 days)</td><td>Attestation validity</td><td>same as above</td></tr>
+<tr><td><code>SybilDeviceBinding</code></td><td>true</td><td>Sybil device binding</td><td>same as above</td></tr>
+<tr><td><code>OfflineGraceBlocks</code></td><td>100 blocks</td><td>Offline grace</td><td>same as above</td></tr>
+<tr><td><code>OfflineSlashBps</code></td><td>500 (5%)</td><td>Offline slashing</td><td>same as above</td></tr>
+<tr><td><code>ContribSlashBps</code></td><td>1000 (10%)</td><td>Cheating-contribution slashing</td><td>same as above</td></tr>
+<tr><td><code>AttestSlashBps</code></td><td>2000 (20%)</td><td>Forged-attestation slashing</td><td>same as above</td></tr>
+<tr><td><code>SlashCooldownBlocks</code></td><td>43200 blocks (about 12 hours)</td><td>Cooldown before re-attestation after slashing</td><td><code>DefaultSlashCooldownBlocks</code></td></tr>
+</table></div>
+
+<h2 id="a5-edge-ai-edgeai">A.5 Edge AI (edgeai)</h2>
+
+<div class="table-wrap"><table>
+<tr><th>Parameter</th><th>Value</th><th>Meaning</th><th>Source</th></tr>
+<tr><td><code>MaxTaskReward</code></td><td>1,000,000,000 umc (1000 MC)</td><td>Per-task bounty cap</td><td><code>x/edgeai/types/params.go</code></td></tr>
+<tr><td><code>DisputePeriodBlocks</code></td><td>100 blocks</td><td>Dispute window</td><td>same as above</td></tr>
+<tr><td><code>AntiCheatThresholdBps</code></td><td>5000 (50%)</td><td>Anti-cheat threshold</td><td>same as above</td></tr>
+<tr><td><code>Arbitrator</code></td><td>Team multisig address (set at deployment, can be brought under governance)</td><td>Dispute arbiter</td><td>same as above</td></tr>
+<tr><td>Payment model</td><td>Payer-funded escrow + optimistic settlement</td><td>—</td><td><code>x/edgeai</code> keeper</td></tr>
+</table></div>
+
+<h2 id="a6-consensus-security-threshold-ante">A.6 Consensus Security Threshold (ante)</h2>
+
+<div class="table-wrap"><table>
+<tr><th>Parameter</th><th>Value</th><th>Meaning</th><th>Source</th></tr>
+<tr><td><code>MinSelfDelegationLowerBound</code></td><td>30,000,000,000 umc (30,000 MC)</td><td>Validator minimum self-delegation</td><td><code>app/ante.go</code></td></tr>
+<tr><td>Enforcement scope</td><td>Chain-wide, on any validator-create/modify transaction</td><td>—</td><td><code>MinSelfDelegationDecorator</code></td></tr>
+</table></div>
+
+<h2 id="a7-module-and-code-structure-inventory">A.7 Module and Code Structure Inventory</h2>
+
+<div class="table-wrap"><table>
+<tr><th>Module or Component</th><th>Path</th><th>Responsibility</th></tr>
+<tr><td>mcchain</td><td><code>x/mcchain</code></td><td>System anchor module</td></tr>
+<tr><td>tokenomics</td><td><code>x/tokenomics</code></td><td>Total supply cap, Five Pools allocation, team vesting</td></tr>
+<tr><td>depin</td><td><code>x/depin</code></td><td>Device incentive vault and per-task distribution</td></tr>
+<tr><td>phonenode</td><td><code>x/phonenode</code></td><td>Device attestation, sybil binding, tiered slashing</td></tr>
+<tr><td>edgeai</td><td><code>x/edgeai</code></td><td>AI tasks, escrow payment, optimistic settlement, dispute arbitration</td></tr>
+<tr><td>dex</td><td><code>x/dex</code></td><td>Constant-product AMM and fee burn</td></tr>
+<tr><td>referral</td><td><code>x/referral</code></td><td>Referral ledger and dual circuit breakers</td></tr>
+<tr><td>liquidstaking</td><td><code>x/liquidstaking</code></td><td>Delegated liquid staking and staking yield</td></tr>
+<tr><td>cosmwasm</td><td><code>x/wasm</code></td><td>WebAssembly smart-contract runtime (enabled with CGO builds)</td></tr>
+<tr><td>ibc</td><td><code>x/ibc</code> (ibc-go)</td><td>Interchain accounts and IBC transfers</td></tr>
+<tr><td>ante decorator</td><td><code>app/ante.go</code></td><td>Validator minimum self-delegation enforcement</td></tr>
+<tr><td>Off-chain oracle</td><td><code>internal/oraclesvc</code></td><td>Controlled submission of off-chain facts on-chain</td></tr>
+<tr><td>Web dashboard</td><td><code>web/</code></td><td>Wallet + block explorer + transaction assistant</td></tr>
+</table></div>
+
+<h2 id="a8-liquid-staking-and-off-chain-settlement">A.8 Liquid Staking and Off-Chain Settlement</h2>
+
+<div class="table-wrap"><table>
+<tr><th>Parameter</th><th>Value</th><th>Source</th></tr>
+<tr><td>Receipt token</td><td><code>ulmc</code></td><td><code>x/liquidstaking/types/keys.go</code></td></tr>
+<tr><td>Minimum liquid staking amount</td><td>1,000,000 umc (1 MC)</td><td><code>DefaultParams().MinStakeUmc</code></td></tr>
+<tr><td>Per-validator concentration cap</td><td>2000 bps (20% of module delegations)</td><td><code>MaxValidatorShareBps</code></td></tr>
+<tr><td>Slashing pass-through</td><td>Immediately writes down pool principal when <code>BeforeValidatorSlashed</code> fires</td><td><code>x/liquidstaking/keeper/hooks.go</code></td></tr>
+<tr><td>New deposits after endorsement is wiped out</td><td>Rejected (<code>ErrPoolWipedOut</code>)</td><td><code>x/liquidstaking/keeper/liquidstaking.go</code></td></tr>
+<tr><td>Source of yield</td><td>Staking yield reinvested, no new issuance</td><td><code>x/liquidstaking/keeper/liquidstaking.go</code></td></tr>
+<tr><td>Settlement batch submitter</td><td>Governance module account by default</td><td><code>x/dex/keeper/settlement_config.go</code></td></tr>
+<tr><td>Settlement circuit breaker</td><td>Set by governance</td><td>same as above</td></tr>
+<tr><td>Batch integrity</td><td>Commits the SHA-256 of the entry set at submission, recomputed and verified at clearing</td><td><code>x/dex/keeper/settlement.go</code></td></tr>
+</table></div>
+
+<hr>
+<h1 id="appendix-b-how-to-verify-every-claim-in-this-document">Appendix B. How to Verify Every Claim in This Document</h1>
+
+<ol>
+<li>Clone the repository and build the client yourself. The build process is reproducible from <code>go.mod</code>.</li>
+<li>Open <code>x/tokenomics/types/keys.go</code>. Every allocation ratio and rate constant in Appendix A is declared there.</li>
+<li>Run the test suite. Genesis allocation, total supply cap enforcement, each fee split, and the slashing paths are all covered by tests; if any number drifts, the tests fail.</li>
+<li>Query module account balances from a running node. The Five Pools and the treasury are all addressable, and their balances are public at any height.</li>
+<li>Compare what you find against this document. If anything differs, the code prevails.</li>
+</ol>
+
+<hr>
+<p><em>This whitepaper is an explanation of the MobileChain code, not a promise about the code. Where anything differs from the code, the code prevails.</em></p>
+
+</main>
+</body>
+</html>

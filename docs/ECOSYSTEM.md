@@ -6,10 +6,13 @@
 ## 1. 按角色
 
 ### 1.1 投资人 / 战略读者
-- `../WHITEPAPER_CN.md`（白皮书 · 中文正典）
-- `MobileChain白皮书_完整典藏版.pdf`（印刷版：A4 排版、含目录书签）
-- `whitepaper.html`（在线版，与正典同源）
-- `WHITEPAPER.md`（English edition） / `TOKEN_ALLOCATION.md`（代币分配）
+- `../WHITEPAPER_CN.md`（白皮书 · 中文，一切内容的来源）
+- `MobileChain白皮书_完整典藏版.pdf`（中文印刷版：A4 排版、含目录书签）
+- `whitepaper.html`（中文在线版，与正典同源）
+- `../WHITEPAPER.md`（Whitepaper · English，与中文版逐章逐节对应）
+- `MobileChain-Whitepaper-Collector-Edition.pdf`（英文印刷版：A4 排版、含目录书签）
+- `whitepaper_en.html`（英文在线版）
+- `TOKEN_ALLOCATION.md`（代币分配）
 - `tokenomics.md` / `PROTOCOL_PARAMS.md`（模块职责与参数口径）
 
 ### 1.2 节点运营 / 验证人
@@ -64,7 +67,7 @@
 | 0 | 编译产物 `mcchaind` | 真正在跑的代码 |
 | 1 | `scripts/make_genesis.py` | 创世口径校准脚本 |
 | 2 | `docs/PROTOCOL_PARAMS.md` | 参数口径总览 |
-| 3 | `WHITEPAPER.md` | 商业承诺 |
+| 3 | `WHITEPAPER_CN.md`（`WHITEPAPER.md` 为其英译） | 商业承诺 |
 | 4 | 其他运营 / 集成文档 | 引用 (2) 与 (3) |
 
 ## 4. 怎么贡献文档

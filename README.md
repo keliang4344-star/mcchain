@@ -84,9 +84,10 @@ mcchaind start
 
 | 文档 | 说明 |
 |------|------|
-| [白皮书](./WHITEPAPER_CN.md) | MC 公链完整技术与理念阐述（中文正典） |
-| [白皮书 · 印刷版 PDF](./docs/MobileChain白皮书_完整典藏版.pdf) | 完整典藏版，A4 排版，含目录书签 |
-| [Whitepaper · English](./WHITEPAPER.md) | English edition |
+| [白皮书 · 中文](./WHITEPAPER_CN.md) | MC 公链完整技术与理念阐述（中文内容的唯一来源） |
+| [白皮书 · 中文印刷版 PDF](./docs/MobileChain白皮书_完整典藏版.pdf) | 典藏版，A4 排版，含目录书签 |
+| [Whitepaper · English](./WHITEPAPER.md) | 英文版，与中文版逐章逐节对应 |
+| [Whitepaper · Print Edition](./docs/MobileChain-Whitepaper-Collector-Edition.pdf) | 英文典藏版，A4 排版，含目录书签 |
 | [通证分配](./docs/TOKEN_ALLOCATION.md) | 总量、分配池、解锁规则 |
 | [协议参数总表](./docs/PROTOCOL_PARAMS.md) | 出块、经济与治理参数的唯一权威口径 |
 | [模块设计](./docs/tokenomics.md) | 各原生模块的职责与链上状态 |
@@ -101,7 +102,7 @@ mcchaind start
 go test ./...
 ```
 
-模块测试覆盖：depin (14) · phonenode (7) · tokenomics (~7) · edgeai (17) · verifier (开发中) · referral (开发中)
+模块测试用例：depin 36 · dex 48 · edgeai 81 · liquidstaking 18 · mcchain 15 · phonenode 48 · referral 30 · tokenomics 31 · app 10 · internal 22，合计 339 项。
 
 关键模块目标覆盖率 ≥ 70%（CI 门禁见 `.github/workflows/ci.yml`）。
 
