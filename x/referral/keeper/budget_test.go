@@ -128,14 +128,14 @@ func TestDeferRewardLedgerAccumulates(t *testing.T) {
 	require.False(t, truncated)
 }
 
-// TestEffectiveNetworkCap_PhaseMultiplierAppliesToPacing 是的回归测试。
+// 回归测试：阶段倍数必须作用在「基准额度」上。
 //
-// 缺陷背景：阶段倍数只乘在「治理参数上限」上是不够的，而 min(参数上限, 配速项)
+// 注意：阶段倍数只乘在「治理参数上限」上是不够的，而 min(参数上限, 配速项)
 // 在真实参数下总是取配速项（参数 20,600 MC/日 vs 配速 ≈ 20,548 MC/日），
-// 于是倍数对结果没有任何影响 —— 文档承诺的「首年日上限约 41,096 MC、前置投放约
-// 15M」从未发生，整个冷启动前置投放机制形同虚设。
+// 于是倍数对结果没有任何影响，文档所述「首年日上限约 41,096 MC、前置投放约
+// 15M」也就无从生效。
 //
-// 修复后倍数作用在「基准额度 = min(参数上限, 配速项)」上。
+// 因此倍数必须作用在「基准额度 = min(参数上限, 配速项)」上。
 func TestEffectiveNetworkCap_PhaseMultiplierAppliesToPacing(t *testing.T) {
 	bank := newMockRefBank()
 	k, ctx := newReferralKeeper(t, bank)
@@ -173,9 +173,9 @@ func TestEffectiveNetworkCap_PhaseMultiplierAppliesToPacing(t *testing.T) {
 	require.Equal(t, paced, eff, "100 = 不加速，应严格等于配速额度")
 }
 
-// TestEffectiveNetworkCap_ExcludesCommittedLiabilities 是的回归测试。
+// 回归测试：配速上限必须扣除已承诺的负债。
 //
-// 缺陷背景：返佣在计提时只登记负债（pending rewards），真正扣减生态账户余额
+// 注意：返佣在计提时只登记负债（pending rewards），真正扣减生态账户余额
 // 发生在 ClaimRewards。配速上限若只看账户余额，就会把「已承诺的钱」当成
 // 「还能再花的钱」：用户长期不领取时，每天都能按同一速率继续承诺，
 // 累计承诺额可以超过预算总额，最后一批用户领取时账户已空。

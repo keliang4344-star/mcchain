@@ -28,7 +28,7 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 // 用原始键值而不是逐实体字段，是为了让「导出 → 导入」的无损性由构造保证：
 // 推荐关系树（value/count/inviter/invitee 四套索引）、待发返佣、日熔断计数器、
 // 清理游标、延后账本、释放节奏配置等全部随快照一起往返，
-// 新增索引时无需同步修改 proto —— 而「忘记同步」正是本次缺陷的成因。
+// 新增索引时无需同步修改 proto，从构造上排除「忘记同步」这一类故障。
 type StateKV struct {
 	Key   []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`

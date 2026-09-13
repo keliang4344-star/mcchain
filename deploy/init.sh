@@ -63,9 +63,9 @@ echo ">> min-gas-prices set to: $MIN_GAS"
 # 可选：区块 gas 上限（防无限 gas DoS）。
 #
 # 注意：max_gas 是 **genesis 的共识参数** consensus_params.block.max_gas，
-# app.toml 里并没有这个字段。旧版本此处对 app.toml 执行 `sed s/^max_gas = .*/`
-# 是一次静默空操作——日志照样打印 ">> max_gas set to"，但配置从未被写入，
-# 区块 gas 上限实际仍是 CometBFT 默认的 -1（不限）。这里改为直接改写 genesis。
+# app.toml 里并没有这个字段。对 app.toml 执行 `sed s/^max_gas = .*/` 是一次
+# 静默空操作——日志照样打印 ">> max_gas set to"，但配置从未被写入，
+# 区块 gas 上限实际仍是 CometBFT 默认的 -1（不限）。因此这里直接改写 genesis。
 #
 # 未设 MAX_GAS 时：下方 make_genesis.py 兜底写入 100000000；即便绕开脚本建链，
 # 链上 InitChainer 也会把无界的 max_gas 钳制到 DefaultBlockMaxGas（见 app/app.go）。
