@@ -1,0 +1,32 @@
+syntax = "proto3";
+package mcchain.dex;
+option go_package = "mcchain/x/dex/types";
+import "gogoproto/gogo.proto";
+import "mcchain/dex/pool.proto";
+
+// StateKV 模块 KVStore 的一条原始快照记录（导出/导入专用）。
+message StateKV {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+message GenesisState {
+  repeated Pool pools = 1 [(gogoproto.nullable) = false];
+  uint64 next_pool_id = 2;
+  Params params = 3 [(gogoproto.nullable) = false];
+  // state_kv 模块运行期状态的完整原始快照。
+  //
+  // 若只导出 pools / next_pool_id / params，会遗漏结算配置
+  // （SettlementConfig：Authority + Halted）与 LP 锁仓记录（LiquidityLock）：
+  // 导入后结算闸门会被重新置为 Halted=true（通道重新熔断），LP 锁仓记录丢失
+  // 导致锁定期形同虚设。快照机制让这两类状态随导出一起往返。
+  repeated StateKV state_kv = 4 [(gogoproto.nullable) = false];
+}
+
+message Params {
+  uint32 default_fee_rate_bps = 1;
+  uint64 max_pools = 2;
+  string lp_incentive_per_day = 3;
+  uint64 lp_incentive_end_height = 4;
+  uint64 lp_lock_blocks = 5;
+}

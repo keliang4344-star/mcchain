@@ -1,0 +1,28 @@
+# golangci-lint 配置
+#
+# 启用策略：**只开低噪音、高信号的检查**，保证 CI 门禁是「可信的」。
+#
+# 为什么不一上来就开满（staticcheck / errcheck / gocritic …）：链代码里有大量
+# 有意为之的模式（defer Close、错误吞掉后记日志、TODO 占位），一次性全开会产出
+# 数百条告警，团队很快会习惯性忽略它们——一个被忽略的门禁等于没有门禁。
+#
+# 正确路径是分层收紧：先把「零争议」的检查变成硬门禁（当前这一步），
+# 再按模块逐个引入更强的检查并把存量问题清干净（见 docs/DEV_WORKFLOW.md）。
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    # 与 go vet 一致，但在 CI 里作为 lint 的一部分独立可见。
+    - govet
+    # 无效赋值：写了一个值、之后立刻被覆盖 —— 几乎总是复制粘贴遗漏。
+    - ineffassign
+    # 拼写：零风险、零争议，注释和错误信息也会被检查。
+    - misspell
+
+issues:
+  exclude-use-default: true
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -1,0 +1,25 @@
+syntax = "proto3";
+package mcchain.referral;
+option go_package = "mcchain/x/referral/types";
+
+import "gogoproto/gogo.proto";
+import "mcchain/referral/params.proto";
+
+// StateKV 模块 KVStore 的一条原始快照记录（导出/导入专用）。
+//
+// 用原始键值而不是逐实体字段，是为了让「导出 → 导入」的无损性由构造保证：
+// 推荐关系树（value/count/inviter/invitee 四套索引）、待发返佣、日熔断计数器、
+// 清理游标、延后账本、释放节奏配置等全部随快照一起往返，
+// 新增索引时无需同步修改 proto —— 而「忘记同步」正是本次缺陷的成因。
+message StateKV {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+// GenesisState defines the referral module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+  // state_kv 模块运行期状态的完整原始快照。
+  // 为空时行为与历史一致（仅按 params 初始化），保证既有创世文件向后兼容。
+  repeated StateKV state_kv = 2 [(gogoproto.nullable) = false];
+}

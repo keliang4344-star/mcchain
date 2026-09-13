@@ -1,0 +1,43 @@
+syntax = "proto3";
+package mcchain.mcchain;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "mcchain/mcchain/params.proto";
+
+option go_package = "mcchain/x/mcchain/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/mcchain/mcchain/params";
+  }
+
+  // ChainInfo queries the chain system anchor info (whitepaper line 590).
+  rpc ChainInfo(QueryChainInfoRequest) returns (QueryChainInfoResponse) {
+    option (google.api.http).get = "/mcchain/mcchain/chain_info";
+  }
+}
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryChainInfoRequest is request type for the Query/ChainInfo RPC method.
+message QueryChainInfoRequest {}
+
+// QueryChainInfoResponse is response type for the Query/ChainInfo RPC method.
+message QueryChainInfoResponse {
+  string chain_name = 1;
+  string chain_version = 2;
+  int64 genesis_time = 3;
+  int64 block_height = 4;
+  int64 last_heartbeat = 5;
+}

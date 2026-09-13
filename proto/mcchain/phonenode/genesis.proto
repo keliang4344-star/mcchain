@@ -1,0 +1,25 @@
+syntax = "proto3";
+package mcchain.phonenode;
+
+import "gogoproto/gogo.proto";
+import "mcchain/phonenode/params.proto";
+
+option go_package = "mcchain/x/phonenode/types";
+
+// StateKV 模块 KVStore 的一条原始快照记录（导出/导入专用）。
+message StateKV {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+// GenesisState defines the phonenode module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+  // state_kv 模块运行期状态的完整原始快照。
+  //
+  // 覆盖节点注册表、attestation 状态与层级、心跳 FIFO 索引、slash 记录与冷却、
+  // 设备绑定与公钥、nonce 重放索引、津贴发放日标记等全部运行期状态。
+  // 若只导出 params，迁移后所有已注册设备与认证记录全部丢失，
+  // 且因为节点需要重新注册，链上会出现一批「凭空消失」的设备。
+  repeated StateKV state_kv = 2 [(gogoproto.nullable) = false];
+}

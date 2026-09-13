@@ -1,0 +1,16 @@
+{
+  "name": "cosmjs-bundle",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bundle CosmJS 0.32.4 into a single UMD file for the MC miner WebView",
+  "dependencies": {
+    "@cosmjs/amino": "0.32.4",
+    "@cosmjs/crypto": "0.32.4",
+    "@cosmjs/proto-signing": "0.32.4",
+    "@cosmjs/stargate": "0.32.4",
+    "@cosmjs/tendermint-rpc": "0.32.4"
+  },
+  "devDependencies": {
+    "esbuild": "0.20.2"
+  }
+}

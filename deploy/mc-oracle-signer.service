@@ -1,0 +1,56 @@
+[Unit]
+Description=MC Chain attestation oracle signer (oraclesvc)
+# 运维文档：docs/ORACLE_FRAMEWORK.md
+After=network-online.target
+Wants=network-online.target
+# 签名结果要提交上链，因此等待本机节点起来之后再启动；
+# 节点没起来时不要反复重启（见 RestartSec / StartLimitIntervalSec）。
+After=mcchaind.service
+Wants=mcchaind.service
+
+[Service]
+Type=simple
+# 专用低权限账户（server_baseline.sh 之外的手工步骤之一）
+# useradd -r -m -d /var/lib/mcchain-oracle -s /usr/sbin/nologin mcchain-oracle
+User=mcchain-oracle
+Group=mcchain-oracle
+WorkingDirectory=/var/lib/mcchain-oracle
+
+# ── 配置来源 ───────────────────────────────────────────────────────────────
+# 必填项全部在这两个文件里，权限 600，属主 mcchain-oracle。
+# 模板：deploy/oracle-signer.env.example
+EnvironmentFile=/etc/mcchain/oracle-signer.env
+# 签名私钥单独放（更严格权限）；缺失则服务 fail-fast，不会静默用随机密钥。
+EnvironmentFile=-/etc/mcchain/oracle-signer.key.env
+
+ExecStart=/usr/local/bin/mcchaind oracle
+
+# 崩溃即拉起；但配置类错误会在启动期直接退出（fail-fast 是设计意图），
+# 因此限制重启频率，避免刷爆日志掩盖根因。
+Restart=always
+RestartSec=5s
+StartLimitIntervalSec=300
+StartLimitBurst=10
+KillSignal=SIGTERM
+TimeoutStopSec=20s
+
+# ── 资源与安全 ─────────────────────────────────────────────────────────────
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+# 只有 keyring / 证书目录需要写（ORACLE_KEYRING_DIR 默认 $HOME/.mcchain-oracle）
+ReadWritePaths=/var/lib/mcchain-oracle
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ProtectKernelModules=true
+ProtectControlGroups=true
+# 注意：证书/根文件放在 /etc/mcchain/ 下（ProtectSystem=strict 下只读，可读不可改）
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mcchain-oracle
+
+[Install]
+WantedBy=multi-user.target

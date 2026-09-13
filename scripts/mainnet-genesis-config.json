@@ -1,0 +1,38 @@
+{
+  "chain_id": "mcchain-mainnet-1",
+  "bond_denom": "umc",
+  "depin_initial_pool": "467500000000000",
+  "tokenomics_cap": "1000000000000000",
+  "assert_accounts": [],
+  "gov_min_deposit_amount": "10000000",
+  "gov_voting_period": "172800s",
+  "gov_max_deposit_period": "172800s",
+  "gov_quorum": "0.334000000000000000",
+  "gov_threshold": "0.500000000000000000",
+  "gov_veto_threshold": "0.334000000000000000",
+  "edgeai_arbitrator": "",
+
+  "_comment_node_params": "节点治理参数：显式钉入创世，不隐式沿用 SDK 默认。类型须与 SDK genesis JSON 编码一致（int64/Dec 走字符串）。详见 docs/PROTOCOL_PARAMS.md。",
+  "_comment_edgeai_arb": "edgeai.arbitrator 由 make_genesis.py 自动从 tokenomics.allocations[name=team].address 派生（team 多签地址），不在此手填——若手填必须与团队多签完全一致，否则争议仲裁会落到错误地址。主网 team 地址来自 x/tokenomics/types/team_pubkeys_gen.go，可由 scripts/print_team_addr 打印。",
+
+  "block_max_gas": "100000000",
+  "block_max_bytes": "22020096",
+  "block_time_iota_ms": "1000",
+  "evidence_max_age_num_blocks": "100000",
+  "evidence_max_age_duration": "172800000000000",
+  "evidence_max_bytes": "1048576",
+
+  "staking_max_validators": 100,
+  "staking_max_entries": 7,
+  "staking_historical_entries": 10000,
+  "staking_unbonding_time": "1814400s",
+  "staking_min_commission_rate": "0.050000000000000000",
+
+  "_comment_min_commission": "min_commission_rate = 5%（与 Cosmos Hub 一致）。零佣金验证人可以以任何价格发起抢单、做无下限作恶而无经济处罚，是上线常见的零成本抢单面。本字段是创世时钉死的下限，验证人只能调到 ≥5%。",
+
+  "slashing_signed_blocks_window": "21600",
+  "slashing_min_signed_per_window": "0.500000000000000000",
+  "slashing_downtime_jail_duration": "600s",
+  "slashing_slash_fraction_double_sign": "0.050000000000000000",
+  "slashing_slash_fraction_downtime": "0.010000000000000000"
+}

@@ -1,0 +1,48 @@
+[Unit]
+Description=MC Chain event subscriber + metrics exporter (mcchain-event-subscriber)
+# 运维文档：docs/ALERTS.md
+After=network-online.target
+Wants=network-online.target
+After=mcchaind.service
+
+[Service]
+Type=simple
+# useradd -r -m -d /var/lib/mcchain-sub -s /usr/sbin/nologin mcchain-sub
+User=mcchain-sub
+Group=mcchain-sub
+WorkingDirectory=/var/lib/mcchain-sub
+
+# ── 配置（此前仓库里完全没有声明，等于「运维只能靠猜」）─────────────────────
+# MC_SUB_METRICS_ADDR  Prometheus /metrics 监听地址（默认 :2112；留空关闭）
+# MC_SUB_METRICS_FILE  JSON 摘要落盘路径（默认 event_metrics.json；留空关闭）
+# 注意：监听地址必须显式指定到内网/回环，不要让 exporters 裸奔在公网。
+Environment=MC_SUB_METRICS_ADDR=127.0.0.1:2112
+Environment=MC_SUB_METRICS_FILE=/var/lib/mcchain-sub/event_metrics.json
+
+# 参数 = CometBFT RPC 地址（只读订阅，不抢节点资源）
+ExecStart=/usr/local/bin/mcchain-event-subscriber http://127.0.0.1:26657
+
+Restart=always
+RestartSec=5s
+StartLimitIntervalSec=300
+StartLimitBurst=20
+KillSignal=SIGTERM
+TimeoutStopSec=15s
+
+# ── 资源与安全 ─────────────────────────────────────────────────────────────
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/lib/mcchain-sub
+RestrictSUIDSGID=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mcchain-event-subscriber
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,71 @@
+[Unit]
+Description=MC Chain node (mcchaind)
+# 运维文档：docs/DEPLOYMENT_GUIDE.md、docs/NODE_CONFIG.md、docs/VALIDATOR_RUNBOOK.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 运行账户：专用非 root 用户（server_baseline.sh 之外的手工步骤之一）
+# useradd -r -m -d /var/lib/mcchain -s /usr/sbin/nologin mcchain
+User=mcchain
+Group=mcchain
+Environment=HOME=/var/lib/mcchain
+# 显式声明「本次是主网创世」。
+#
+# 团队多签与基金会拨付地址若仍是源码可推导的占位派生，创世直接失败（链起不来），
+# 而不是打一行日志继续跑 —— 1.75 亿 MC 不能落在任何读过源码的人都能还原的私钥上。
+# 这个开关与 chain-id 怎么命名无关，是唯一可静态审计的判据。
+# 注意：InitGenesis 发生在首次 start（InitChain），而不是 init 子命令，
+# 因此写在这里即可覆盖创世时刻。devnet / CI 不设该变量。
+Environment=MC_REQUIRE_REAL_GENESIS_KEYS=1
+# 主网四道密钥闸门（env_file 缺失会直接被 app.go panic 拦住，但提前给清晰错误更友好）
+# 模板见 deploy/mainnet.env.example；运维 cp → chmod 600 → 按需填入。
+EnvironmentFile=-/etc/mcchain/mainnet.env
+# 生产必须 TeeOracle：MC_ORACLE_PUBKEY 由运维注入 /etc/mcchain/oracle.env（chmod 600）
+EnvironmentFile=-/etc/mcchain/oracle.env
+ExecStart=/usr/local/bin/mcchaind start --home /var/lib/mcchain/.mcchaind
+ExecReload=/bin/kill -HUP $MAINPID
+
+# 重启策略：进程崩溃 5s 后拉起，无限重试（链节点必须常驻）。
+# 排除「带错配置主动退出」（pre-init/参数错误退出码通常 1 / 2）以避免配置
+# 错误时疯狂重试刷屏——这种错误必须人工介入。
+Restart=always
+RestartSec=5s
+RestartPreventExitStatus=2 3 4 5 6 7 8 9 10
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+# 优雅停止：先 SIGTERM 等 45s（让 CometBFT 落盘 WAL），再 SIGKILL
+KillSignal=SIGTERM
+TimeoutStopSec=45s
+KillMode=mixed
+
+# 资源与文件句柄
+LimitNOFILE=1048576
+LimitNPROC=16384
+# 最低内存保障，防止被 OOM 优先杀
+OOMScoreAdjust=-500
+# 软/硬内存限（mainnet 默认 8G / 12G；运维按机器规格改 Unit 覆盖）。
+# MemoryHigh 让 systemd 在 cgroup 内 OOM kill 前先主动减速；MemoryMax 是硬墙。
+MemoryHigh=8G
+MemoryMax=12G
+
+# 安全加固（systemd 沙箱）
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/lib/mcchain
+RestrictSUIDSGID=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+MemoryDenyWriteExecute=false   # Go runtime 需要 W^X 兼容，保持 false
+
+# 日志进 journald，配合 logrotate 转 Loki/journald 远端
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mcchaind
+
+[Install]
+WantedBy=multi-user.target

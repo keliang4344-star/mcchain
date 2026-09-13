@@ -1,0 +1,6 @@
+{
+  "rpc": "http://localhost:26657",
+  "autoConnect": false,
+  "chainId": "",
+  "nodeName": "MC 公链"
+}

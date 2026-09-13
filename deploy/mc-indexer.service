@@ -1,0 +1,49 @@
+[Unit]
+Description=MC Chain event indexer (mcchain-indexer)
+# 运维文档：docs/INDEXER.md
+After=network-online.target
+Wants=network-online.target
+# 只读访问本机节点 RPC；节点没起来时重试即可，不构成依赖环。
+After=mcchaind.service
+
+[Service]
+Type=simple
+# useradd -r -m -d /var/lib/mcchain-indexer -s /usr/sbin/nologin mcchain-indexer
+User=mcchain-indexer
+Group=mcchain-indexer
+WorkingDirectory=/var/lib/mcchain-indexer
+
+# ── 参数 ───────────────────────────────────────────────────────────────────
+# --node  : 本机 CometBFT RPC；**（重要）indexer 只读，不抢节点资源，不会影响出块。
+# --out   : JSONL 后端目录（blocks.jsonl / events.jsonl / cursor 三件套，
+#           见 docs/INDEXER.md；cursor 原子写，可随时重启不丢块）。
+ExecStart=/usr/local/bin/mcchain-indexer run \
+          --node http://127.0.0.1:26657 \
+          --out /var/lib/mcchain-indexer/indexer
+
+Restart=always
+RestartSec=5s
+StartLimitIntervalSec=300
+StartLimitBurst=20
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+
+# ── 资源与安全 ─────────────────────────────────────────────────────────────
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/var/lib/mcchain-indexer
+RestrictSUIDSGID=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+# 磁盘是索引器的真实上限：数据盘写满会让节点一起出问题。
+# 建议同时配 systemd 的磁盘配额或独立分区，并接 docs/ALERTS.md 的磁盘告警。
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mcchain-indexer
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,73 @@
+syntax = "proto3";
+package mcchain.phonenode;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "mcchain/phonenode/params.proto";
+
+option go_package = "mcchain/x/phonenode/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/mcchain/phonenode/params";
+  }
+
+  // Attestation queries a node's current attestation state.
+  rpc Attestation(QueryAttestationRequest) returns (QueryAttestationResponse) {
+    option (google.api.http).get = "/mcchain/phonenode/attestation/{address}";
+  }
+
+  // Slashes queries a node's slash records.
+  rpc Slashes(QuerySlashesRequest) returns (QuerySlashesResponse) {
+    option (google.api.http).get = "/mcchain/phonenode/slashes/{address}";
+  }
+}
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryAttestationRequest is request type for the Query/Attestation RPC method.
+message QueryAttestationRequest {
+  string address = 1;
+}
+
+// QueryAttestationResponse is response type for the Query/Attestation RPC method.
+message QueryAttestationResponse {
+  Attestation attestation = 1 [(gogoproto.nullable) = false];
+}
+
+// QuerySlashesRequest is request type for the Query/Slashes RPC method.
+message QuerySlashesRequest {
+  string address = 1;
+}
+
+// QuerySlashesResponse is response type for the Query/Slashes RPC method.
+message QuerySlashesResponse {
+  repeated SlashRecord records = 1 [(gogoproto.nullable) = false];
+}
+
+// Attestation 链上 attestation 状态（仅存根哈希 + nonce + device_id_hash +  expiry + status；重验证链下）。
+message Attestation {
+  string root_hash     = 1;
+  string nonce         = 2;
+  string device_id_hash = 3;
+  int64  expiry        = 4;
+  string status        = 5;
+}
+
+// SlashRecord 一次 slash 的链上记录（地址/原因/惩罚基点/时间）。
+message SlashRecord {
+  string address    = 1;
+  string reason     = 2;
+  uint32 penalty_bps = 3;
+  int64  time       = 4;
+}

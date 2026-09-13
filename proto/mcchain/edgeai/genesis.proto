@@ -1,0 +1,24 @@
+syntax = "proto3";
+package mcchain.edgeai;
+
+import "gogoproto/gogo.proto";
+import "mcchain/edgeai/params.proto";
+
+option go_package = "mcchain/x/edgeai/types";
+
+// StateKV 模块 KVStore 的一条原始快照记录（导出/导入专用）。
+message StateKV {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+// GenesisState defines the edgeai module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+  // state_kv 模块运行期状态的完整原始快照。
+  //
+  // 覆盖任务（状态机各阶段）、托管金、验证结果与 pending 索引、争议与仲裁、
+  // 验证者预留池、声誉值等全部运行期状态。若只导出 params，
+  // 会导致导出/导入后所有在途任务与托管资金凭空消失。
+  repeated StateKV state_kv = 2 [(gogoproto.nullable) = false];
+}

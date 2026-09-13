@@ -1,0 +1,58 @@
+package types
+
+import (
+	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth/types"
+)
+
+// AccountKeeper defines the expected account keeper used for simulations (noalias)
+type AccountKeeper interface {
+	GetAccount(ctx sdk.Context, addr sdk.AccAddress) types.AccountI
+	// Methods imported from account should be defined here
+}
+
+// BankKeeper defines the expected interface needed to retrieve account balances
+// and move module coins.
+//
+// depin 不再自铸，故 BankKeeper 接口移除 MintCoins；奖励仅从生态池拨付的
+// InitialPool（已转至 depin 模块账户）经 SendCoinsFromModuleToAccount 对外拨付。
+// 同时移除 BurnCoins：设备任务赏金 100% 归节点，depin 不承担任何销毁职能
+// （白皮书《优化定稿版》§24.6 已否决「赏金 5% 销毁」），从类型层面物理禁止。
+type BankKeeper interface {
+	SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
+	// SendCoinsFromModuleToAccount 从 DePIN 模块账户向贡献设备拨付奖励（方案 A：DePIN 池拨付，不铸造）。
+	// 签名必须与 cosmos-sdk v0.47.3 的 bank.BaseKeeper 一致，否则 app 装配阶段编译失败。
+	SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
+	// Methods imported from bank should be defined here
+}
+
+// PhonenodeKeeper defines the minimal surface of the phonenode module that the
+// depin module depends on. Only sdk types are used on purpose, so that
+// x/depin/types does NOT import x/phonenode/types (which would create an
+// import cycle). The association key is the node Address, which equals the
+// depin device address (SubmitContribution.Creator).
+type PhonenodeKeeper interface {
+	// HasNode reports whether a mobile node with the given address is registered.
+	HasNode(ctx sdk.Context, addr string) bool
+	// IsAttested reports whether the node holds a currently valid attestation (反女巫)。
+	IsAttested(ctx sdk.Context, addr string) bool
+	// IsVerifiedAttested reports whether the node holds an attestation that is both
+	// currently valid AND carries an external oracle endorsement (TierOracle).
+	// This is the gate for actions whose economic weight must be backed by a real
+	// device rather than a self-signed (hence forgeable) attestation.
+	IsVerifiedAttested(ctx sdk.Context, addr string) bool
+	// MarkOracleVerified records that an external verifier has successfully checked
+	// this node's device attestation on-chain. It promotes the node to TierOracle
+	// so that the trust direction becomes one-way:
+	// device self-signature → oracle verification → economic weight.
+	// Without this write-back, depin's IsAttested read-back and phonenode's
+	// self-signed proof referenced each other, forming a circular trust chain.
+	MarkOracleVerified(ctx sdk.Context, addr, challenge string) error
+}
+
+// ReferralKeeper defines the minimal surface of the referral module needed by
+// the depin module to track referral rewards after a DePIN payout.
+type ReferralKeeper interface {
+	TrackDepinReward(ctx sdk.Context, submitter string, rewardAmount sdkmath.Int) error
+}

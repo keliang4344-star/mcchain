@@ -1,0 +1,24 @@
+syntax = "proto3";
+package mcchain.mcchain;
+
+import "gogoproto/gogo.proto";
+import "mcchain/mcchain/params.proto";
+
+option go_package = "mcchain/x/mcchain/types";
+
+// StateKV 模块 KVStore 的一条原始快照记录（导出/导入专用）。
+message StateKV {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+// GenesisState defines the mcchain module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+  // state_kv 模块运行期状态的完整原始快照。
+  //
+  // 当前覆盖渐进治理移交配置（GovernanceHandoverConfig）：它记录治理主体与
+  // 时间锁是否已移交，属于「一旦移交就不可回退」的状态，导出时丢失会把它
+  // 静默重置回默认值。
+  repeated StateKV state_kv = 2 [(gogoproto.nullable) = false];
+}

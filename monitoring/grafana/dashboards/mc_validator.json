@@ -1,0 +1,33 @@
+{
+  "title": "MC Validator",
+  "uid": "mc-validator",
+  "schemaVersion": 39,
+  "timezone": "browser",
+  "refresh": "30s",
+  "panels": [
+    {
+      "title": "Block Height",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"expr": "comet_block_height", "refId": "A"}]
+    },
+    {
+      "title": "Peers",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{"expr": "comet_p2p_peers", "refId": "A"}]
+    },
+    {
+      "title": "Voting Power",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{"expr": "comet_consensus_validator_power", "refId": "A"}]
+    },
+    {
+      "title": "Mempool Tx Count",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [{"expr": "comet_mempool_size", "refId": "A"}]
+    }
+  ]
+}

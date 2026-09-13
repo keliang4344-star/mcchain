@@ -1,0 +1,106 @@
+version: "3.8"
+
+# MobileChain 主网部署：验证人 / 全节点 / 快照节点 + 监控告警栈 + 链下预言机
+# 镜像默认本地构建（见 Dockerfile）。生产可改为预构建镜像 tag 并推到私有 registry。
+services:
+  validator:
+    build: .
+    container_name: mc-validator
+    command: ["start", "--home", "/root/.mcchain"]
+    # 创世四道闸门变量统一由 env_file 注入
+    # （模板 deploy/mainnet.env.example）。缺 MC_FOUNDATION_* 时
+    # tokenomics.InitGenesis 会让链直接起不来，而 validate-genesis 不会报错。
+    env_file:
+      - ./deploy/mainnet.env
+    volumes:
+      - ./deploy/validator:/root/.mcchain
+    ports:
+      - "26656:26656"   # p2p
+      - "26657:26657"   # rpc
+      - "1317:1317"     # rest api
+      - "9090:9090"     # gRPC
+      - "26660:26660"   # cometbft prometheus
+      # 注意：SDK 应用层指标不在独立端口，而是经 API server 的 /metrics 暴露（= 上面的 1317）。
+      # 不要映射 26661：那是空端口，指标不在那里。
+    restart: unless-stopped
+
+  fullnode:
+    build: .
+    container_name: mc-fullnode
+    command: ["start", "--home", "/root/.mcchain"]
+    volumes:
+      - ./deploy/fullnode:/root/.mcchain
+    ports:
+      - "12656:26656"
+      - "12657:26657"
+    restart: unless-stopped
+
+  snapshot:
+    build: .
+    container_name: mc-snapshot
+    command: ["start", "--home", "/root/.mcchain"]
+    volumes:
+      - ./deploy/snapshot:/root/.mcchain
+    ports:
+      - "13656:26656"
+      - "13657:26657"
+    restart: unless-stopped
+
+  # 链下 attestation 签名服务（= internal/oraclesvc，`mcchaind oracle`）
+  #
+  # 注意：ORACLE_LISTEN=:8080 叠加 ORACLE_KEY 被注释掉，在生产口径下必然 fail-fast：oraclesvc 的严格模式（ORACLE_STRICT=1 / ORACLE_ENV=production）
+  # 要求固定签名密钥（ORACLE_KEY 或 ORACLE_KEY_FILE）、/sign 的 ORACLE_SIGN_TOKEN、
+  # 以及 TLS 或显式 ORACLE_ALLOW_PLAINTEXT —— 少一项直接拒绝启动（这是设计意图）。
+  # 另外 :8080 绑全接口 + 端口直接发布会把未鉴权的 /sign 暴露出去。
+  # 生产建议走 systemd（deploy/mc-oracle-signer.service + deploy/oracle-signer.env.example）；
+  # 容器方式仅作本地联调，这里用 env_file 统一注入并只发布到宿主回环。
+  # 注意：容器内 ORACLE_LISTEN 需为 :8080（不是 127.0.0.1:8080），否则宿主端口映射打不进来。
+  oracle:
+    build: .
+    container_name: mc-oracle
+    command: ["oracle"]
+    env_file:
+      - ./deploy/oracle-signer.env
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+  # ===== 监控告警栈 =====
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: mc-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prom_data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: mc-alertmanager
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: mc-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=mcchain
+    volumes:
+      - ./monitoring/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./monitoring/grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  prom_data:
+  grafana_data:

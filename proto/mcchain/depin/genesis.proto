@@ -1,0 +1,25 @@
+syntax = "proto3";
+package mcchain.depin;
+
+import "gogoproto/gogo.proto";
+import "mcchain/depin/params.proto";
+
+option go_package = "mcchain/x/depin/types";
+
+// StateKV 模块 KVStore 的一条原始快照记录（导出/导入专用）。
+message StateKV {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+// GenesisState defines the depin module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+  // state_kv 模块运行期状态的完整原始快照。
+  //
+  // 覆盖设备状态、贡献记录、attestation 历史与已消费 challenge 索引、
+  // 七层防线的计数器与日累计、线性释放金库游标等全部运行期状态。
+  // 若只导出 params，一次「导出旧链 → 作为新链创世」的迁移会静默清空
+  // 所有设备与已发放记录，而生成出来的创世文件语法完全合法。
+  repeated StateKV state_kv = 2 [(gogoproto.nullable) = false];
+}

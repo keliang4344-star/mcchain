@@ -1,0 +1,40 @@
+{
+  "chain_id": "mcchain-mainnet-1",
+  "bond_denom": "umc",
+  "depin_initial_pool": "467500000000000",
+  "tokenomics_cap": "1000000000000000",
+  "assert_accounts": [],
+  "gov_min_deposit_amount": "10000000",
+  "gov_voting_period": "172800s",
+  "gov_max_deposit_period": "172800s",
+  "gov_quorum": "0.334000000000000000",
+  "gov_threshold": "0.500000000000000000",
+  "gov_veto_threshold": "0.334000000000000000",
+  "edgeai_arbitrator": "",
+  "_comment_edgeai_arbitrator": "留空即可：make_genesis.py 优先取 tokenomics.allocations[team].address（链上 TeamAddress 权威值），本字段仅在 genesis 缺 team 分配时兜底。切勿手填固定地址：该地址必须与链上 tokenomics 派生的团队地址一致，否则 EdgeAI 仲裁权会落到无人可签的地址上。",
+
+  "_comment_node_params": "节点治理参数：显式钉入创世，不隐式沿用 SDK 默认。类型须与 SDK genesis JSON 编码一致（int64/Dec 走字符串）。详见 docs/PROTOCOL_PARAMS.md。",
+  "block_max_gas": "100000000",
+  "block_max_bytes": "22020096",
+  "block_time_iota_ms": "1000",
+  "evidence_max_age_num_blocks": "100000",
+  "evidence_max_age_duration": "172800000000000",
+  "evidence_max_bytes": "1048576",
+
+  "staking_max_validators": 100,
+  "staking_max_entries": 7,
+  "staking_historical_entries": 10000,
+  "staking_unbonding_time": "1814400s",
+  "staking_min_commission_rate": "0.000000000000000000",
+
+  "slashing_signed_blocks_window": "21600",
+  "slashing_min_signed_per_window": "0.500000000000000000",
+  "slashing_downtime_jail_duration": "600s",
+  "slashing_slash_fraction_double_sign": "0.050000000000000000",
+  "slashing_slash_fraction_downtime": "0.010000000000000000",
+
+  "_comment_ibc": "IBC 限额（docs/IBC.md）。改这些参数需治理提案。",
+  "ibc_allowed_clients": ["07-tendermint", "09-localhost"],
+  "ibc_trusting_period": "1209600s",
+  "ibc_max_expected_time_per_block": "30000000000"
+}

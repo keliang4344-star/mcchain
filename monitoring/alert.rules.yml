@@ -1,0 +1,38 @@
+groups:
+  - name: mc-chain-health
+    rules:
+      - alert: ChainHalted
+        expr: increase(comet_block_height[5m]) <= 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MC 链已停止出块超过 5 分钟"
+          description: "comet_block_height 在最近 5 分钟内无增长，验证人可能已 halt，请立即排查。"
+
+      - alert: FewPeers
+        expr: comet_p2p_peers < 3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "验证人对等节点过少"
+          description: "当前 p2p peers = {{ $value }}，低于 3，存在网络孤立风险。"
+
+      - alert: ValidatorOutOfConsensus
+        expr: comet_consensus_validator_power == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "验证人不在共识验证人集合中"
+          description: "该节点的共识投票权为 0，可能未成功加入验证人集合或已被 slash/jail。"
+
+      - alert: OracleDown
+        expr: up{job="mc-oracle"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "链下预言机服务不可达"
+          description: "预言机签名服务 (mc-oracle) 连续 5 分钟无响应，设备 attestation 将无法完成。"

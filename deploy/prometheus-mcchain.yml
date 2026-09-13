@@ -1,0 +1,125 @@
+# MC 公链 · Prometheus 抓取与告警对接配置
+#
+# 定位：docs/ALERTS.md 六组规则的承载端。
+# 用法：
+#   1) 本文件作为 prometheus.yml 的 include 段（或合并进主配置）
+#   2) alerting: alertmanager 指向你的 Alertmanager
+#   3) rule_files 指向 mcchain_alerts.yml（从 docs/ALERTS.md 的 YAML 组合导出）
+#
+# 端口约定（docs/NODE_CONFIG.md）：
+#   26660  CometBFT 内建 prometheus（config.toml prometheus=true）
+#   1317   cosmos-sdk API server（telemetry 指标经其 /metrics 暴露）
+#   9100   node_exporter（主机指标）
+#   9110   blackbox_exporter（探测 RPC/REST 存活，可选）
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: mcchain-mainnet-1
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+rule_files:
+  - /etc/prometheus/rules/mcchain_alerts.yml
+
+scrape_configs:
+  # ── CometBFT 共识层指标 ──
+  - job_name: mcchain-cometbft
+    static_configs:
+      - targets:
+          - 'validator:26660'
+          - 'sentry1:26660'
+          - 'sentry2:26660'
+          - 'rpc1:26660'
+
+  # ── Cosmos SDK 应用层指标（telemetry）──
+  #
+  # SDK v0.47 的应用指标**不在独立端口**。
+  # app.toml [telemetry] 只有 enabled / prometheus-retention-time；
+  # 指标经 **API server 的 /metrics** 暴露（server/api/server.go registerMetrics），
+  # 因此这里抓 API 端口（默认 1317），并显式声明 metrics_path。
+  # 依赖：deploy/init.sh 已启用 telemetry 且打开 [api] 监听 0.0.0.0:1317。
+  - job_name: mcchain-app
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - 'validator:1317'
+          - 'rpc1:1317'
+
+  # ── 主机资源（disk/mem/cpu，ALERTS §3 资源组的数据源）──
+  - job_name: node
+    static_configs:
+      - targets:
+          - 'validator:9100'
+          - 'sentry1:9100'
+          - 'sentry2:9100'
+          - 'rpc1:9100'
+          - 'archive:9100'
+
+  # ── 外部探测：从公网视角确认 RPC/REST 存活 ──
+  # blackbox exporter 的静态 target 必须是 host:port
+  # （blackbox 实例地址），被探测 URL 放在 params.target。把完整 URL 写进
+  # targets 会让 Prometheus 无法抓取，外部探测失效。
+  - job_name: blackbox-rpc
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+      target: [https://rpc.mcchain.example/status]
+    static_configs:
+      - targets:
+          - blackbox:9110
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9110
+
+  - job_name: blackbox-rest
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+      target: [https://api.mcchain.example/cosmos/base/tendermint/v1beta1/node_info]
+    static_configs:
+      - targets:
+          - blackbox:9110
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9110
+
+  # ── 链下事件订阅器（deploy/mc-event-subscriber.service）──
+  # 这里不能用 job_name=indexer → indexer:2112：
+  # 但 cmd/indexer **不暴露任何 HTTP 端口**（无 promhttp / /metrics），
+  # 该 job 的 up 恒为 0，mc_subscriber_* 指标永远抓不到。
+  # 真正暴露指标的是 cmd/event-subscriber（MC_SUB_METRICS_ADDR，默认 :2112）。
+  - job_name: mcchain-subscriber
+    static_configs:
+      - targets: ['127.0.0.1:2112']
+
+  # ── 链下预言机签名服务（deploy/mc-oracle-signer.service）──
+  # 预言机只暴露 /healthz（无 /metrics），用 blackbox 探测存活与响应码。
+  # 认证签名停滞的告警依赖节点侧指标 + 此探测，见 docs/ALERTS.md。
+  - job_name: blackbox-oracle
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+      target: [http://127.0.0.1:8080/healthz]
+    static_configs:
+      - targets:
+          - blackbox:9110
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9110

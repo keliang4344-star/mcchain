@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alert.rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  - job_name: 'mc-validator-comet'
+    static_configs:
+      - targets: ['validator:26660']   # cometbft prometheus telemetry
+  - job_name: 'mc-validator-app'
+    static_configs:
+      - targets: ['validator:26661']   # cosmos-sdk app telemetry
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

@@ -1,0 +1,62 @@
+package types
+
+import (
+	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+)
+
+// AccountKeeper 最小账户接口（与 cosmos-sdk x/simulation.AccountKeeper 一致）。
+type AccountKeeper interface {
+	GetAccount(ctx sdk.Context, addr sdk.AccAddress) authtypes.AccountI
+}
+
+// 跨模块依赖边界说明（C1）：
+//   - EdgeAI 自身不持 Minter、不直接 mint（总量硬顶由 tokenomics 唯一掌控）。
+//   - 贡献奖励统一经 PayoutKeeper（由 depin 模块实现）从 depin 模块账户出币；
+//     "谁出币"= depin 模块账户，"谁记账"= tokenomics 的 minted_supply 不因此变化。
+//   - phonenode 仅提供认证闸口与作弊 slash 钩子，不参与出币。
+
+// PhonenodeKeeper depends on phonenode for attestation check + slash hook.
+type PhonenodeKeeper interface {
+	HasNode(ctx sdk.Context, addr string) bool
+	IsAttested(ctx sdk.Context, addr string) bool
+	// SlashIfBad is used for anti-cheat punishment when a dispute resolves as cheat.
+	SlashIfBad(ctx sdk.Context, addr, reason string, penaltyBps uint32) error
+	// GetVerifierNodes returns addresses of nodes eligible for EdgeAI verifier sampling:
+	// attestation valid, heartbeat recent, and staked >= 30000 MC (30000000000 umc).
+	// Non-validator nodes are excluded (verifier must be a bonded validator).
+	GetVerifierNodes(ctx sdk.Context) []string
+}
+
+// BankKeeper defines the expected bank keeper (for module account operations).
+// 需求方付费（escrow）模型下，EdgeAI 经 bankKeeper 完成：
+//   - SendCoinsFromAccountToModule：任务创建时由 creator 向 edgeai 模块账户托管 reward；
+//   - SendCoinsFromModuleToAccount：BeginBlock 结算时由 edgeai 模块账户向 submitter 拨付；
+//   - SendCoinsFromModuleToModule：企业费分账（节点/国库）与作弊回收（质押安全池）；
+//   - SpendableCoins：创建任务前校验 creator 余额是否足以托管。
+//
+// 接口不含 MintCoins / BurnCoins：任务奖励是需求方托管的真实付费，85% 归提交者、
+// 15% 归核验预留，「结算销毁 5%」已按白皮书《优化定稿版》§24.6 撤销；
+// edgeai 既不新印也不销毁，从类型层面物理禁止。
+type BankKeeper interface {
+	SpendableCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
+	SendCoinsFromAccountToModule(ctx sdk.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error
+	SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
+	// SendCoinsFromModuleToModule routes the protocol-treasury share of the
+	// enterprise settlement fee (the treasury is a module account).
+	SendCoinsFromModuleToModule(ctx sdk.Context, senderModule, recipientModule string, amt sdk.Coins) error
+}
+
+// PayoutKeeper 支付接口：由 depin 模块账户出币时受总量硬顶约束。
+// 当前 EdgeAI 拨付经 bankKeeper 从 edgeai 模块账户出币，走"需求方付费（escrow）"
+// 模型，不调用 PayoutReward；此接口保留以维持接线兼容，不在拨付路径上。
+type PayoutKeeper interface {
+	PayoutReward(ctx sdk.Context, addr sdk.AccAddress, amount uint64) error
+}
+
+// ReferralKeeper defines the minimal surface of the referral module needed by
+// the edgeai module to track referral rewards after EdgeAI task settlement.
+type ReferralKeeper interface {
+	TrackEdgeAIReward(ctx sdk.Context, submitter string, rewardAmount sdkmath.Int) error
+}

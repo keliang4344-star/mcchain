@@ -1,0 +1,42 @@
+{
+  "_comment": "MC 公链 · Web/APP 端点配置（熔断切换下发文件）。客户端按顺序探测 priority；failure_threshold 次失败后进入 cooldown_seconds 冷却，期间不再选中。字段说明见 web/README.md。版本号递增触发客户端刷新。",
+  "version": 1,
+  "chain_id": "mcchain-mainnet-1",
+  "min_app_version": "1.0.0",
+  "endpoints": [
+    {
+      "name": "rpc-primary",
+      "rpc": "https://rpc.mcchain.example",
+      "rest": "https://api.mcchain.example",
+      "grpc_web": "https://grpc.mcchain.example",
+      "priority": 1,
+      "failure_threshold": 3,
+      "cooldown_seconds": 60
+    },
+    {
+      "name": "rpc-secondary",
+      "rpc": "https://rpc2.mcchain.example",
+      "rest": "https://api2.mcchain.example",
+      "grpc_web": "https://grpc2.mcchain.example",
+      "priority": 2,
+      "failure_threshold": 3,
+      "cooldown_seconds": 120
+    },
+    {
+      "name": "rpc-emergency",
+      "rpc": "https://rpc-backup.example.org",
+      "rest": "https://api-backup.example.org",
+      "grpc_web": "",
+      "priority": 3,
+      "failure_threshold": 5,
+      "cooldown_seconds": 300
+    }
+  ],
+  "app_update": {
+    "min_version": "1.0.0",
+    "force_update": false,
+    "apk_url": "https://download.mcchain.example/latest.apk",
+    "apk_sha256": "REPLACE_WITH_RELEASE_SHA256",
+    "notes_url": "https://mcchain.example/release-notes"
+  }
+}

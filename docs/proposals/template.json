@@ -1,0 +1,26 @@
+{
+  "_comment": "MC 公链治理提案模板。把 messages 数组里替换成你实际想执行的 msg 即可。",
+  "title": "<≤255 字节>",
+  "description": "## 动机\n\n…\n\n## 影响面\n\n…\n\n## 回滚方案\n\n…\n\n## 风险评估\n\n…\n",
+  "messages": [
+    {
+      "@type": "/cosmos.gov.v1.MsgExecLegacyContent",
+      "authority": "mc10d07y265gmmuvt4z0w9aw880jnsr700j6zn9kn",
+      "content": {
+        "@type": "/cosmos.params.v1beta1.ParameterChangeProposal",
+        "title": "<与顶层 title 一致>",
+        "description": "<与顶层 description 一致>",
+        "changes": [
+          {
+            "subspace": "<module>",
+            "key": "<param_key>",
+            "value": "<JSON 序列化的目标值>"
+          }
+        ]
+      }
+    }
+  ],
+  "deposit": "10000000000umc",
+  "metadata": "ipfs://<CID>",
+  "expedited": false
+}

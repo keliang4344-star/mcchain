@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+env:
+  GO_VERSION: "1.22.5"
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # 格式检查前置：未格式化的代码在评审里会淹没真正的改动，
+      # 而且 gofmt 是零争议的，没有理由放进人工评审。
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l . | grep -v '^vendor/' || true)
+          if [ -n "$unformatted" ]; then
+            echo "::error::以下文件未通过 gofmt（本地运行 gofmt -w 修复）："
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test (with coverage)
+        run: go test ./... -coverprofile=coverage.out
+
+      # 数据竞争只在并发路径上暴露，常规测试跑一百遍也未必命中一次。
+      # 共识代码一旦有 race，表现是「链在某些节点上高度分叉」，排查成本极高，
+      # 因此这里用 -race 全量跑一遍作为门禁。
+      - name: Race detector
+        run: go test -race -timeout 30m ./...
+
+      - name: Coverage summary
+        run: go tool cover -func=coverage.out | tail -1
+
+  fuzz:
+    name: Fuzz smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # 短时 fuzz 不是「找齐所有 bug」，而是**防止不变量被悄悄改坏**：
+      # 每个靶对应一条明确的安全/经济约束（见各 fuzz_test.go 的说明），
+      # 一旦有人改动这些归一化/闸门逻辑而破坏约束，这里会立刻红。
+      # 时间取 20s：足够覆盖已知边界的邻域，又不会把 CI 拖长。
+      - name: Fuzz targets (20s each)
+        run: |
+          set -e
+          fuzz() { echo "::group::fuzz $2"; go test "./$1/" -run '^$' -fuzz "^$2\$" -fuzztime 20s; echo "::endgroup::"; }
+          fuzz x/phonenode/keeper FuzzValidateAttestationInputs
+          fuzz x/phonenode/keeper FuzzNormalizeAllowanceConfig
+          fuzz x/referral/keeper  FuzzReleaseScheduleNormalize
+          fuzz x/dex/keeper       FuzzValidateSettlementAuthority
+          fuzz x/mcchain/keeper   FuzzNormalizeHandoverConfig
+
+  security:
+    name: Vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # 依赖链漏洞扫描：本链的依赖面很宽（Cosmos SDK / CometBFT / IBC / CosmWasm），
+      # 其中任何一个的已知漏洞都会直接变成链的攻击面。这类信息只能靠外部数据库，
+      # 静态评审看不出来。
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59.1
+          args: --timeout=5m
+
+  genesis:
+    name: Genesis params
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 创世参数固化的回归测试。
+      # 这些参数一旦写错，后果是「链起不来」或「验证人被莫名 jail」，
+      # 而两者都要到主网 InitChain 或首日运行才暴露，代价极高。
+      - name: 创世参数回归测试
+        run: python scripts/test_genesis_params.py

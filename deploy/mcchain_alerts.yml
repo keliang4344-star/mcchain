@@ -1,0 +1,151 @@
+# MC 公链 · Prometheus 告警规则（mcchain_alerts.yml）
+#
+# 本文是 docs/ALERTS.md 六组规则的可加载落地文件，由
+# deploy/prometheus-mcchain.yml 的 rule_files 引用。
+#
+# 所有表达式只引用**真实存在**的指标：
+#   - mcchain_latest_block_height / mcchain_tokenomics_minted_supply /
+#     mcchain_tokenomics_total_supply_cap / mcchain_bank_total_supply
+#     —— x/tokenomics/keeper/metrics.go 每块生产（app.toml telemetry）
+#   - mcchain_oracle_last_attestation_timestamp
+#     —— x/phonenode/keeper/attestation.go 每次认证成功生产
+#   - up / node_* —— Prometheus 与 node_exporter 内建
+#   - cometbft_* —— CometBFT 内建（config.toml prometheus=true，:26660）
+#   - 业务计数器 dex_* / edgeai_* / phonenode_* —— 各模块 telemetry.IncrCounter
+#
+# 不设 mcchain_validator_missed_blocks / mcchain_validator_jailed 两条告警：
+# 这两个指标无生产方，误报无法收敛，节点层面的异常由 BlockStalled / NodeDown /
+# PeerShortage 兜底；精细的错过块率告警需接 slashing signing-info 查询，列入后续阶段。
+#
+# 用法：拷贝到 /etc/prometheus/rules/mcchain_alerts.yml（或 prometheus.yml 的
+# rule_files 所指路径），重载 Prometheus。通知渠道与静默窗口见 docs/ALERTS.md §6。
+
+groups:
+  # ───────────────────────── 1. 节点健康 ─────────────────────────
+  - name: node_health
+    rules:
+      - alert: NodeDown
+        expr: up{job=~"mcchain-(cometbft|app)"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.instance }} {{ $labels.job }} 不在响应（进程挂了或端口不通）"
+          runbook: docs/VALIDATOR_RUNBOOK.md
+
+      - alert: BlockStalled
+        # 高度 5 分钟没推进 = 出块停滞（4s/块正常应推进 ~75 块）。
+        # 覆盖原 ChainHalted：crisis halt 时节点 panic 退出，本规则先于 NodeDown 触发。
+        expr: delta(mcchain_latest_block_height[5m]) <= 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "链高度 5 分钟未推进（4s 出块预期 ~75 块）——共识停滞或 halt"
+          runbook: docs/INCIDENT_PLAYBOOK.md
+
+      - alert: NodeFallingBehind
+        # 本地 CometBFT 高度落后全网最大值 30 块（2 分钟）= 同步落后。
+        expr: |
+          cometbft_consensus_latest_block_height
+            < on() group_left() (max by () (cometbft_consensus_latest_block_height)) - 30
+        for: 2m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.instance }} 落后公网 ≥30 块（共识危险区）"
+          runbook: docs/VALIDATOR_RUNBOOK.md#13-nodestucklowheight
+
+      - alert: PeerShortage
+        # 验证人 P2P 对等节点不足：长期 <2 个 peer 的节点随时可能被隔离。
+        expr: cometbft_p2p_peers < 2
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.instance }} P2P peers < 2（存在被隔离风险）"
+          runbook: docs/VALIDATOR_RUNBOOK.md
+
+  # ───────────────────────── 2. 资源 ─────────────────────────
+  - name: resources
+    rules:
+      - alert: DiskFillingUp
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.2
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "磁盘可用 < 20%"
+          runbook: docs/VALIDATOR_RUNBOOK.md#14-diskfillingup
+
+      - alert: DiskFillingUpCritical
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.1
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "磁盘可用 < 10%（节点即将写不进数据）"
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) < 0.1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "可用内存 < 10%（OOM 风险）"
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "CPU 使用率 > 90% 持续 15 分钟（出块延迟风险）"
+
+  # ───────────────────────── 3. 认证/预言机链路 ─────────────────────────
+  - name: oracle
+    rules:
+      - alert: OracleAttestationStale
+        # 最近一次链上 attestation 的区块时间距今超过 30 分钟。
+        # 设备认证是「贡献即挖矿」的入口：停滞 = 设备无法过认证 = 无法参与挖矿。
+        expr: (time() - mcchain_oracle_last_attestation_timestamp) > 1800
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "链上 30+ 分钟没有任何新 attestation（认证链路或预言机停滞）"
+          runbook: docs/VALIDATOR_RUNBOOK.md#15-oracleattestationstale
+
+  # ───────────────────────── 4. 经济不变量（链级） ─────────────────────────
+  - name: chain_invariants
+    rules:
+      - alert: MintedSupplyApproachingCap
+        # 已铸造 / 硬顶 > 99%（本链创世即一次性铸满 1B，正常恒等于 100%——
+        # 该告警对「创世后二次增发」场景：正常应永远不再触发，一旦出现即审计事件）。
+        expr: |
+          (mcchain_tokenomics_minted_supply / mcchain_tokenomics_total_supply_cap) > 1.0
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "已铸造量超过硬顶——零通胀承诺被击穿，立即人工介入"
+
+      - alert: BankSupplyAboveMinted
+        # 链上真实总供应 > 已铸造量：说明创世五池之外被注资（与链上创世校验同口径）。
+        # 生产链正常情况 bank_total_supply == minted（devnet 因验证人注资会略高，
+        # 部署时按环境调整阈值或在 Alertmanager 静默 devnet 实例）。
+        expr: |
+          (mcchain_bank_total_supply - mcchain_tokenomics_minted_supply) > 1000000000000
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: "bank 总供应比已铸造量多 >1e12 umc（1M MC）——检查创世注资是否越池"
+
+  # ───────────────────────── 5. 业务健康（第一阶段核心链路） ─────────────────────────
+  - name: business
+    rules:
+      - alert: CheatDetectedSpike
+        # 1 小时内出现 10+ 次作弊判定：防刷量体系在高强度对抗下工作，
+        # 既是「拦截在生效」也是「攻击在进行」，需要人工看一眼样本。
+        expr: increase(edgeai_cheat_detected_count[1h]) > 10
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "1 小时内 10+ 次 cheat 判定——审查防刷量日志与被罚样本"
+
+      - alert: OfflineSlashSpike
+        expr: increase(phonenode_offline_slash[1h]) > 50
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "1 小时内 50+ 次离线 slash——大规模设备掉线或心跳链路故障"
