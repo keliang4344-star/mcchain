@@ -36,6 +36,92 @@
   - `GET /mcchain/mcchain/params`、`/mcchain/mcchain/chain_info`
   - 注意：`dex` / `referral` 模块未配置 REST 注解，仅暴露 gRPC（见下）
 
+### 2.1 REST 网关生产配置（Nginx：限流 / TLS / 访问控制）
+
+> Cosmos SDK REST/gRPC-Gateway（1317）**默认无鉴权、无限流**，直接暴露公网存在
+> 被滥用（高频查询拖垮节点、UDP 放大、敏感接口被扫描）风险。**主网部署必须在
+> 1317 之前放置反向代理**，且默认**只读**——所有写操作（广播交易）走 26657 RPC
+> 或带签名的 SDK 客户端，REST 仅承担查询。
+
+```nginx
+# /etc/nginx/conf.d/mcchain-rest.conf
+upstream mcchain_rest {
+    # 可挂多全节点做负载均衡；健康检查由 upstream 自动剔除宕机节点
+    server 127.0.0.1:1317 max_fails=3 fail_timeout=10s;
+    keepalive 32;
+}
+
+# 全局限流区（共享内存）：按 IP 限速
+limit_req_zone $binary_remote_addr zone=rest_global:10m rate=30r/s;
+# 敏感查询（区块/交易历史）更严
+limit_req_zone $binary_remote_addr zone=rest_heavy:10m rate=5r/s;
+
+server {
+    listen 443 ssl http2;
+    server_name rest.mcchain.example;   # 换成实际域名
+
+    ssl_certificate     /etc/nginx/tls/rest.mcchain.example.crt;
+    ssl_certificate_key /etc/nginx/tls/rest.mcchain.example.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # 安全头
+    add_header X-Content-Type-Options nosniff always;
+    add_header Cache-Control "no-store" always;
+
+    # 全局限流（默认 30 r/s/IP），超出返回 429
+    limit_req zone=rest_global burst=60 nodelay;
+    limit_req_status 429;
+
+    location / {
+        proxy_pass http://mcchain_rest;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # 重查询单独限速（区块/交易/txs/validators 等大响应）
+    location ~ ^/(cosmos/base/tendermint|cosmos/tx|cosmos/staking) {
+        limit_req zone=rest_heavy burst=15 nodelay;
+        limit_req_status 429;
+        proxy_pass http://mcchain_rest;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # 拒绝写类路径（REST 网关只读原则：POST 一律 405）
+    location ~* ^/.*\.(tx|broadcast|submit) {
+        if ($request_method = POST) { return 405; }
+        limit_req zone=rest_heavy burst=15 nodelay;
+        proxy_pass http://mcchain_rest;
+    }
+
+    # 健康检查端点不限流
+    location = /health { proxy_pass http://mcchain_rest; limit_req off; }
+}
+
+# HTTP 强制跳转 HTTPS
+server {
+    listen 80;
+    server_name rest.mcchain.example;
+    return 301 https://$host$request_uri;
+}
+```
+
+**说明与进阶**：
+
+- **限流参数**：`rate` 按自身容量测算（单节点全节点约承受 50~100 r/s 轻查询；此处给
+  保守值，误伤时调大 `burst` 而非 `rate`）。生产建议按节点数与前端 QPS 基准测试后固化。
+- **鉴权**：若 REST 仅内网使用，可在 Nginx 加 `allow 10.0.0.0/8; deny all;` 或
+  Basic Auth（`auth_basic`）；对外只读场景可用 API Key 头校验（`if ($http_x_api_key != "...") { return 403; }`）。
+- **只读边界**：Cosmos SDK 的 REST 网关仍会转发 `POST /cosmos/tx/v1beta1/simulate` 等
+  只读模拟接口，属安全范围；**广播交易必须走 26657 RPC 或 SDK 客户端**，不要把
+  1317 的 POST 透传到公网。
+- **联动防护**：配合 `docs/DEPLOYMENT_GUIDE.md` 哨兵架构，1317/26657 均只经代理暴露，
+  节点本机不直接监听公网。
+
 ## 3. gRPC（端口 9090）
 
 启用 reflection（`grpc.reflection.v1alpha.ServerReflection` 已注册），可用 `grpcurl` 直接探查：
