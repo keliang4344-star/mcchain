@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 
@@ -36,37 +37,60 @@ func nodeValAddress(addr string) (sdk.ValAddress, bool) {
 	return nil, false
 }
 
-// RecordSlash 追加一条 slash 记录（按地址聚合为 JSON 列表，便于 q phonenode slashes 查询）。
-// slash 绝不调用 MintCoins：仅吊销 attestation + 记录 + （若是 bonded 验证人）staking.Slash/Jail。
+// RecordSlash 追加一条 slash 记录（分片存储）。
+//
+// 每条记录独立成键（SlashRecordSeqKey(addr, seq)），避免「单 key JSON 数组随
+// 审计历史线性膨胀」造成的读写放大；序号由 SlashSeqKey 单调递增并以 8 字节
+// 大端编码，键序即记录序。slash 绝不调用 MintCoins：仅吊销 attestation +
+// 记录 + （若是 bonded 验证人）staking.Slash/Jail。
 func (k Keeper) RecordSlash(ctx sdk.Context, addr, reason string, penaltyBps uint32) {
+	store := ctx.KVStore(k.storeKey)
+	seq := k.nextSlashSeq(store, addr)
 	rec := types.SlashRecord{
 		Address:    addr,
 		Reason:     reason,
 		PenaltyBps: penaltyBps,
 		Time:       ctx.BlockTime().Unix(),
 	}
-	recs := k.GetSlashes(ctx, addr)
-	recs = append(recs, rec)
-	bz, err := json.Marshal(recs)
+	bz, err := json.Marshal(rec)
 	if err != nil {
 		// 关键审计路径：slash 记录写入失败属状态损坏，必须 fail-fast 而非静默丢弃审计记录。
-		panic(fmt.Sprintf("phonenode: marshal slash records for %s: %v", addr, err))
+		panic(fmt.Sprintf("phonenode: marshal slash record for %s: %v", addr, err))
 	}
-	ctx.KVStore(k.storeKey).Set(types.SlashRecordKey(addr), bz)
+	store.Set(types.SlashRecordSeqKey(addr, seq), bz)
 }
 
-// GetSlashes 读取某地址的全部 slash 记录；无则空切片。
-func (k Keeper) GetSlashes(ctx sdk.Context, addr string) []types.SlashRecord {
-	bz := ctx.KVStore(k.storeKey).Get(types.SlashRecordKey(addr))
-	if bz == nil {
-		return []types.SlashRecord{}
+// nextSlashSeq 返回某地址下一条记录序号并原子推进计数器。
+func (k Keeper) nextSlashSeq(store sdk.KVStore, addr string) uint64 {
+	seq := uint64(0)
+	if bz := store.Get(types.SlashSeqKey(addr)); bz != nil {
+		if len(bz) != 8 {
+			panic(fmt.Sprintf("phonenode: corrupt slash seq for %s", addr))
+		}
+		seq = binary.BigEndian.Uint64(bz)
 	}
-	var recs []types.SlashRecord
-	if err := json.Unmarshal(bz, &recs); err != nil {
-		// fail-closed：罚没记录损坏时返回空切片会让审计与治理查询看不到
-		// 历史罚没，且 RecordSlash 会在此基础上 append 覆盖写，等于丢审计
-		// 轨迹。panic 让损坏在读取处即暴露。
-		panic(fmt.Sprintf("phonenode: unmarshal slash records for %s: %v", addr, err))
+	next := make([]byte, 8)
+	binary.BigEndian.PutUint64(next, seq+1)
+	store.Set(types.SlashSeqKey(addr), next)
+	return seq
+}
+
+// GetSlashes 读取某地址的全部 slash 记录（按记录序号升序）；无则空切片。
+// 遍历前缀 SlashRecordKey(addr)，键序即记录序，无需额外排序。
+func (k Keeper) GetSlashes(ctx sdk.Context, addr string) []types.SlashRecord {
+	store := ctx.KVStore(k.storeKey)
+	it := sdk.KVStorePrefixIterator(store, types.SlashRecordKey(addr))
+	defer it.Close()
+	recs := []types.SlashRecord{}
+	for ; it.Valid(); it.Next() {
+		var rec types.SlashRecord
+		if err := json.Unmarshal(it.Value(), &rec); err != nil {
+			// fail-closed：罚没记录损坏时返回空切片会让审计与治理查询看不到
+			// 历史罚没，且后续追加会被静默跳过，等于丢审计轨迹。panic 让
+			// 损坏在读取处即暴露。
+			panic(fmt.Sprintf("phonenode: unmarshal slash record for %s: %v", addr, err))
+		}
+		recs = append(recs, rec)
 	}
 	return recs
 }

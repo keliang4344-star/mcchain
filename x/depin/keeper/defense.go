@@ -156,7 +156,7 @@ func (k Keeper) RunDefensePipeline(ctx sdk.Context, deviceAddr, taskType string,
 	}
 
 	// 第 6 层：IP/地理位置分散度
-	if result := k.defenseLayer6_IPDispersion(ctx, deviceAddr); !result.Passed {
+	if result := k.defenseLayer6IPDispersion(ctx, deviceAddr); !result.Passed {
 		return result
 	}
 
@@ -353,7 +353,7 @@ func (k Keeper) defenseLayer5_ActivityTracking(ctx sdk.Context, deviceAddr strin
 // “Layer6 应拦截集中提交”的语义，改为超过阈值即拒绝，避免名实不符的
 // “告警层”让刷量者无成本地绕过。
 
-func (k Keeper) defenseLayer6_IPDispersion(ctx sdk.Context, deviceAddr string) DefenseResult {
+func (k Keeper) defenseLayer6IPDispersion(ctx sdk.Context, deviceAddr string) DefenseResult {
 	store := ctx.KVStore(k.storeKey)
 	height := ctx.BlockHeight()
 	key := defenseBlockSubKey(height)

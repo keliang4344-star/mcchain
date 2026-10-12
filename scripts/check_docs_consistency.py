@@ -5,8 +5,10 @@ Also regenerates docs/generated/events.md and compares it to the committed copy.
 """
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -58,17 +60,24 @@ def main():
                 if st in s:
                     errors.append(f"{os.path.relpath(path, ROOT)}: stale '{st}'")
     # 3) regenerated events doc drift
+    # 提交策略：docs/generated/ 不入库（CI 生成 + artifact 归档，见 ci.yml
+    # docs-generated job）。本地若保留副本则必须与代码一致，否则报错——
+    # 既保证「文档永不漂移」，又避免每次事件变更都要手工提交生成物。
     gen = os.path.join(ROOT, "scripts", "gen_events_doc.py")
     committed = os.path.join(ROOT, "docs", "generated", "events.md")
     if os.path.exists(gen):
-        subprocess.run([sys.executable, gen], check=True)
-        if not os.path.exists(committed):
-            errors.append("docs/generated/events.md not committed")
-        else:
-            status = subprocess.run(["git", "diff", "--quiet", "--", "docs/generated/events.md"],
-                                    cwd=ROOT, capture_output=True)
-            if status.returncode != 0:
-                errors.append("docs/generated/events.md drifted from code (run gen_events_doc.py)")
+        tmp = tempfile.mkdtemp(prefix="mcchain-docs-")
+        gen_out = os.path.join(tmp, "events.md")
+        try:
+            subprocess.run([sys.executable, gen, "--out", gen_out], check=True)
+            if not os.path.exists(gen_out) or os.path.getsize(gen_out) == 0:
+                errors.append("docs/generated/events.md generation produced empty output")
+            if os.path.exists(committed):
+                with open(gen_out, encoding="utf-8") as f1, open(committed, encoding="utf-8") as f2:
+                    if f1.read() != f2.read():
+                        errors.append("docs/generated/events.md drifted from code (run gen_events_doc.py)")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
     if errors:
         print("DOCS CONSISTENCY FAILED:")

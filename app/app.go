@@ -7,7 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"mcchain/internal/chainprofile"
 
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
@@ -1402,18 +1403,13 @@ func (app *App) enforceBlockMaxGas(ctx sdk.Context) *tmproto.ConsensusParams {
 	return cp
 }
 
-// isProductionChainID 判断 chain-id 是否为生产网络。
+// isProductionChainID 判断 chain-id 是否为生产网络（委托 chainprofile 显式判定）。
 //
-// 默认判定为「是」——安全检查的失败方向必须是拦截而非放行。只有明确带有
-// test/dev/local/sim/simulation 标记的链才被视为非生产环境并降级为告警。
+// 默认判定为「是」——安全检查的失败方向必须是拦截而非放行。判定规则：
+// 显式白名单（mcchain-mainnet-1 / mcchain-mainnet）→ 生产；含 test/dev/local/sim
+// 标记 → 非生产（本地开发/CI 降级为告警）；其余未识别 chain-id → 生产（fail-closed）。
 func isProductionChainID(chainID string) bool {
-	id := strings.ToLower(chainID)
-	for _, marker := range []string{"test", "dev", "local", "sim"} {
-		if strings.Contains(id, marker) {
-			return false
-		}
-	}
-	return true
+	return chainprofile.IsProduction(chainID)
 }
 
 // Configurator get app configurator

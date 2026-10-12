@@ -38,10 +38,14 @@ def collect():
 
 
 def main():
+    # 支持 --out PATH：CI 生成到临时目录校验/归档时使用；默认写 docs/generated/events.md。
+    out = OUT
+    if len(sys.argv) >= 3 and sys.argv[1] == "--out":
+        out = sys.argv[2]
     events = collect()
     total = sum(len(v) for v in events.values())
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w", encoding="utf-8", newline="") as f:
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    with open(out, "w", encoding="utf-8", newline="") as f:
         f.write("# MobileChain 链上事件完整清单（由脚本生成，禁止手改）\n\n")
         f.write(f"> 生成命令：`python scripts/gen_events_doc.py`。本文件由 CI 门禁校验，与代码漂移会直接失败。\n\n")
         f.write(f"共 **{total} 类事件**，按模块聚合：\n\n")
@@ -49,7 +53,7 @@ def main():
         for mod in sorted(events):
             for ev in events[mod]:
                 f.write(f"| {mod} | `{ev}` |\n")
-    print(f"generated {OUT}: {total} events")
+    print(f"generated {out}: {total} events")
 
 
 if __name__ == "__main__":

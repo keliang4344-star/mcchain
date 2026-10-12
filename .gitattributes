@@ -1,0 +1,4 @@
+# 强制 shell 脚本以 LF 入库/出库：
+# core.autocrlf=true 的 Windows 工作区会把脚本检出为 CRLF，
+# 而 bash 执行 CRLF 脚本会因 `set -euo pipefail\r` 报 "set: pipefail"。
+*.sh text eol=lf

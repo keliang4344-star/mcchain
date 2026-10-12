@@ -5,9 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"mcchain/internal/chainprofile"
 	"mcchain/x/depin/types"
 )
 
@@ -148,13 +149,11 @@ func oracleInWhitelist(addr string, list []string) bool {
 	return false
 }
 
-// isProductionChainID 报告当前是否生产部署。
-// test/dev/local/sim 链豁免预言机白名单闸门（兼容 SoftOracle 本地开发与 CI）。
+// isProductionChainID 报告当前是否生产部署（委托 chainprofile 显式判定）。
+// 显式白名单（mcchain-mainnet-1 / mcchain-mainnet）+ test/dev/local/sim 标记
+// 豁免 + fail-closed 兜底，见 internal/chainprofile。
 func isProductionChainID(chainID string) bool {
-	return !strings.Contains(chainID, "test") &&
-		!strings.Contains(chainID, "dev") &&
-		!strings.Contains(chainID, "local") &&
-		!strings.Contains(chainID, "sim")
+	return chainprofile.IsProduction(chainID)
 }
 
 // IsDeviceAttestationValid 报告设备的 depin attestation 当前是否仍然有效。

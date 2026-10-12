@@ -27,6 +27,12 @@
 #
 set -euo pipefail
 
+# git-bash/MSYS2 会擅自把形如 `E:\...` 的参数再转回 `/e/...`，导致 win() 的转换白做，
+# 原生 mcchaind 拿到 `/e/...` 会当成相对路径而**静默失败**（exit 0 但什么都不落盘）。
+# 这里禁用 MSYS 路径自动转换，所有交给原生程序的路径一律显式走 win()。
+export MSYS2_ARG_CONV_EXCL='*'
+export MSYS_NO_PATHCONV=1
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEVNET_HOME="${DEVNET_HOME:-$REPO_ROOT/.devnet}"
 CHAIN_ID="${DEVNET_CHAINID:-mcchain-dev-1}"
@@ -92,14 +98,21 @@ win() {
 
 resolve_bin() {
   if [[ -n "${MCCHAIND:-}" ]]; then
-    [[ -x "$MCCHAIND" ]] || die "MCCHAIND=$MCCHAIND 不存在或不可执行"
-    return
+    # git-bash 下 -x 对 .exe 的权限位判定不稳定，改用「存在且(可执行 或 *.exe)」
+    if [[ -f "$MCCHAIND" ]] && { [[ -x "$MCCHAIND" ]] || [[ "$MCCHAIND" == *.exe ]]; }; then
+      return
+    fi
+    die "MCCHAIND=$MCCHAIND 不存在或不可执行"
   fi
+  # Windows(git-bash) 必须使用带 .exe 的原生二进制，否则 CreateProcess 无法启动无后缀 PE
   local candidate="$REPO_ROOT/build/mcchaind"
-  if [[ ! -x "$candidate" ]]; then
+  if [[ "$(uname -s)" == MINGW* || "$(uname -s)" == MSYS* ]]; then
+    candidate="$REPO_ROOT/build/mcchaind.exe"
+  fi
+  if [[ ! -f "$candidate" ]]; then
     log "未找到 $candidate，开始构建 mcchaind"
     mkdir -p "$REPO_ROOT/build"
-    ( cd "$REPO_ROOT" && go build -o build/mcchaind ./cmd/mcchaind )
+    ( cd "$REPO_ROOT" && go build -o "$candidate" ./cmd/mcchaind )
   fi
   MCCHAIND="$candidate"
 }
@@ -228,6 +241,7 @@ cfg = sub(cfg, r'^laddr\s*=\s*"tcp://0\.0\.0\.0:26656"$', f'laddr = "tcp://0.0.0
 cfg = sub(cfg, r'^persistent_peers\s*=.*$', f'persistent_peers = "{peers}"', label="persistent_peers")
 cfg = sub(cfg, r'^timeout_commit\s*=.*$', f'timeout_commit = "{block_time}"', label="timeout_commit")
 cfg = sub(cfg, r'^addr_book_strict\s*=.*$', 'addr_book_strict = false', required=False, label="addr_book_strict")
+cfg = sub(cfg, r'^allow_duplicate_ip\s*=.*$', 'allow_duplicate_ip = true', required=False, label="allow_duplicate_ip")
 cfg = sub(cfg, r'^prometheus\s*=.*$', 'prometheus = true', required=False, label="prometheus")
 open(cfg_path, "w", encoding="utf-8").write(cfg)
 
@@ -341,8 +355,11 @@ cmd_init() {
   for (( i = 1; i < n; i++ )); do
     cp "$(node_home "$i")/config/gentx/"*.json "$(node_home 0)/config/gentx/" 2>/dev/null || true
   done
-  MC collect-gentxs --home "$(node_home 0)" >/dev/null 2>&1
-  MC validate-genesis --home "$(node_home 0)" >/dev/null
+  local collect_out
+  collect_out="$(MC collect-gentxs --home "$(node_home 0)" 2>&1)" \
+    || die "collect-gentxs 失败：$collect_out（检查各 node*/config/gentx 是否齐全、min_self_delegation 是否达标）"
+  MC validate-genesis --home "$(node_home 0)" >/dev/null \
+    || die "validate-genesis 失败：最终 genesis 非法（collect-gentxs 后残留问题）"
   [[ -d "$(node_home 0)/config/gentx" ]] && rm -rf "$(node_home 0)/config/gentx"
 
   for (( i = 1; i < n; i++ )); do

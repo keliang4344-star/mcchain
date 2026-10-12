@@ -122,3 +122,32 @@ jobs:
       # 而两者都要到主网 InitChain 或首日运行才暴露，代价极高。
       - name: 创世参数回归测试
         run: python scripts/test_genesis_params.py
+
+  docs:
+    name: Docs consistency & generated docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 1) 文档一致性门禁：陈旧版本串 / MUST_HAVE / 事件文档漂移。
+      #    docs/generated/ 不入库，门禁改为生成到临时目录并与本地副本比对；
+      #    本地无副本时仅校验「生成成功且非空」。
+      - name: Docs consistency gate
+        run: python scripts/check_docs_consistency.py
+
+      # 2) 生成类文档（events.md）由 CI 生成并归档为 artifact，
+      #    开发者无需手工提交生成物，避免「改了事件忘了同步文档」。
+      - name: Generate events doc (artifact)
+        run: |
+          mkdir -p docs-generated-artifact
+          python scripts/gen_events_doc.py --out docs-generated-artifact/events.md
+
+      - name: Upload generated docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-docs
+          path: docs-generated-artifact/
+          if-no-files-found: error

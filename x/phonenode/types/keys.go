@@ -22,8 +22,19 @@ func KeyPrefix(p string) []byte {
 var (
 	// AttestationKeyPrefix 是 attestation 状态存储前缀：AttestationKey(addr) = "Attestation:"+addr
 	AttestationKeyPrefix = []byte("Attestation:")
-	// SlashRecordKeyPrefix 是某地址 slash 记录列表存储前缀：SlashRecordKey(addr) = "Slash:"+addr
+	// SlashRecordKeyPrefix 是某地址 slash 记录列表存储前缀：
+	//   SlashRecordKey(addr)        = "Slash:<addr>:"           —— 遍历该地址全部记录的前缀
+	//   SlashRecordSeqKey(addr,seq) = "Slash:<addr>:" + be8(seq) —— 单条记录键
+	//   SlashSeqKey(addr)           = "SlashSeq:<addr>:"        —— 下一条记录序号
+	// 每条记录独立成键（而非单 key JSON 数组），原因：
+	//   - 记录数随时间增长，单 key 数组的读写放大随审计历史线性膨胀，最终拖垮
+	//     出块期的 slash 路径与查询；分片后每次追加只需写一条小键；
+	//   - 治理/运维可按单条记录精确清理（如应地址申诉删除误罚记录），不再需要
+	//     整段重写；
+	//   - 序号用 8 字节大端编码，键的字典序即记录的先后序，GetSlashes 无需排序。
 	SlashRecordKeyPrefix = []byte("Slash:")
+	// SlashSeqKeyPrefix 是某地址 slash 记录序号计数器前缀：SlashSeqKey(addr) = "SlashSeq:<addr>:"
+	SlashSeqKeyPrefix = []byte("SlashSeq:")
 	// DeviceHashKeyPrefix 是 device_id_hash → 节点地址 的反查索引前缀（防女巫设备绑定）。
 	DeviceHashKeyPrefix = []byte("DeviceHash:")
 	// NonceKeyPrefix 是 attestation nonce 重放防护索引前缀：NonceKey(addr,nonce) = "Nonce:"+addr+"/"+nonce
@@ -150,9 +161,32 @@ func AttestationKey(addr string) []byte {
 	return append(AttestationKeyPrefix, []byte(addr)...)
 }
 
-// SlashRecordKey 返回某地址的 slash 记录列表 key。
+// SlashRecordKey 返回某地址 slash 记录列表的遍历前缀（含尾 ':'，避免与
+// 其他地址前缀串匹配：addr="abc" 时不会扫到 "Slash:abcd:" 的记录）。
 func SlashRecordKey(addr string) []byte {
-	return append(SlashRecordKeyPrefix, []byte(addr)...)
+	return append(append(SlashRecordKeyPrefix, []byte(addr)...), ':')
+}
+
+// SlashRecordSeqKey 返回某地址第 seq 条 slash 记录的键。
+// seq 用 8 字节大端编码，保证键的字典序即记录写入序。
+func SlashRecordSeqKey(addr string, seq uint64) []byte {
+	out := make([]byte, 0, len(SlashRecordKeyPrefix)+len(addr)+1+8)
+	out = append(out, SlashRecordKeyPrefix...)
+	out = append(out, []byte(addr)...)
+	out = append(out, ':')
+	return append(out, seqBE(seq)...)
+}
+
+// SlashSeqKey 返回某地址 slash 记录序号计数器的键。
+func SlashSeqKey(addr string) []byte {
+	return append(append(SlashSeqKeyPrefix, []byte(addr)...), ':')
+}
+
+func seqBE(seq uint64) []byte {
+	return []byte{
+		byte(seq >> 56), byte(seq >> 48), byte(seq >> 40), byte(seq >> 32),
+		byte(seq >> 24), byte(seq >> 16), byte(seq >> 8), byte(seq),
+	}
 }
 
 // DeviceHashKey 返回 device_id_hash 反查索引 key。

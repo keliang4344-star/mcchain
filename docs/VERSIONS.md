@@ -1,3 +1,14 @@
+---
+AIGC:
+    Label: "1"
+    ContentProducer: 001191440300708461136T1XGW3
+    ProduceID: c66a8379f631ade5ceee5cebcd48deca_0219f953c5ee11f197b3525400248c00
+    ReservedCode1: 8u0EK8O9lD2Nrb+J9q8kKTGzlDWMRpDTOhs+tGArngrS+bcU0Hs7RAnMj4S7rig5Tj2wZ8XvfnVVT8R9j2x/hpLDN2I5qwWdX4pLQGjnbLyjktX93Rj+uPjgup4hTpxPInrfOYM860YudvxTXt3lLnQj6yPpX+moLqaEMtQ0Y+8kbeDyvFaKhZJJiKQ=
+    ContentPropagator: 001191440300708461136T1XGW3
+    PropagateID: c66a8379f631ade5ceee5cebcd48deca_0219f953c5ee11f197b3525400248c00
+    ReservedCode2: 8u0EK8O9lD2Nrb+J9q8kKTGzlDWMRpDTOhs+tGArngrS+bcU0Hs7RAnMj4S7rig5Tj2wZ8XvfnVVT8R9j2x/hpLDN2I5qwWdX4pLQGjnbLyjktX93Rj+uPjgup4hTpxPInrfOYM860YudvxTXt3lLnQj6yPpX+moLqaEMtQ0Y+8kbeDyvFaKhZJJiKQ=
+---
+
 # MobileChain 版本与依赖矩阵（单一权威来源）
 
 > 本文档是全仓库版本信息的**唯一权威来源**。所有文档中的版本描述（DEVELOPMENT.md、sdk_event_contract.md、mobile_sdk_integration.md 等）必须与此一致；
@@ -43,3 +54,4 @@
 | DEVELOPMENT.md（proto 生成） | v0.47.14 / v1.7.0 / beta.5 |
 | sdk_event_contract.md / mobile_sdk_integration.md | v0.47.14 / v0.37.6 |
 | README.md / README_EN.md | IBC v7.3.0 |
+*（内容由AI生成，仅供参考）*
