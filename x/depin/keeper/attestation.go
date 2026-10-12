@@ -104,7 +104,10 @@ func (k Keeper) GetAttestationHistory(ctx sdk.Context, deviceID string) types.At
 	}
 	var history types.AttestationHistory
 	if err := json.Unmarshal(bz, &history); err != nil {
-		return types.AttestationHistory{Results: []types.AttestationResult{}}
+		// fail-closed：存储的认证历史损坏时返回空历史会让下游误以为设备
+		// 「从未认证」，进而可能放行一次本应被历史否决的重复认证。panic 让
+		// 损坏可见并中止区块，由运维修复，而不是静默吞坏数据。
+		panic(fmt.Sprintf("depin: unmarshal attestation history for %s: %v", deviceID, err))
 	}
 	return history
 }
@@ -117,7 +120,11 @@ func (k Keeper) GetOracleWhitelist(ctx sdk.Context) []string {
 	}
 	var list []string
 	if err := json.Unmarshal(bz, &list); err != nil {
-		return nil
+		// fail-closed：白名单损坏时返回 nil 会退化为「空白名单」，等于所有
+		// oracle 签名者都被拒绝（非生产链）或被当作无人被授权（生产链上
+		// 所有认证被拒）。两种都是安全侧，但会让故障不可见且难以排查；
+		// panic 使损坏在出块期即暴露。
+		panic(fmt.Sprintf("depin: unmarshal oracle whitelist: %v", err))
 	}
 	return list
 }

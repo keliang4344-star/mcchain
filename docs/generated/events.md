@@ -1,0 +1,74 @@
+# MobileChain 链上事件完整清单（由脚本生成，禁止手改）
+
+> 生成命令：`python scripts/gen_events_doc.py`。本文件由 CI 门禁校验，与代码漂移会直接失败。
+
+共 **66 类事件**，按模块聚合：
+
+| 模块 | 事件 |
+|---|---|
+| depin | `depin.AttestationResult` |
+| depin | `depin.DefenseBlocked` |
+| depin | `depin.DeviceAttested` |
+| depin | `depin.ReleaseCapped` |
+| depin | `depin.RewardPaid` |
+| dex | `dex.LPIncentiveThrottled` |
+| dex | `dex.MinimumLiquidityLocked` |
+| dex | `dex.SettlementBatchFinalized` |
+| dex | `dex.SettlementBatchSubmitted` |
+| edgeai | `edgeai.CheatDetected` |
+| edgeai | `edgeai.CheatPendingArbitration` |
+| edgeai | `edgeai.ClawbackSkipped` |
+| edgeai | `edgeai.ClawedBack` |
+| edgeai | `edgeai.CorruptStateDropped` |
+| edgeai | `edgeai.DisputeOpened` |
+| edgeai | `edgeai.DisputeResolved` |
+| edgeai | `edgeai.EnterpriseFeeWaived` |
+| edgeai | `edgeai.EnterpriseSettlementFee` |
+| edgeai | `edgeai.PayoutFailed` |
+| edgeai | `edgeai.RecomputeEvaluated` |
+| edgeai | `edgeai.RecomputeRecorded` |
+| edgeai | `edgeai.ReputationDecayed` |
+| edgeai | `edgeai.ReputationDecreased` |
+| edgeai | `edgeai.ReputationIncreased` |
+| edgeai | `edgeai.ResultSubmitted` |
+| edgeai | `edgeai.ResultsRejected` |
+| edgeai | `edgeai.RewardPaid` |
+| edgeai | `edgeai.ScriptSpecRegistered` |
+| edgeai | `edgeai.Settled` |
+| edgeai | `edgeai.TaskCreated` |
+| edgeai | `edgeai.TaskExpired` |
+| edgeai | `edgeai.VerificationAssigned` |
+| edgeai | `edgeai.VerifierCheatFlagged` |
+| edgeai | `edgeai.VerifierReserveRefunded` |
+| edgeai | `edgeai.VerifierReserved` |
+| edgeai | `edgeai.VerifierRewardSkipped` |
+| edgeai | `edgeai.VerifierRewarded` |
+| edgeai | `edgeai.VerifierSliceRefunded` |
+| liquidstaking | `liquid_claim` |
+| liquidstaking | `liquid_rewards_accrue` |
+| liquidstaking | `liquid_slash_applied` |
+| liquidstaking | `liquid_stake` |
+| liquidstaking | `liquid_unstake` |
+| mcchain | `mcchain.GovernanceHandoverCompleted` |
+| mcchain | `mcchain.GovernanceHandoverInitiated` |
+| phonenode | `phonenode.Attestation` |
+| phonenode | `phonenode.AttestationTierPromoted` |
+| phonenode | `phonenode.CloudSignerRegistered` |
+| phonenode | `phonenode.CosignVerified` |
+| phonenode | `phonenode.NodeAllowanceConfigUpdated` |
+| phonenode | `phonenode.NodeCapitalAllowance` |
+| phonenode | `phonenode.NodeCapitalAllowanceThrottled` |
+| phonenode | `phonenode.OfflineBacklog` |
+| phonenode | `phonenode.Slash` |
+| phonenode | `phonenode.SlashRouted` |
+| phonenode | `phonenode.VerifierStatusUpdated` |
+| referral | `referral.created` |
+| referral | `referral.deferred_invalid_keys_removed` |
+| referral | `referral.reward_claimed` |
+| referral | `referral.reward_tracked` |
+| tokenomics | `tokenomics.BlackHoleBurn` |
+| tokenomics | `tokenomics.DripExhausted` |
+| tokenomics | `tokenomics.EnterpriseSettlementFee` |
+| tokenomics | `tokenomics.GasBurned` |
+| tokenomics | `tokenomics.GasRebated` |
+| tokenomics | `tokenomics.SecurityDripped` |

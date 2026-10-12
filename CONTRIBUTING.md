@@ -15,7 +15,7 @@ MC 欢迎外部工程师共同开发。重大或共识相关改动，请先阅�
 
 ### 提 Bug 或功能建议
 
-在 [Issues](https://github.com/mcchain/mcchain/issues) 页面提交，请包含：
+在 [Issues](https://github.com/keliang4344-star/mcchain/issues) 页面提交，请包含：
 
 - **环境信息**：OS / Go 版本 / 链版本
 - **复现步骤**：完整描述，最好附带日志或截图
@@ -76,7 +76,7 @@ MC 欢迎外部工程师共同开发。重大或共识相关改动，请先阅�
 
 ## 安全审计
 
-MC 公链遵循「开源可审计·参数写代码」原则。如果你发现安全漏洞，请**不要直接提公开 Issue**，通过 GitHub 的 [Private Vulnerability Reporting](https://github.com/mcchain/mcchain/security/advisories/new) 或邮件联系核心团队。
+MC 公链遵循「开源可审计·参数写代码」原则。如果你发现安全漏洞，请**不要直接提公开 Issue**，通过 GitHub 的 [Private Vulnerability Reporting](https://github.com/keliang4344-star/mcchain/security/advisories/new) 或邮件联系核心团队。
 
 ## Bug Bounty / 漏洞赏金
 
@@ -84,9 +84,9 @@ MobileChain 鼓励安全研究员和白帽黑客参与审计，帮助我们发�
 
 ### 报告渠道
 
-- **GitHub Issues**: 低风险问题可在 [Issues](https://github.com/mcchain/mcchain/issues) 页面公开提交
+- **GitHub Issues**: 低风险问题可在 [Issues](https://github.com/keliang4344-star/mcchain/issues) 页面公开提交
 - **邮箱**: 高风险或敏感漏洞请发送至 **security@mcchain.org** (placeholder)，采用 PGP 加密通信
-- **GitHub Security Advisory**: 也可通过 [Private Vulnerability Reporting](https://github.com/mcchain/mcchain/security/advisories/new) 私密提交
+- **GitHub Security Advisory**: 也可通过 [Private Vulnerability Reporting](https://github.com/keliang4344-star/mcchain/security/advisories/new) 私密提交
 
 ### 严重性分级
 

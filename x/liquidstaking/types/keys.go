@@ -33,6 +33,11 @@ var (
 	// PoolStateKey stores the aggregate bonded/share accounting (JSON encoded).
 	PoolStateKey = []byte("PoolState:")
 
+	// RewardsCursorKey stores the persistent reward-compounding sweep cursor
+	// (uint64 big-endian index into the module's delegation list). AccrueRewards
+	// continues from this position each block so no validator is starved.
+	RewardsCursorKey = []byte("RewardsCursor:")
+
 	// UnbondingEntryKeyPrefix stores per-delegator unbonding receipts.
 	UnbondingEntryKeyPrefix = []byte("Unbonding:")
 

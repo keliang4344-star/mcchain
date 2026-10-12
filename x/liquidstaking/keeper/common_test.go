@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"sort"
 	"testing"
 	"time"
 
@@ -269,6 +270,12 @@ func (m *mockLSStaking) Undelegate(
 func (m *mockLSStaking) GetDelegatorDelegations(
 	_ sdk.Context, delegator sdk.AccAddress, _ uint16,
 ) []stakingtypes.Delegation {
+	return m.allDelegatorDelegations(delegator)
+}
+
+// allDelegatorDelegations returns every delegation for one delegator, ordered
+// by validator address for deterministic rotating-sweep behaviour (P1-06).
+func (m *mockLSStaking) allDelegatorDelegations(delegator sdk.AccAddress) []stakingtypes.Delegation {
 	out := []stakingtypes.Delegation{}
 	for val, amt := range m.delegations[delegator.String()] {
 		if !amt.IsPositive() {
@@ -280,7 +287,17 @@ func (m *mockLSStaking) GetDelegatorDelegations(
 			Shares:           sdk.NewDecFromInt(amt),
 		})
 	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].ValidatorAddress < out[j].ValidatorAddress
+	})
 	return out
+}
+
+// GetAllDelegatorDelegations implements the StakingKeeper interface (P1-06).
+func (m *mockLSStaking) GetAllDelegatorDelegations(
+	_ sdk.Context, delegator sdk.AccAddress,
+) []stakingtypes.Delegation {
+	return m.allDelegatorDelegations(delegator)
 }
 
 // ---------------------------------------------------------------------------

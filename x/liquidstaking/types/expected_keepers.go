@@ -42,6 +42,9 @@ type StakingKeeper interface {
 	ValidateUnbondAmount(ctx sdk.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress, amt math.Int) (sdk.Dec, error)
 	Undelegate(ctx sdk.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress, sharesAmount sdk.Dec) (time.Time, error)
 	GetDelegatorDelegations(ctx sdk.Context, delegator sdk.AccAddress, maxRetrieve uint16) []stakingtypes.Delegation
+	// GetAllDelegatorDelegations returns every delegation for one delegator;
+	// used by AccrueRewards' persistent rotating sweep (P1-06).
+	GetAllDelegatorDelegations(ctx sdk.Context, delegator sdk.AccAddress) []stakingtypes.Delegation
 }
 
 // DistributionKeeper is the subset of x/distribution used by this module.

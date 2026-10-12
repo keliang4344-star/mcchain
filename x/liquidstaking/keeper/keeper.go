@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 
@@ -75,7 +76,9 @@ func (k Keeper) GetParams(ctx sdk.Context) types.Params {
 	}
 	var p types.Params
 	if err := json.Unmarshal(bz, &p); err != nil {
-		return types.DefaultParams()
+		// fail-closed：参数损坏时回退默认值会静默改变费率/上限等治理参数，
+		// 让链上行为与治理决议脱节且无人察觉。panic 使损坏在读取处即暴露。
+		panic(fmt.Sprintf("liquidstaking: unmarshal params: %v", err))
 	}
 	return p
 }
@@ -94,6 +97,34 @@ func (k Keeper) SetParams(ctx sdk.Context, p types.Params) error {
 }
 
 // ---------------------------------------------------------------------------
+// Reward-compounding sweep cursor (P1-06)
+// ---------------------------------------------------------------------------
+
+// getRewardsCursor reads the persistent reward-compounding sweep cursor.
+// Missing/empty cursor (fresh chain) is 0.
+func (k Keeper) getRewardsCursor(ctx sdk.Context) uint64 {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get(types.RewardsCursorKey)
+	if len(bz) == 0 {
+		return 0
+	}
+	if len(bz) != 8 {
+		// fail-closed：游标损坏时返回 0 只会导致一轮重复扫描（幂等），
+		// 但清零重扫总好过把位置推进到错误的越界值造成跳过 validator。
+		panic(fmt.Sprintf("liquidstaking: rewards cursor corrupted (len=%d)", len(bz)))
+	}
+	return binary.BigEndian.Uint64(bz)
+}
+
+// setRewardsCursor persists the reward-compounding sweep cursor.
+func (k Keeper) setRewardsCursor(ctx sdk.Context, idx uint64) {
+	store := ctx.KVStore(k.storeKey)
+	var bz [8]byte
+	binary.BigEndian.PutUint64(bz[:], idx)
+	store.Set(types.RewardsCursorKey, bz[:])
+}
+
+// ---------------------------------------------------------------------------
 // Pool state
 // ---------------------------------------------------------------------------
 
@@ -106,7 +137,9 @@ func (k Keeper) GetPoolState(ctx sdk.Context) types.PoolState {
 	}
 	var ps types.PoolState
 	if err := json.Unmarshal(bz, &ps); err != nil {
-		return types.PoolState{}
+		// fail-closed：聚合账本损坏时返回空状态会让下游把已抵押/已发行
+		// 的份额当作零，导致赎回/计息错账。panic 使损坏在读取处即暴露。
+		panic(fmt.Sprintf("liquidstaking: unmarshal pool state: %v", err))
 	}
 	return ps
 }

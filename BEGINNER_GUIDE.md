@@ -1,3 +1,6 @@
+> ⚠️ **NOT FOR MAINNET**：本教程用于**本地开发/测试网**一键起链，不构成主网启动流程。
+> 主网启动须遵循 `docs/PROTOCOL_PARAMS.md`、`scripts/mainnet_readiness.sh` 全部门禁，且 `min-self-delegation` 下限由链上 ante（`app/ante.go`）强制为 30k MC。
+>
 # MC 公链 · 新手上链指南（云服务器）
 
 > 目标：把一台云服务器变成 MC 公链的**第一个创世节点**（出块）。

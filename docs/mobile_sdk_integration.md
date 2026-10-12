@@ -2,7 +2,7 @@
 
 > 范围界定：本文档为**轻量对接文档**，不新建独立 SDK 工程。移动端（手机即节点即设备）通过 **gRPC / REST** 直接调用 `mcchaind` 暴露的 `depin` 与 `phonenode` 模块服务即可完成节点注册、设备注册/证明、贡献提交与余额查询。
 >
-> 底座：Cosmos SDK v0.47.3 + cometbft v0.37.1；链 ID `mcchain-mainnet-1`；地址前缀 `mc`；**统一 denom = `umc`**（1 MC = 1e6 umc）。
+> 底座：Cosmos SDK v0.47.14 + cometbft v0.37.6（版本矩阵见 README）；链 ID `mcchain-mainnet-1`；地址前缀 `mc`；**统一 denom = `umc`**（1 MC = 1e6 umc）。
 
 ## 1. 通用约定
 

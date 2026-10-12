@@ -101,13 +101,22 @@ json.dump(g, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 PY
 echo "    创世已规范化"
 
-# 3) 创建验证人密钥（test 后端免密，仅适合 demo/原始节点！）
-#    ⚠️ 生产环境请用 --keyring-backend file 并妥善保管助记词
-echo ">> [3/7] 创建验证人密钥（test 后端，免密）"
-"$BIN" keys add "$KEY" --keyring-backend test --home "$HOME_DIR" --output json > validator_key.json 2>/dev/null
-ADDR=$("$BIN" keys show "$KEY" -a --keyring-backend test --home "$HOME_DIR")
+# 3) 创建验证人密钥
+#    ⚠️ 安全加固：改用 file 后端（加密口令来自 MC_KEY_PASSWORD，缺省提示交互输入），
+#    助记词不再落盘到 validator_key.json —— 明文助记词文件一旦泄露即可直接
+#    控制验证人账户（转账/解除抵押/参与治理），属于高危凭据外泄面。
+#    仍需要查看助记词时，请用：mcchaind keys mnemonic "$KEY" --keyring-backend file
+#    （输出到终端后自行离线抄写，切勿重定向到文件）。
+if [ -z "${MC_KEY_PASSWORD:-}" ]; then
+    echo ">> [3/7] 创建验证人密钥（file 后端，交互输入加密口令）"
+    "$BIN" keys add "$KEY" --keyring-backend file --home "$HOME_DIR" --output json 2>/dev/null | sed 's/^{.*"mnemonic".*}$/{"status":"created"}/' || true
+else
+    echo ">> [3/7] 创建验证人密钥（file 后端，口令来自 MC_KEY_PASSWORD）"
+    echo "$MC_KEY_PASSWORD" | "$BIN" keys add "$KEY" --keyring-backend file --home "$HOME_DIR" --output json 2>/dev/null | sed 's/^{.*"mnemonic".*}$/{"status":"created"}/' || true
+fi
+ADDR=$("$BIN" keys show "$KEY" -a --keyring-backend file --home "$HOME_DIR")
 echo "    验证人地址: $ADDR"
-echo "    ⚠️ 助记词已保存到 validator_key.json，请妥善备份！"
+echo "    ⚠️ 助记词仅由 keys add 输出到终端，未写入任何文件；请立即离线抄写并妥善保管。"
 
 # 4) 创世账户拨款
 echo ">> [4/7] 创世账户拨款（200k MC）"
@@ -135,6 +144,6 @@ echo ""
 echo "✅ 完成！节点已在后台启动。"
 echo "   查看出块:  tail -f chain.log"
 echo "   停止节点:  pkill -9 -f mcchaind"
-echo "   验证人地址已保存到 validator_key.json（务必备份助记词）"
+echo "   验证人密钥: file 后端加密存储于 $HOME_DIR/keyring-file（无明文助记词落盘）"
 echo ""
 echo "   稍等 10 秒后执行： tail -f chain.log  应能看到 height=1,2,3... 持续出块"

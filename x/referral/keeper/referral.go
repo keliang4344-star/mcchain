@@ -244,7 +244,10 @@ func (k Keeper) TrackReward(ctx sdk.Context, invitee string, rewardAmount sdkmat
 			//
 			// 唯一例外是预算已耗尽：此时继续延后只会让账本无界增长，所以放弃本笔并发出
 			// BudgetExhausted 告警事件——这是必须被运维看见的终态，同样不是静默。
-			if k.EcosystemBalance(ctx).IsPositive() {
+			// 预算判定必须用 AvailableBudget（生态余额 − 已承诺负债）而非裸余额：
+			// 裸余额为正时，余额可能已被 pending/deferred 全额承诺，继续延后只会
+			// 制造「账本越滚越大、永远补发不出来」的负债黑洞。
+			if k.AvailableBudget(ctx).IsPositive() {
 				k.deferReward(ctx, ref.Inviter, bonus)
 			} else {
 				ctx.EventManager().EmitEvent(sdk.NewEvent(

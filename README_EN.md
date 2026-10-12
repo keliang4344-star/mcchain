@@ -34,12 +34,14 @@ MC is a DePIN + Edge AI public chain built on **Cosmos SDK + CometBFT**. Its cor
 
 | Module | Responsibility | Key Features |
 |--------|---------------|--------------|
-| `x/tokenomics` | Token issuance & allocation ledger | Sole Minter, locked 1B MC supply, three-pool allocation (Team 15% / Community 35% / Ecosystem 50%) |
+| `x/tokenomics` | Token issuance & allocation ledger | Sole Minter, locked 1B MC supply, five-pool allocation (Device 55% / Staking Security 15% / Team 12% / Foundation 13% / Early Dev 5%) |
 | `x/depin` | Device contribution incentive engine | Device registration, contribution metering, reward distribution gateway |
 | `x/phonenode` | Mobile full node management | Hardware attestation, heartbeat detection, offline slashing |
 | `x/edgeai` | Edge AI task marketplace | Task creation/submission, dispute arbitration, contribute-to-mine |
 | `x/mcchain` | Chain-level parameter management | System configuration, query interface |
 | `x/dex` | Native AMM exchange | Constant product market maker (x×y=k), pool/swap/liquidity |
+| `x/referral` | Referral incentive | On-chain referral graph, 10-generation rewards (first 3 tiers governable), paced budget release |
+| `x/liquidstaking` | Liquid staking | Staking share tokenization, exchange rate distinguishes empty pool vs slashed-to-zero |
 
 ## Supporting Tools
 
@@ -47,9 +49,12 @@ MC is a DePIN + Edge AI public chain built on **Cosmos SDK + CometBFT**. Its cor
 |---------|-------------|
 | `mc-miner/` | Android mining App, WebView + CosmJS, local mnemonic generation |
 | `cosmjs-bundle/` | Frontend CosmJS v0.32.4 UMD Bundle |
-| `cosmos/` | Cosmos SDK offline test modules |
-| `mc_wp/` | Whitepaper build pipeline (Markdown → HTML) |
-| `mainnet-launch/` | One-click mainnet launch scripts |
+| `web/` | Web console (miner dashboard / tx builder) |
+| `cosmjs/` | Lightweight tx builder `mc-tx-builder.js` and type definitions |
+| `typescript-sdk/` | TypeScript SDK (address / bech32 / client) |
+| `monitoring/` | Prometheus + Alertmanager + Grafana configs |
+| `deploy/` | systemd units / nginx / env templates / deploy scripts |
+| `scripts/` | Genesis generation, validation, stress test, backup scripts |
 
 ## Key Parameters
 
@@ -60,16 +65,17 @@ MC is a DePIN + Edge AI public chain built on **Cosmos SDK + CometBFT**. Its cor
 | Total Supply | 1 billion MC (10¹⁵ umc) |
 | Inflation | Zero (supply permanently locked) |
 | Consensus | CometBFT BFT |
-| IBC | ibc-go v7.1.0 |
+| IBC | ibc-go v7.3.0 |
+| Min. Validator Self-Delegation | 30,000 MC |
 
 ## Quick Start
 
 ```bash
 # Prerequisites: Go 1.22+
-git clone https://github.com/mcchain/mcchain.git
+git clone https://github.com/keliang4344-star/mcchain.git
 cd mcchain
-make build           # go build ./...
-make install         # install mcchaind
+go build ./...                          # full build (no Makefile in repo)
+go build -o build/mcchaind ./cmd/mcchaind   # build the node binary
 
 # Local single node
 mcchaind init mynode --chain-id mcchain-1
@@ -99,7 +105,7 @@ mcchaind start
 go test ./...
 ```
 
-Module test cases: depin 36 · dex 48 · edgeai 81 · liquidstaking 18 · mcchain 15 · phonenode 48 · referral 30 · tokenomics 31 · app 10 · internal 22 — 339 in total.
+Module test cases: depin 36 · dex 48 · edgeai 81 · liquidstaking 18 · mcchain 15 · phonenode 48 · referral 30 · tokenomics 31 · app 10 · internal 22 — the total keeps growing with new tests (see CI run logs).
 
 Key modules target ≥ 70% coverage (CI gate: `.github/workflows/ci.yml`).
 
@@ -107,7 +113,7 @@ Key modules target ≥ 70% coverage (CI gate: `.github/workflows/ci.yml`).
 
 - **Twitter / X**: [@MC_MobileChain](https://twitter.com/MC_MobileChain) (placeholder)
 - **Discord**: [discord.gg/mcchain](https://discord.gg/mcchain) (placeholder)
-- **GitHub Issues**: [Issues](https://github.com/mcchain/mcchain/issues)
+- **GitHub Issues**: [Issues](https://github.com/keliang4344-star/mcchain/issues)
 
 ## Contributing
 

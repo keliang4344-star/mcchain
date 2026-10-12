@@ -63,7 +63,10 @@ func (k Keeper) GetSlashes(ctx sdk.Context, addr string) []types.SlashRecord {
 	}
 	var recs []types.SlashRecord
 	if err := json.Unmarshal(bz, &recs); err != nil {
-		return []types.SlashRecord{}
+		// fail-closed：罚没记录损坏时返回空切片会让审计与治理查询看不到
+		// 历史罚没，且 RecordSlash 会在此基础上 append 覆盖写，等于丢审计
+		// 轨迹。panic 让损坏在读取处即暴露。
+		panic(fmt.Sprintf("phonenode: unmarshal slash records for %s: %v", addr, err))
 	}
 	return recs
 }

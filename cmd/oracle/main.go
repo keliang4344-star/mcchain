@@ -590,6 +590,16 @@ func (s *OracleService) handleAttest(w http.ResponseWriter, r *http.Request) {
 	txHash, submitErr := s.submitAttestationResult(r.Context(), req.DeviceID, req.AttestationProof, req.Signature, passed, reason)
 	if submitErr != nil {
 		oraclesvc.Errorf("[attest] device=%s on-chain submission failed: %v", req.DeviceID, submitErr)
+		// fail-closed：本地验证通过但链上记录失败时，绝不能返回 200 ——
+		// 客户端会误以为 attestation 已上链而继续领取奖励，随后被链上认证
+		// 闸口拒绝且无从排查。返回 502 让客户端重试（配合本服务内部的
+		// 指数退避重试，链上恢复后会自动补录）。
+		w.WriteHeader(http.StatusBadGateway)
+		_ = json.NewEncoder(w).Encode(AttestResponse{
+			Passed: passed,
+			Reason: "attestation verified but on-chain submission failed: " + submitErr.Error(),
+		})
+		return
 	}
 
 	resp := AttestResponse{
@@ -599,10 +609,8 @@ func (s *OracleService) handleAttest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch {
-	case passed && submitErr == nil:
-		oraclesvc.Infof("[attest] device=%s PASSED tx=%s", req.DeviceID, txHash)
 	case passed:
-		oraclesvc.Warnf("[attest] device=%s PASSED locally but result was NOT recorded on-chain", req.DeviceID)
+		oraclesvc.Infof("[attest] device=%s PASSED tx=%s", req.DeviceID, txHash)
 	default:
 		oraclesvc.Warnf("[attest] device=%s FAILED reason=%s", req.DeviceID, reason)
 	}

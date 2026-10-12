@@ -3,22 +3,25 @@
 > 本文档是移动端 SDK 对接的**事件契约**部分，与 `docs/mobile_sdk_integration.md`（gRPC/REST 端点）配套。
 > 移动端通过 Tendermint WebSocket 订阅链上事件，实现「挖矿到账提醒、节点被 slash 告警、认证状态变更」等实时 UX，无需轮询。
 >
-> 底座：Cosmos SDK v0.47.3 + cometbft v0.37.1；链 ID `mcchain-mainnet-1`（主网）/ `mcchain-testnet-1`（测试网）；denom `umc`。
+> 底座：Cosmos SDK v0.47.14 + cometbft v0.37.6（版本矩阵见 docs/VERSIONS.md）；链 ID `mcchain-mainnet-1`（主网）/ `mcchain-testnet-1`（测试网）；denom `umc`。
 
 ## 1. 事件总览
 
 每个事件都自动带 `message.module`（处理该消息的模块名）与 `message.sender`（交易发起地址）属性，SDK 可按模块过滤。
 
-| 事件名 | 模块 | 触发时机 | 关键属性 |
-|---|---|---|---|
-| `depin.RewardPaid` | depin | 贡献即挖矿拨付成功（发币到账） | task_id, device, task_type, score, reward, denom |
-| `phonenode.Attestation` | phonenode | 节点提交 attestation 成功 | address, nonce, device_id_hash |
-| `phonenode.Slash` | phonenode | 节点因离线/作弊被 slash | address, reason, penalty_bps |
-| `edgeai.TaskCreated` | edgeai | 创建 EdgeAI 任务 | task_id, creator |
-| `edgeai.ResultSubmitted` | edgeai | 提交任务结果 | task_id, submitter |
-| `edgeai.DisputeOpened` | edgeai | 开启争议 | task_id, challenger |
-| `edgeai.RewardPaid` | edgeai | EdgeAI 任务悲观/乐观结算拨付 | task_id, submitter, amount |
-| `edgeai.DisputeResolved` | edgeai | 争议结案 | task_id, resolution |
+> 链上共 **61 类事件**（`sdk.NewEvent` 实发，按模块聚合如下；完整逐条清单由
+> `scripts/gen_events_doc.py` 生成到 `docs/generated/events.md`，CI 门禁比对漂移）。
+
+| 模块 | 事件数 | 关键事件（移动端 UX 关注） |
+|---|---|---|
+| depin | 5 | `depin.RewardPaid`（挖矿到账）、`depin.DeviceAttested`、`depin.DefenseBlocked`、`depin.ReleaseCapped` |
+| phonenode | 11 | `phonenode.Attestation`、`phonenode.Slash`、`phonenode.SlashRouted`、`phonenode.NodeCapitalAllowance`、`phonenode.CosignVerified` |
+| edgeai | 26 | `edgeai.TaskCreated`、`edgeai.ResultSubmitted`、`edgeai.Settled`、`edgeai.RewardPaid`、`edgeai.DisputeOpened`、`edgeai.DisputeResolved`、`edgeai.CheatDetected` |
+| dex | 4 | `dex.SettlementBatchSubmitted`、`dex.SettlementBatchFinalized`、`dex.MinimumLiquidityLocked`、`dex.LPIncentiveThrottled` |
+| referral | 4 | `referral.created`、`referral.reward_claimed`、`referral.reward_tracked`、`referral.deferred_invalid_keys_removed` |
+| liquidstaking | 2 | `liquidstaking.LiquidStaked`、`liquidstaking.LiquidUnstaked`（见 §2.4 说明） |
+| mcchain | 2 | `mcchain.GovernanceHandoverInitiated`、`mcchain.GovernanceHandoverCompleted` |
+| tokenomics | 6 | `tokenomics.SecurityDripped`、`tokenomics.GasBurned`、`tokenomics.GasRebated`、`tokenomics.BlackHoleBurn`、`tokenomics.EnterpriseSettlementFee` |
 
 ## 2. 事件属性明细
 
@@ -47,6 +50,10 @@
 | `address` | bech32 addr | 节点地址 |
 | `nonce` | string | 防重放 nonce |
 | `device_id_hash` | string | 设备身份哈希 |
+
+### 2.4 liquidstaking 事件（`liquid_stake` / `liquid_unstake` / `liquid_claim` / `liquid_rewards_accrue` / `liquid_slash_applied`）
+- 类型名为**小写下划线**风格（常量定义于 `x/liquidstaking/types/events.go`），SDK 过滤时注意与其它模块驼峰命名的差异。
+- 公共属性：`delegator`（流动质押者）、`amount`（umc）、`denom`（`umc`）；`liquid_slash_applied` 额外带 `validator` 与 `penalty_bps`。
 
 ## 3. 订阅方式（Tendermint WebSocket）
 

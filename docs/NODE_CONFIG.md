@@ -19,7 +19,7 @@ pex             = true              # 主网打开；私有网（如 devnet）�
 
 ```toml
 # app.toml（应用层）
-minimum-gas-prices = "0.0001umc"    # 主网下限；私有网可用 0umc
+minimum-gas-prices = "0.0025umc"    # 主网建议；私有网/devnet 用 0umc（权威口径见 GAS_AND_FEES.md）
 pruning             = "custom"
 pruning-keep-recent = "362880"      # ≈3 天（21,600 块 × 16.8）
 pruning-interval    = "100"

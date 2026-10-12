@@ -43,6 +43,11 @@ const (
 	// transaction, so an unbounded batch is a block-time / gas-griefing vector.
 	MaxSettlementEntries = 10000
 
+	// MaxSettlementIDLen caps batch_id / merkle_root length. Both are stored
+	// verbatim as KV keys / fields; an unbounded length is a storage-griefing
+	// vector (submitter can bloat state with arbitrarily long strings).
+	MaxSettlementIDLen = 128
+
 	DenomPrefix = "dex/pool/"
 )
 

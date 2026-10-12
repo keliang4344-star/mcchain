@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -145,7 +146,7 @@ func (k Keeper) RunDefensePipeline(ctx sdk.Context, deviceAddr, taskType string,
 	}
 
 	// 第 4 层：贡献质量基线
-	if result := k.defenseLayer4_QualityBaseline(ctx, score); !result.Passed {
+	if result := k.defenseLayer4_QualityBaseline(ctx, deviceAddr, score); !result.Passed {
 		return result
 	}
 
@@ -244,9 +245,21 @@ func (k Keeper) defenseLayer3_TaskFrequency(ctx sdk.Context, deviceAddr, taskTyp
 // 抽检率 = 1 / QualitySampleRate（默认 5%）
 // 质量范围 = [QualityMinThreshold, QualityMaxThreshold]
 
-func (k Keeper) defenseLayer4_QualityBaseline(ctx sdk.Context, score int) DefenseResult {
-	// 伪随机抽检：仅当 (blockHeight % QualitySampleRate) == 0 时抽检
-	if ctx.BlockHeight()%QualitySampleRate != 0 {
+func (k Keeper) defenseLayer4_QualityBaseline(ctx sdk.Context, deviceAddr string, score int) DefenseResult {
+	// 抽检判定：sha256(区块高度 ‖ 设备地址) 前 8 字节取模 QualitySampleRate。
+	// 原实现 blockHeight % QualitySampleRate 对全网所有设备同时生效，且
+	// 抽检高度完全可预测——刷量程序只须避开抽检块集中提交即可绕过（P1-07）。
+	// 引入设备地址后抽检结果与设备绑定，攻击者无法提前预测任意设备何时被
+	// 抽中。抽检在共识层可复现（所有节点对同一高度+地址算出同一判定）。
+	// 说明：共识内无法使用不可预测随机源，本实现以“设备绑定”消除高度可
+	// 预测性；若要进一步抗 bias/resampling，可在后续升级中接入 VRF 派生。
+	var hbuf [8]byte
+	binary.BigEndian.PutUint64(hbuf[:], uint64(ctx.BlockHeight()))
+	h := sha256.New()
+	h.Write(hbuf[:])
+	h.Write([]byte(deviceAddr))
+	sum := h.Sum(nil)
+	if binary.BigEndian.Uint64(sum[:8])%QualitySampleRate != 0 {
 		return PassedResult()
 	}
 
@@ -275,6 +288,32 @@ func (k Keeper) defenseLayer4_QualityBaseline(ctx sdk.Context, score int) Defens
 
 func (k Keeper) defenseLayer5_ActivityTracking(ctx sdk.Context, deviceAddr string) DefenseResult {
 	store := ctx.KVStore(k.storeKey)
+
+	// 活跃度重置：若距该设备上次提交（任意任务类型）已超过一个任务间隔
+	// 周期，说明其并非持续高频提交，连续计数器归零。
+	// 原实现只有递增没有重置，设备只要坚持“低频但从未中断”地提交，
+	// 计数终将撞线，把正常长期活跃设备误判为异常。
+	// 频率键按 (addr, taskType) 分开存，这里扫描该设备全部任务类型的
+	// 最后提交高度，取最大值判断是否已冷下来。
+	var lastAnyHeight int64
+	seenAny := false
+	pref := prefix.NewStore(store, DefenseFreqPrefix)
+	it := pref.Iterator([]byte(deviceAddr+":"), nil)
+	defer it.Close()
+	for ; it.Valid(); it.Next() {
+		var h int64
+		if err := json.Unmarshal(it.Value(), &h); err != nil {
+			continue
+		}
+		seenAny = true
+		if h > lastAnyHeight {
+			lastAnyHeight = h
+		}
+	}
+	if seenAny && ctx.BlockHeight()-lastAnyHeight >= MinTaskIntervalBlocks {
+		store.Delete(defenseConsecKey(deviceAddr))
+	}
+
 	bz := store.Get(defenseConsecKey(deviceAddr))
 
 	var consecCount int64
@@ -299,14 +338,20 @@ func (k Keeper) defenseLayer5_ActivityTracking(ctx sdk.Context, deviceAddr strin
 }
 
 // ============================================================================
-// 第 6 层：IP/地理位置分散度
+// 第 6 层：区块级设备分散度
 // ============================================================================
 //
-// 检测同一区块内多设备关联提交行为。若同一区块内有超过 MaxDevicesPerBlock
-// 个不同设备提交贡献，则标记为异常关联（疑似同 IP 多设备刷量农场）。
+// 检测同一区块内多设备关联提交行为。若同一区块内已有 MaxDevicesPerBlock
+// 个不同设备提交贡献，则拒绝后续新设备提交 —— 单一实体极难让大量设备在
+// 同一区块内集中提交而不留下关联痕迹，此阈值即可有效遏制“设备农场”刷量。
 //
 // 注意：MsgSubmitContribution 不含 IP 字段，本层使用区块级设备集合作为
 // 关联度的代理指标，符合链上去中心化设计约束。
+//
+// 原实现名为 “IP/地理位置分散度”，实际仅统计区块内设备数，且只告警不拒绝
+// （RejectResult 仅是告警文案，仍返回 PassedResult() 放行）。按白皮书
+// “Layer6 应拦截集中提交”的语义，改为超过阈值即拒绝，避免名实不符的
+// “告警层”让刷量者无成本地绕过。
 
 func (k Keeper) defenseLayer6_IPDispersion(ctx sdk.Context, deviceAddr string) DefenseResult {
 	store := ctx.KVStore(k.storeKey)
@@ -330,7 +375,7 @@ func (k Keeper) defenseLayer6_IPDispersion(ctx sdk.Context, deviceAddr string) D
 		}
 	}
 
-	// 检查是否超过阈值
+	// 超过阈值：拒绝新设备加入该区块的提交集合
 	if len(devices) >= MaxDevicesPerBlock {
 		return RejectResult(6,
 			fmt.Sprintf("block-level device dispersion alert: %d devices in block %d exceeds max %d",

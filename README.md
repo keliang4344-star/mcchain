@@ -32,7 +32,7 @@ graph TD
 | `x/depin` | 设备贡献激励引擎 | 设备注册、贡献计量、奖励拨付闸口，DePIN 金库按真实任务逐笔发放 |
 | `x/phonenode` | 移动全节点管理 | 硬件 Attestation、心跳检测、女巫绑定、离线宽限与分级罚没 |
 | `x/edgeai` | 边缘 AI 任务市场 | 任务发布/接单/托管付费/乐观结算/争议仲裁，抽检验证与声誉加权遴选 |
-| `x/referral` | 推荐激励 | 推荐关系链上记录，三代分级奖励，预算按配速释放 |
+| `x/referral` | 推荐激励 | 推荐关系链上记录，十代分级奖励（前 3 档为治理参数，第 4–10 档为协议常量；挖矿节点最多 10 代 / 非挖矿节点最多 5 代），预算按配速释放 |
 | `x/dex` | 原生 AMM 交易所 | 恒定乘积做市商（x×y=k），pool / swap / liquidity 与链上结算通道 |
 | `x/liquidstaking` | 流动性质押 | 质押份额凭证化，汇率报价区分「空池」与「被罚没归零」 |
 | `x/mcchain` | 链级参数与渐进治理 | 系统配置、查询入口、治理权限渐进移交 |
@@ -59,17 +59,17 @@ graph TD
 | 总量 | 10 亿 MC（10¹⁵ umc） |
 | 通胀 | 零（总量永久锁定） |
 | 共识 | CometBFT BFT |
-| IBC | ibc-go v7.1.0 |
+| IBC | ibc-go v7.3.0 |
 | 验证人最低自抵押 | 3 万 MC |
 
 ## 快速开始
 
 ```bash
 # 依赖：Go 1.22+
-git clone https://github.com/mcchain/mcchain.git
+git clone https://github.com/keliang4344-star/mcchain.git
 cd mcchain
-make build           # go build ./...
-make install         # 安装 mcchaind
+go build ./...                          # 全量编译（仓库未内置 Makefile）
+go build -o build/mcchaind.exe ./cmd/mcchaind   # 构建节点程序（Linux 产物见 BEGINNER_GUIDE）
 
 # 本地单节点
 mcchaind init mynode --chain-id mcchain-1
@@ -102,7 +102,7 @@ mcchaind start
 go test ./...
 ```
 
-模块测试用例：depin 36 · dex 48 · edgeai 81 · liquidstaking 18 · mcchain 15 · phonenode 48 · referral 30 · tokenomics 31 · app 10 · internal 22，合计 339 项。
+模块测试用例：depin 36 · dex 48 · edgeai 81 · liquidstaking 18 · mcchain 15 · phonenode 48 · referral 30 · tokenomics 31 · app 10 · internal 22，总数随新增测试持续变化（以 CI 运行结果为准）。
 
 关键模块目标覆盖率 ≥ 70%（CI 门禁见 `.github/workflows/ci.yml`）。
 
@@ -112,7 +112,8 @@ go test ./...
 |------|------|
 | Twitter / X | [@MobileChain](https://x.com/MobileChain) |
 | Discord | [discord.gg/mcchain](https://discord.gg/mcchain) |
-| GitHub | [github.com/mcchain/mcchain](https://github.com/mcchain/mcchain) |
+| GitHub | [github.com/keliang4344-star/mcchain](https://github.com/keliang4344-star/mcchain) |
+| 链上事件 | [docs/generated/events.md](docs/generated/events.md) |
 
 ## 贡献
 

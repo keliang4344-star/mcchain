@@ -27,22 +27,30 @@
 - `POST /cosmos/tx/v1beta1/simulate` — 手续费模拟
 - `GET /cosmos/base/tendermint/v1beta1/node_info` — 节点/链信息
 - `GET /cosmos/base/tendermint/v1beta1/blocks/latest` — 最新区块
-- 自定义模块查询（需 grpc-gateway 注册）：
-  - `GET /mcchain/phonenode/v1/node/{address}` — 手机节点状态
-  - `GET /mcchain/depin/v1/device/{address}` — 设备 attestation 状态
-  - `GET /mcchain/edgeai/v1/task/{task_id}` — EdgeAI 任务与拨付结果
-  - `GET /mcchain/tokenomics/v1/params` — 代币上限/分配
+- 自定义模块查询（路径与 `proto/mcchain/*/query.proto` 的 `google.api.http` 注解一一对应）：
+  - `GET /mcchain/phonenode/params`、`/mcchain/phonenode/attestation/{address}`、`/mcchain/phonenode/slashes/{address}`
+  - `GET /mcchain/depin/params`
+  - `GET /mcchain/edgeai/params`、`/mcchain/edgeai/task/{task_id}`、`/mcchain/edgeai/tasks`、`/mcchain/edgeai/results`、`/mcchain/edgeai/disputes`
+  - `GET /mcchain/tokenomics/supply`、`/mcchain/tokenomics/allocations`、`/mcchain/tokenomics/release`
+  - `GET /mcchain/liquidstaking/params`、`/mcchain/liquidstaking/pool`、`/mcchain/liquidstaking/unbondings/{delegator}`
+  - `GET /mcchain/mcchain/params`、`/mcchain/mcchain/chain_info`
+  - 注意：`dex` / `referral` 模块未配置 REST 注解，仅暴露 gRPC（见下）
 
 ## 3. gRPC（端口 9090）
 
 启用 reflection（`grpc.reflection.v1alpha.ServerReflection` 已注册），可用 `grpcurl` 直接探查：
 ```bash
 grpcurl -plaintext localhost:9090 list
-grpcurl -plaintext localhost:9090 mcchain.phonenode.v1.Query/Node
+grpcurl -plaintext localhost:9090 mcchain.phonenode.Query/Attestation
 ```
-主要 Query 服务：`cosmos.bank.v1beta1.Query`、`cosmos.tx.v1beta1.Service`、
-`mcchain.phonenode.v1.Query`、`mcchain.depin.v1.Query`、`mcchain.edgeai.v1.Query`、
-`mcchain.tokenomics.v1.Query`。
+主要 Query 服务（pkg 为 `mcchain.<module>`，无 `.v1` 段）：
+`cosmos.bank.v1beta1.Query`、`cosmos.tx.v1beta1.Service`、
+`mcchain.phonenode.Query`（Params/Attestation/Slashes）、
+`mcchain.depin.Query`（Params）、`mcchain.edgeai.Query`（Params/Task/Tasks/Results/Disputes）、
+`mcchain.dex.Query`（Pool/Pools/EstimateSwap/Price/LiquidityLock）、
+`mcchain.tokenomics.Query`（Supply/Allocations/Release）、
+`mcchain.referral.Query`（Referral/ReferralsByInviter/PendingRewards）、
+`mcchain.liquidstaking.Query`（Params/Pool/Unbondings）、`mcchain.mcchain.Query`（Params/ChainInfo）。
 
 ## 4. Tendermint RPC（端口 26657）
 
@@ -53,9 +61,10 @@ grpcurl -plaintext localhost:9090 mcchain.phonenode.v1.Query/Node
 
 ## 5. 事件订阅（链→后端 集成点）
 
-`cmd/event-subscriber` 订阅 8 类 MC 链上事件（见 `docs/sdk_event_contract.md`）：
-`RewardPaid`(depin)、`NodeRegistered`/`DeviceAttested`(phonenode)、`TaskOpened`/`TaskResolved`(edgeai)、
-`TokenMinted`(tokenomics) 等。后端/区块浏览器应以此为索引接入点，而非轮询 RPC。
+`cmd/event-subscriber` 订阅 MC 链上事件（完整清单见 `docs/sdk_event_contract.md`，共 61 类，可由 `scripts/gen_events_doc.py` 重新生成）。
+核心事件：`depin.RewardPaid` / `depin.DeviceAttested`、`phonenode.Attestation` / `phonenode.Slash`、
+`edgeai.TaskCreated` / `edgeai.Settled` / `edgeai.DisputeResolved` / `edgeai.RewardPaid`、
+`tokenomics.SecurityDripped` / `tokenomics.GasBurned` 等。后端/区块浏览器应以此为索引接入点，而非轮询 RPC。
 
 事件契约：`docs/sdk_event_contract.md`
 移动端 SDK 字段约定：`docs/mobile_sdk_integration.md`

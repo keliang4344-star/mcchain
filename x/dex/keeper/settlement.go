@@ -67,6 +67,11 @@ func (k Keeper) SubmitBatch(ctx sdk.Context, batchID, merkleRoot, submittedBy st
 	if batchID == "" || merkleRoot == "" {
 		return fmt.Errorf("dex: batch_id and merkle_root are required")
 	}
+	// 长度上限：batch_id/merkle_root 原样作为 KV 键与字段持久化，
+	// 不设上限会被恶意提交以超长字符串撑爆存储。
+	if len(batchID) > types.MaxSettlementIDLen || len(merkleRoot) > types.MaxSettlementIDLen {
+		return fmt.Errorf("dex: batch_id/merkle_root exceeds max length %d", types.MaxSettlementIDLen)
+	}
 	if len(entries) == 0 {
 		return fmt.Errorf("dex: batch must contain at least one entry")
 	}

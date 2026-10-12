@@ -106,4 +106,22 @@ python3 scripts/make_genesis.py \
 echo ">> validate genesis"
 mcchaind validate-genesis "$HOME_DIR/config/genesis.json"
 
+# P2-07：输出配置摘要与最终 genesis hash，便于主网升级/重建时人工核对。
+# 生成前已在 make_genesis.py 内做过 schema validation（assert_accounts /
+# denom / chain_id / 账本供应不变式），这里只做摘要，不改任何状态。
+echo ">> config summary (chain-id=$CHAIN_ID home=$HOME_DIR moniker=$MONIKER min-gas=$MIN_GAS)"
+python3 - "$HOME_DIR/config/genesis.json" <<'PY'
+import hashlib, json, sys
+
+path = sys.argv[1]
+with open(path, "rb") as f:
+    raw = f.read()
+with open(path, "r", encoding="utf-8") as f:
+    g = json.load(f)
+print(">> genesis sha256:", hashlib.sha256(raw).hexdigest())
+print(">> genesis chain_id:", g.get("chain_id", "<missing>"))
+print(">> genesis denom:", g.get("app_state", {}).get("staking", {}).get("params", {}).get("bond_denom", "<missing>"))
+print(">> max_gas:", g.get("consensus_params", {}).get("block", {}).get("max_gas", "<missing>"))
+PY
+
 echo "init done. 接下来：收集 gentx 并 collect-gentxs，再 start。"

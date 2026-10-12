@@ -20,4 +20,6 @@ var (
 	ErrDenomSortRequired     = sdkerrors.Register(ModuleName, 16, "denoms must be sorted alphabetically")
 	ErrLpLocked              = sdkerrors.Register(ModuleName, 17, "LP tokens are locked")
 	ErrLpIncentiveEnded      = sdkerrors.Register(ModuleName, 18, "LP incentive period has ended")
+	ErrInvalidMinOut         = sdkerrors.Register(ModuleName, 19, "min-out parameter must be a valid non-negative integer")
+	ErrInvalidSettlementID   = sdkerrors.Register(ModuleName, 20, "settlement batch_id or merkle_root exceeds maximum length")
 )

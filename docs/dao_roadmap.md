@@ -14,12 +14,13 @@
 - 以下参数开放 gov 变更（需提案 + 投票通过）：
   - `depin`：RewardRate 各任务类型、MaxRewardPerTask、ContributionThreshold
   - `phonenode`：OfflineGraceBlocks、OfflineSlashBps、AttestationValidity
-  - `tokenomics`：各池分配比例（team/community/ecosystem）
-- 治理门槛默认值建议：
-  - 最低提案押金：`100000000000 umc`（=30k MC）
-  - 投票期：`2 weeks`
+  - `tokenomics`：各池分配比例（device_incentive/staking_security/team/foundation/early_dev）
+- 治理参数（已生效，权威口径见 `docs/PROTOCOL_PARAMS.md`，与链上 genesis 一致）：
+  - 最低提案押金：`10000000 umc`（= 10 MC）
+  - 投票期：`48 小时`
   - 法定投票率（quorum）：`33.4%`
-  - 通过阈值（yes）：`50%`（重要参数升级建议 `66.7%`）
+  - 通过阈值（yes）：`50%`；否决阈值（veto）：`33.4%`
+  - 重要参数升级阈值 `66.7%` 为规划建议（需随主网参数提案一并启用）
 
 ## 阶段 3 · 资金治理（社区池支配）
 - 社区池支出提案（Community Pool Spend）用于生态资助、漏洞赏金、审计费。

@@ -375,10 +375,23 @@ func (k Keeper) AccrueRewards(ctx sdk.Context) (uint64, error) {
 	}
 
 	moduleAddr := k.ModuleAddress()
-	delegations := k.stakingKpr.GetDelegatorDelegations(ctx, moduleAddr, maxDelegationsScanned)
+
+	// P1-06：持久化轮转游标。原实现每次从同一起点取前 maxDelegationsScanned
+	// 个 delegation，模块 delegation 超过 200 个验证人时，后面的 validator
+	// 永远轮不到复利，收益分配出现系统性偏差。这里每块从游标位置继续处理
+	// 固定预算，扫完一轮后回绕，保证全部 validator 最终都会被扫到。
+	all := k.stakingKpr.GetAllDelegatorDelegations(ctx, moduleAddr)
+	if len(all) == 0 {
+		return 0, nil
+	}
+
+	start := k.getRewardsCursor(ctx) % uint64(len(all))
 
 	var compounded uint64
-	for _, del := range delegations {
+	processed := 0
+	for i := 0; i < len(all) && processed < int(maxDelegationsScanned); i++ {
+		del := all[(start+uint64(i))%uint64(len(all))]
+		processed++
 		valAcc, err := sdk.ValAddressFromBech32(del.ValidatorAddress)
 		if err != nil {
 			continue
@@ -413,6 +426,9 @@ func (k Keeper) AccrueRewards(ctx sdk.Context) (uint64, error) {
 		k.setValidatorBond(ctx, del.ValidatorAddress,
 			saturatingAddU64(k.GetValidatorBond(ctx, del.ValidatorAddress), gained))
 	}
+
+	// 游标推进到下一个未处理位置（mod 总数保证回绕）。
+	k.setRewardsCursor(ctx, (start+uint64(processed))%uint64(len(all)))
 
 	if compounded == 0 {
 		return 0, nil

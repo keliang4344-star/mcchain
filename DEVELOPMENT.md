@@ -51,12 +51,12 @@ export GOROOT=/usr/local/go
 export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
 
 # 依赖 proto 路径（版本按 go.mod 中实际锁定版本对齐）
-cosmosSdkVer="v0.47.3"
+cosmosSdkVer="v0.47.14"
 deps=(
   "-I" "proto"
   "-I" "${GOMODCACHE}/github.com/cosmos/cosmos-sdk@${cosmosSdkVer}/proto"
-  "-I" "${GOMODCACHE}/github.com/cosmos/gogoproto@v1.4.10"
-  "-I" "${GOMODCACHE}/github.com/cosmos/cosmos-proto@v1.0.0-beta.2/proto"
+  "-I" "${GOMODCACHE}/github.com/cosmos/gogoproto@v1.7.0"
+  "-I" "${GOMODCACHE}/github.com/cosmos/cosmos-proto@v1.0.0-beta.5/proto"
   "-I" "${GOMODCACHE}/github.com/cosmos/gogo/googleapis@v1.4.1"
   "-I" "${GOMODCACHE}/github.com/ignite-hq/cli/ignite/pkg/protoc/data/include"
 )

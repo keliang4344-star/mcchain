@@ -77,11 +77,11 @@ func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLi
 	}
 	minAOut, ok := sdk.NewIntFromString(msg.MinAOut)
 	if !ok {
-		minAOut = sdk.ZeroInt()
+		return nil, types.ErrInvalidMinOut.Wrapf("invalid min_a_out %q", msg.MinAOut)
 	}
 	minBOut, ok := sdk.NewIntFromString(msg.MinBOut)
 	if !ok {
-		minBOut = sdk.ZeroInt()
+		return nil, types.ErrInvalidMinOut.Wrapf("invalid min_b_out %q", msg.MinBOut)
 	}
 
 	amountA, amountB, err := m.Keeper.RemoveLiquidity(ctx, msg.PoolId, lpAmount, minAOut, minBOut, msg.Creator)
@@ -104,7 +104,7 @@ func (m msgServer) SwapExactIn(goCtx context.Context, msg *types.MsgSwapExactIn)
 	}
 	minAmountOut, ok := sdk.NewIntFromString(msg.MinAmountOut)
 	if !ok {
-		minAmountOut = sdk.ZeroInt()
+		return nil, types.ErrInvalidMinOut.Wrapf("invalid min_amount_out %q", msg.MinAmountOut)
 	}
 
 	amountOut, err := m.Keeper.SwapExactIn(ctx, msg.PoolId, msg.DenomIn, msg.DenomOut, amountIn, minAmountOut, msg.Creator)

@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/telemetry"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -60,7 +61,12 @@ func (k msgServer) ResolveDispute(goCtx context.Context, msg *types.MsgResolveDi
 		// 调用两次会第二次划走其他任务的资金。
 		if dispute.Submitter != "" {
 			if serr := k.Keeper.phonenodeKeeper.SlashIfBad(ctx, dispute.Submitter, "cheat_result", types.CheatSlashBps); serr != nil {
-				ctx.Logger().Error("edgeai: cheat slash failed", "task_id", msg.TaskId, "submitter", dispute.Submitter, "err", serr.Error())
+				// fail-closed：人工仲裁裁定「作弊」后的不可逆罚没是链上必须达成的
+				// 终态（声誉扣减在前、资金处置在后）。此处若仅记日志吞错，任务会以
+				// 作弊结论结案但作弊者既未被罚没也未被吊销 attestation，等于
+				// 仲裁形同虚设。panic 中止区块，由治理介入修复，绝不静默放行。
+				panic(fmt.Sprintf("edgeai: fatal: cheat slash failed for task %s submitter %s: %v",
+					msg.TaskId, dispute.Submitter, serr))
 			}
 			// 声誉更新：仲裁裁定作弊 → -10（白皮书行 497）
 			k.Keeper.DecrementReputation(ctx, dispute.Submitter, types.ReputationCheatDecrease)

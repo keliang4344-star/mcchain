@@ -3,6 +3,7 @@ package keeper
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"sort"
 
 	"github.com/cosmos/cosmos-sdk/store/prefix"
@@ -64,7 +65,10 @@ func (k Keeper) GetAllPools(ctx sdk.Context) []types.Pool {
 	for ; iter.Valid(); iter.Next() {
 		var pool types.Pool
 		if err := json.Unmarshal(iter.Value(), &pool); err != nil {
-			continue
+			// fail-closed：单个池记录损坏时静默跳过会让该池从「全部池列表」
+			// 中凭空消失，而它的流动性、LP 份额与余额仍然在链上 —— 查询方
+			// 会得出与真实状态不一致的结果，且无从发现。panic 让损坏可见。
+			panic(fmt.Sprintf("dex: unmarshal pool: %v", err))
 		}
 		pools = append(pools, pool)
 	}

@@ -49,6 +49,14 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 // MintCoins 是整条链唯一的铸币入口。任何铸币都必须使累计 minted_supply <= TotalSupplyCap，
 // 否则 panic（总量固化，不可突破）。铸造后累加并持久化 minted_supply。
 func (k Keeper) MintCoins(ctx sdk.Context, amt sdk.Coins) error {
+	// 只允许铸造主币 umc（fail-closed）：minted_supply 账本只按 umc 计数，
+	// 若放行其他 denom，会出现「非 umc 凭空铸造、却完全不计入总量上限」的
+	// 账实不符，等于绕过 10 亿硬顶。因此必须在铸造前显式拒绝。
+	for _, c := range amt {
+		if c.Denom != types.DefaultDenom {
+			return fmt.Errorf("tokenomics: refusing to mint non-%s denom %s", types.DefaultDenom, c.Denom)
+		}
+	}
 	if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, amt); err != nil {
 		return err
 	}
