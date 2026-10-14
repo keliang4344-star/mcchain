@@ -58,7 +58,6 @@ import (
 	"mcchain/app"
 	"mcchain/internal/oraclesvc"
 	depintypes "mcchain/x/depin/types"
-	phonetypes "mcchain/x/phonenode/types"
 )
 
 // 自检与重试参数：链上提交失败最多重试 4 次（500ms→1s→2s 退避），
@@ -859,6 +858,3 @@ func remoteHost(r *http.Request) string {
 	}
 	return r.RemoteAddr
 }
-
-// 确保 phonetypes 被引用（编译时链接 phonenode 模块类型）
-var _ = phonetypes.ModuleName

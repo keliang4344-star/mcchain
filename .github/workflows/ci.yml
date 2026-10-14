@@ -151,3 +151,26 @@ jobs:
           name: generated-docs
           path: docs-generated-artifact/
           if-no-files-found: error
+
+  e2e:
+    name: E2E smoke (init -> block -> CLI/REST/gRPC -> transfer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # 真实二进制冒烟：从 0 初始化 devnet、出块、验证 CLI bank / REST 1317 /
+      # gRPC 9090 / 转账全链路。单验证人模式，约 2-3 分钟，跑在 PR 与 main 上。
+      # 用途：把「能编译」升级为「能跑通」，拦截 devnet/端口/路由等运行时回归。
+      - name: Build mcchaind
+        run: go build -o build/mcchaind ./cmd/mcchaind
+
+      - name: Run e2e smoke
+        run: bash tests/e2e/smoke.sh
+        env:
+          MCCHAIND: ${{ github.workspace }}/build/mcchaind
+          VALIDATORS: "1"
+          BLOCK_TIME: "2s"

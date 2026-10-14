@@ -1,16 +1,12 @@
 package cli
 
 import (
-	"strconv"
-
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/spf13/cobra"
 	"mcchain/x/depin/types"
 )
-
-var _ = strconv.Itoa(0)
 
 func CmdAttestDevice() *cobra.Command {
 	cmd := &cobra.Command{

@@ -94,3 +94,7 @@ docs/generated/
 .e2e-tmp/
 temp_events_check.md
 
+
+# go test -coverprofile 输出（本地覆盖率统计，不入库）
+coverage
+*.out

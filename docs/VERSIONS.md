@@ -54,4 +54,3 @@ AIGC:
 | DEVELOPMENT.md（proto 生成） | v0.47.14 / v1.7.0 / beta.5 |
 | sdk_event_contract.md / mobile_sdk_integration.md | v0.47.14 / v0.37.6 |
 | README.md / README_EN.md | IBC v7.3.0 |
-*（内容由AI生成，仅供参考）*
