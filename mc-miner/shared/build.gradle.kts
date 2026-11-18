@@ -22,8 +22,8 @@ kotlin {
         }
         val jvmMain by getting {
             dependencies {
-                // 仅 JVM/Android 侧需要 secp256k1 签名；iOS actual 在 Phase 1 用 secp256k1-kmp 实现。
-                implementation("org.bouncycastle:bcprov-jdk18on:1.77")
+                // 与 app 模块使用同一 BC 变体，避免 jdk15to18 / jdk18on 重复类。
+                implementation("org.bouncycastle:bcprov-jdk15to18:1.77")
             }
         }
         val jvmTest by getting {

@@ -1,185 +1,118 @@
 package com.mcchain.miner.domain.wallet
 
 import com.mcchain.miner.MCParams
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
-import java.security.PrivateKey
+import com.mcchain.miner.shared.crypto.Secp256k1Signer
+import com.mcchain.miner.shared.protocol.Coin
+import com.mcchain.miner.shared.protocol.CosmosMsgs
+import com.mcchain.miner.shared.tx.DirectTxBuilder
+import com.mcchain.miner.shared.tx.DirectTxInput
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Cosmos SDK StdTx 构建器。
- * 支持 send/delegate/undelegate/claim_rewards 等标准消息。
+ * Cosmos SDK v0.47 交易构造器（SIGN_MODE_DIRECT / TxRaw）。
+ *
+ * 输出为 protobuf TxRaw 字节，可直接 base64 后提交到 REST `/cosmos/tx/v1beta1/txs`。
+ * 旧版 Amino JSON + DER 签名与 v0.47 链不兼容，已全部移除。
  */
 @Singleton
 class TxBuilder @Inject constructor(
-    private val walletManager: WalletManager,
-    private val gson: Gson
+    private val walletManager: WalletManager
 ) {
-    data class Coin(
-        @SerializedName("denom") val denom: String,
-        @SerializedName("amount") val amount: String
+    data class BuiltTx(
+        val txRaw: ByteArray,
+        val txHashHex: String,
+        val fromAddress: String,
     )
 
-    data class StdFee(
-        @SerializedName("amount") val amount: List<Coin>,
-        @SerializedName("gas") val gas: String
-    )
-
-    data class StdSignature(
-        @SerializedName("pub_key") val pubKey: PubKeyValue,
-        @SerializedName("signature") val signature: String
-    )
-
-    data class PubKeyValue(
-        @SerializedName("type") val type: String = "tendermint/PubKeySecp256k1",
-        @SerializedName("value") val value: String
-    )
-
-    data class StdTx(
-        @SerializedName("msg") val msg: List<Any>,
-        @SerializedName("fee") val fee: StdFee,
-        @SerializedName("signatures") val signatures: List<StdSignature>,
-        @SerializedName("memo") val memo: String
-    )
-
-    data class SendMsg(
-        @SerializedName("type") val type: String = "cosmos-sdk/MsgSend",
-        @SerializedName("value") val value: SendMsgValue
-    )
-
-    data class SendMsgValue(
-        @SerializedName("from_address") val from: String,
-        @SerializedName("to_address") val to: String,
-        @SerializedName("amount") val amount: List<Coin>
-    )
-
-    data class DelegateMsg(
-        @SerializedName("type") val type: String = "cosmos-sdk/MsgDelegate",
-        @SerializedName("value") val value: DelegateMsgValue
-    )
-
-    data class DelegateMsgValue(
-        @SerializedName("delegator_address") val delegator: String,
-        @SerializedName("validator_address") val validator: String,
-        @SerializedName("amount") val amount: Coin
-    )
-
-    /**
-     * 构建转账交易并签名
-     */
     fun buildSendTx(
-        fromAddress: String,
         toAddress: String,
         amountUmc: Long,
-        denom: String = MCParams.DENOM,
-        gas: Long = 200_000,
+        accountNumber: Long,
+        sequence: Long,
         memo: String = "",
-        accountNumber: Long,
-        sequence: Long,
-        privateKey: PrivateKey
-    ): String {
-        val sendMsg = SendMsg(value = SendMsgValue(
-            from = fromAddress,
-            to = toAddress,
-            amount = listOf(Coin(denom, amountUmc.toString()))
-        ))
-
-        return buildAndSign(
-            msgs = listOf(sendMsg),
-            gas = gas,
-            memo = memo,
-            accountNumber = accountNumber,
-            sequence = sequence,
-            privateKey = privateKey
+        gas: Long = DEFAULT_GAS_SEND,
+        feeAmount: String = DEFAULT_FEE_UMC,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = CosmosMsgs.send(
+            fromAddress = wallet.address,
+            toAddress = toAddress,
+            amount = Coin(MCParams.DENOM, amountUmc.toString()),
         )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
     }
 
-    /**
-     * 构建质押交易
-     */
     fun buildDelegateTx(
-        delegator: String,
-        validator: String,
+        validatorAddress: String,
         amountUmc: Long,
-        gas: Long = 250_000,
         accountNumber: Long,
         sequence: Long,
-        privateKey: PrivateKey
-    ): String {
-        val delegateMsg = DelegateMsg(value = DelegateMsgValue(
-            delegator = delegator,
-            validator = validator,
-            amount = Coin(MCParams.DENOM, amountUmc.toString())
-        ))
-
-        return buildAndSign(
-            msgs = listOf(delegateMsg),
-            gas = gas,
-            memo = "",
-            accountNumber = accountNumber,
-            sequence = sequence,
-            privateKey = privateKey
+        memo: String = "",
+        gas: Long = DEFAULT_GAS_DELEGATE,
+        feeAmount: String = DEFAULT_FEE_UMC,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = CosmosMsgs.delegate(
+            delegatorAddress = wallet.address,
+            validatorAddress = validatorAddress,
+            amount = Coin(MCParams.DENOM, amountUmc.toString()),
         )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
     }
 
-    private fun buildAndSign(
-        msgs: List<Any>,
-        gas: Long,
+    /** 一次交易领取多个验证人的待领奖励。 */
+    fun buildClaimRewardsTx(
+        validatorAddresses: List<String>,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "",
+        gas: Long = DEFAULT_GAS_CLAIM,
+        feeAmount: String = DEFAULT_FEE_UMC,
+    ): BuiltTx {
+        require(validatorAddresses.isNotEmpty()) { "至少需要一个验证人地址" }
+        val wallet = requireWallet()
+        val messages = validatorAddresses.map {
+            CosmosMsgs.withdrawDelegatorReward(wallet.address, it)
+        }
+        return build(wallet, messages, accountNumber, sequence, memo, gas, feeAmount)
+    }
+
+    private fun requireWallet(): DerivedWallet =
+        walletManager.getStoredWallet() ?: error("钱包未初始化：请先创建或导入助记词")
+
+    private fun build(
+        wallet: DerivedWallet,
+        messages: List<ByteArray>,
+        accountNumber: Long,
+        sequence: Long,
         memo: String,
-        accountNumber: Long,
-        sequence: Long,
-        privateKey: PrivateKey
-    ): String {
-        val fee = StdFee(
-            amount = emptyList(),
-            gas = gas.toString()
+        gas: Long,
+        feeAmount: String,
+    ): BuiltTx {
+        val signed = DirectTxBuilder.build(
+            input = DirectTxInput(
+                messages = messages,
+                chainId = MCParams.CHAIN_ID,
+                accountNumber = accountNumber,
+                sequence = sequence,
+                fee = listOf(Coin(MCParams.DENOM, feeAmount)),
+                gasLimit = gas,
+                memo = memo,
+            ),
+            signer = Secp256k1Signer(wallet.privateKey),
         )
-
-        // 构建签名文档 (Cosmos 标准)
-        val signDoc = mapOf(
-            "account_number" to accountNumber.toString(),
-            "chain_id" to MCParams.CHAIN_ID,
-            "fee" to fee,
-            "memo" to memo,
-            "msgs" to msgs,
-            "sequence" to sequence.toString()
+        return BuiltTx(
+            txRaw = signed.txRawBytes,
+            txHashHex = signed.txHashHex,
+            fromAddress = wallet.address,
         )
-
-        val signBytes = gson.toJson(signDoc).toByteArray(Charsets.UTF_8)
-        val signature = walletManager.signWithPrivateKey(privateKey, signBytes)
-
-        val pubKeyBytes = getPublicKeyBytes(privateKey)
-        val pubKey = PubKeyValue(value = android.util.Base64.encodeToString(pubKeyBytes, android.util.Base64.NO_WRAP))
-
-        val stdSig = StdSignature(
-            pubKey = pubKey,
-            signature = android.util.Base64.encodeToString(signature, android.util.Base64.NO_WRAP)
-        )
-
-        val stdTx = StdTx(
-            msg = msgs,
-            fee = fee,
-            signatures = listOf(stdSig),
-            memo = memo
-        )
-
-        return gson.toJson(stdTx)
     }
 
-    private fun getPublicKeyBytes(privateKey: PrivateKey): ByteArray {
-        // 从 EC 私钥计算公钥
-        val ecSpec = org.bouncycastle.jce.ECNamedCurveTable.getParameterSpec("secp256k1")
-        val keyFactory = java.security.KeyFactory.getInstance("ECDSA", "BC")
-        val ecPrivateKey = privateKey as org.bouncycastle.jce.interfaces.ECPrivateKey
-        val Q = ecSpec.g.multiply(ecPrivateKey.d).normalize()
-
-        // Cosmos 格式：33 字节压缩公钥
-        val x = Q.affineXCoord.toBigInteger().toByteArray()
-        val y = Q.affineYCoord.toBigInteger()
-        val prefix = if (y.testBit(0)) 0x03.toByte() else 0x02.toByte()
-        val xBytes = x.takeLast(32).toByteArray()
-        val paddedX = if (xBytes.size < 32) ByteArray(32 - xBytes.size) + xBytes else xBytes
-        return byteArrayOf(prefix) + paddedX
+    companion object {
+        const val DEFAULT_FEE_UMC = "5000"
+        const val DEFAULT_GAS_SEND = 200_000L
+        const val DEFAULT_GAS_DELEGATE = 250_000L
+        const val DEFAULT_GAS_CLAIM = 300_000L
     }
 }

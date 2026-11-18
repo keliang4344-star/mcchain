@@ -52,8 +52,11 @@ class Secp256k1Signer(privateKey32: ByteArray) : TxSigner {
     }
 
     private fun writeFixed32(value: BigInteger, out: ByteArray, offset: Int) {
-        val bytes = value.toByteArray()
-        require(bytes.size <= 32) { "value too large for 32 bytes" }
-        bytes.copyInto(out, offset + (32 - bytes.size))
+        val raw = value.toByteArray()
+        // BigInteger 为正数且最高位为 1 时会多出一个 0x00 符号位，需要剥掉。
+        val start = if (raw.size == 33 && raw[0] == 0.toByte()) 1 else 0
+        val length = raw.size - start
+        require(length <= 32) { "value too large for 32 bytes" }
+        raw.copyInto(out, offset + (32 - length), start, raw.size)
     }
 }

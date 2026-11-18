@@ -1,5 +1,6 @@
 {
     "schema":  "mc-golden-tx/v1",
+    "kind":  "register_device",
     "comment":  "TEST ONLY：由 mcchaind 离线签名生成，用于校验 shared 的 TxEncoder/TxSigner 字节一致；私钥为公开测试值，禁止转入资产。",
     "chainId":  "mcchain-dev-1",
     "accountNumber":  0,

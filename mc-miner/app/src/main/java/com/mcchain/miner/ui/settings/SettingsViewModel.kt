@@ -3,6 +3,7 @@ package com.mcchain.miner.ui.settings
 import androidx.lifecycle.ViewModel
 import com.mcchain.miner.MCParams
 import com.mcchain.miner.data.pref.SecurePrefs
+import com.mcchain.miner.network.RpcClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,7 +11,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    val securePrefs: SecurePrefs
+    val securePrefs: SecurePrefs,
+    private val rpcClient: RpcClient,
 ) : ViewModel() {
 
     private val _rpcEndpoint = MutableStateFlow("http://127.0.0.1:${MCParams.DEFAULT_RPC_PORT}")
@@ -26,7 +28,9 @@ class SettingsViewModel @Inject constructor(
     val batteryConfig: StateFlow<String> = _batteryConfig
 
     init {
-        _rpcEndpoint.value = securePrefs.rpcEndpoint.ifBlank { "http://127.0.0.1:${MCParams.DEFAULT_RPC_PORT}" }
+        val saved = securePrefs.rpcEndpoint.ifBlank { "http://127.0.0.1:${MCParams.DEFAULT_RPC_PORT}" }
+        _rpcEndpoint.value = saved
+        rpcClient.setEndpoint(saved)
         _nodeSyncEnabled.value = securePrefs.nodeSyncEnabled
         _miningEnabled.value = securePrefs.miningEnabled
         _batteryConfig.value = securePrefs.batteryConfig
@@ -48,7 +52,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun updateRpcEndpoint(endpoint: String) {
-        _rpcEndpoint.value = endpoint
-        securePrefs.rpcEndpoint = endpoint
+        val normalized = endpoint.trim().trimEnd('/')
+        _rpcEndpoint.value = normalized
+        securePrefs.rpcEndpoint = normalized
+        rpcClient.setEndpoint(normalized)
     }
 }

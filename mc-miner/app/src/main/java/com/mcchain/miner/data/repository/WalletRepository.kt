@@ -5,8 +5,6 @@ import com.mcchain.miner.data.db.TxDao
 import com.mcchain.miner.data.model.TxRecord
 import com.mcchain.miner.data.model.TxStatus
 import com.mcchain.miner.data.model.WalletAccount
-import com.mcchain.miner.network.RpcClient
-import com.mcchain.miner.domain.wallet.WalletManager
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -14,8 +12,6 @@ import javax.inject.Singleton
 class WalletRepository @Inject constructor(
     private val accountDao: AccountDao,
     private val txDao: TxDao,
-    private val walletManager: WalletManager,
-    private val rpcClient: RpcClient
 ) {
     suspend fun getAllAccounts(): List<WalletAccount> =
         accountDao.getAllAccounts()

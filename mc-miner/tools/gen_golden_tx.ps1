@@ -1,22 +1,25 @@
 ﻿#requires -Version 5.1
 <#
-  生成 shared 的 golden tx 对照向量（Phase 0 验收用）。
+  生成 shared 的 golden tx 对照向量（Phase 0/1 验收用）。
 
   必须使用链仓库源码构建出的 mcchaind（与链上 Go 代码同版本），流程：
     1. 临时 home 中导入固定测试私钥
-    2. tx depin register-device --generate-only 生成未签名交易
+    2. --generate-only 生成未签名交易
     3. tx sign --sign-mode direct --offline 离线签名
     4. tx encode 输出 TxRaw base64
     5. 解析 TxRaw，重组 SignDoc 并计算摘要，写出 JSON
 
   用法（在 mc-miner 目录）：
-    powershell -ExecutionPolicy Bypass -File tools/gen_golden_tx.ps1 [-Mcchaind <path>]
+    powershell -ExecutionPolicy Bypass -File tools/gen_golden_tx.ps1 -Kind register_device
+    powershell -ExecutionPolicy Bypass -File tools/gen_golden_tx.ps1 -Kind bank_send
 
   注意：临时 keyring 目录保留在系统临时目录（脚本不删除目录，避免误删风险），
   如不再需要可手工删除输出中打印的 tempHome。
 #>
 param(
-    [string]$Mcchaind = ""
+    [string]$Mcchaind = "",
+    [ValidateSet("register_device", "bank_send")]
+    [string]$Kind = "register_device"
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,11 +49,10 @@ $sequence      = 0
 $feeDenom      = "umc"
 $feeAmount     = "5000"
 $gasLimit      = 200000
-$memo          = "golden-register-device-v1"
 $model         = "Pixel 8 Pro"
 $deviceOs      = "Android 15"
-
-$outFile = Join-Path $minerRoot "shared\src\jvmTest\resources\golden\register_device.json"
+# 固定收款测试私钥 = SHA-256("mcchain-golden-tx-recipient-v1-do-not-use")，仅用于 golden vector。
+$recipientPrivateKeyHex = "503679372450b104edd9175521db0436fde715490c8bcaa4dd932c879a0d0beb"
 
 function Invoke-Cli {
     param([string[]]$CliArgs)
@@ -118,14 +120,47 @@ $address = (Invoke-Cli -CliArgs @(
     "keys", "show", "golden", "-a", "--keyring-backend", "test", "--home", $tempHome
 )).Trim()
 
+Invoke-Cli -CliArgs @(
+    "keys", "import-hex", "recipient", $recipientPrivateKeyHex,
+    "--keyring-backend", "test", "--home", $tempHome
+) | Out-Null
+$recipient = (Invoke-Cli -CliArgs @(
+    "keys", "show", "recipient", "-a", "--keyring-backend", "test", "--home", $tempHome
+)).Trim()
+
+switch ($Kind) {
+    "register_device" {
+        $memo = "golden-register-device-v1"
+        $outFile = Join-Path $minerRoot "shared\src\jvmTest\resources\golden\register_device.json"
+        $msgArgs = @("tx", "depin", "register-device", $address, $model, $deviceOs)
+        $msgJson = [ordered]@{
+            typeUrl = "/mcchain.depin.MsgRegisterDevice"
+            creator = $address
+            address = $address
+            model   = $model
+            os      = $deviceOs
+        }
+    }
+    "bank_send" {
+        $memo = "golden-bank-send-v1"
+        $outFile = Join-Path $minerRoot "shared\src\jvmTest\resources\golden\bank_send.json"
+        $msgArgs = @("tx", "bank", "send", $address, $recipient, "1234umc")
+        $msgJson = [ordered]@{
+            typeUrl   = "/cosmos.bank.v1beta1.MsgSend"
+            fromAddress = $address
+            toAddress = $recipient
+            amount    = [ordered]@{ denom = $feeDenom; amount = "1234" }
+        }
+    }
+}
+
 $unsignedPath = Join-Path $tempHome "unsigned.json"
-$unsigned = Invoke-Cli -CliArgs @(
-    "tx", "depin", "register-device", $address, $model, $deviceOs,
-    "--from", "golden", "--keyring-backend", "test", "--home", $tempHome,
-    "--chain-id", $chainId, "--account-number", "$accountNumber", "--sequence", "$sequence",
-    "--generate-only", "--fees", "$feeAmount$feeDenom", "--gas", "$gasLimit",
-    "--note", $memo, "--output", "json"
-)
+$unsigned = Invoke-Cli -CliArgs ($msgArgs + @(
+        "--from", "golden", "--keyring-backend", "test", "--home", $tempHome,
+        "--chain-id", $chainId, "--account-number", "$accountNumber", "--sequence", "$sequence",
+        "--generate-only", "--fees", "$feeAmount$feeDenom", "--gas", "$gasLimit",
+        "--note", $memo, "--output", "json"
+    ))
 Write-Utf8NoBom $unsignedPath $unsigned
 
 $signedPath = Join-Path $tempHome "signed.json"
@@ -191,6 +226,7 @@ $signDocSha256 = ConvertTo-Hex -Bytes ($sha.ComputeHash($signDocBytes))
 
 $vector = [ordered]@{
     schema           = "mc-golden-tx/v1"
+    kind             = $Kind
     comment          = "TEST ONLY：由 mcchaind 离线签名生成，用于校验 shared 的 TxEncoder/TxSigner 字节一致；私钥为公开测试值，禁止转入资产。"
     chainId          = $chainId
     accountNumber    = $accountNumber
@@ -198,13 +234,7 @@ $vector = [ordered]@{
     memo             = $memo
     timeoutHeight    = 0
     fee              = [ordered]@{ denom = $feeDenom; amount = $feeAmount; gasLimit = $gasLimit }
-    msg              = [ordered]@{
-        typeUrl = "/mcchain.depin.MsgRegisterDevice"
-        creator = $address
-        address = $address
-        model   = $model
-        os      = $deviceOs
-    }
+    msg              = $msgJson
     privateKeyHex    = $privateKeyHex
     publicKeyHex     = $publicKeyHex
     address          = $address
@@ -220,7 +250,7 @@ $vector = [ordered]@{
 
 Write-Utf8NoBom $outFile ($vector | ConvertTo-Json -Depth 6)
 
-Write-Host "已生成：$outFile"
+Write-Host "已生成（$Kind）：$outFile"
 Write-Host "  address  = $address"
 Write-Host "  txHash   = $($vector.txHashHex)"
 Write-Host "  tempHome = $tempHome"
