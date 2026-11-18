@@ -144,7 +144,9 @@ class RpcClient @Inject constructor(
             for (coin in rewardArray) {
                 val coinObj = coin.asJsonObject
                 if (coinObj.get("denom").asString == MCParams.DENOM) {
-                    total += coinObj.get("amount").asLong
+                    // distribution 返回的是 decimal 字符串（如 "123.456000000000000000"），
+                    // 不能直接 asLong，否则抛 NumberFormatException。
+                    total += coinObj.get("amount")?.asString?.substringBefore('.')?.toLongOrNull() ?: 0L
                 }
             }
         }

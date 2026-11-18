@@ -96,6 +96,11 @@ class SecurePrefs @Inject constructor(
         get() = requirePrefs().getLong(KEY_ATTEST_EXPIRY, 0)
         set(value) = requirePrefs().edit().putLong(KEY_ATTEST_EXPIRY, value).apply()
 
+    /** 已完成 depin.MsgRegisterDevice 上链的钱包地址；null 表示尚未注册。 */
+    var registeredDeviceAddress: String?
+        get() = requirePrefs().getString(KEY_REGISTERED_DEVICE_ADDRESS, null)
+        set(value) = requirePrefs().edit().putString(KEY_REGISTERED_DEVICE_ADDRESS, value).apply()
+
     // === 最后同步高度 ===
     var lastSyncedHeight: Long
         get() = requirePrefs().getLong(KEY_SYNCED_HEIGHT, 0)
@@ -127,6 +132,7 @@ class SecurePrefs @Inject constructor(
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_ATTEST_TOKEN = "attest_token"
         private const val KEY_ATTEST_EXPIRY = "attest_expiry"
+        private const val KEY_REGISTERED_DEVICE_ADDRESS = "registered_device_address"
         private const val KEY_SYNCED_HEIGHT = "synced_height"
         private const val KEY_HEARTBEAT_TIME = "heartbeat_time"
         private const val KEY_FIRST_LAUNCH = "first_launch"

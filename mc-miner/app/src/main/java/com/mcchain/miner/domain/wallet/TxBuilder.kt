@@ -4,6 +4,7 @@ import com.mcchain.miner.MCParams
 import com.mcchain.miner.shared.crypto.Secp256k1Signer
 import com.mcchain.miner.shared.protocol.Coin
 import com.mcchain.miner.shared.protocol.CosmosMsgs
+import com.mcchain.miner.shared.protocol.DepinTx
 import com.mcchain.miner.shared.tx.DirectTxBuilder
 import com.mcchain.miner.shared.tx.DirectTxInput
 import javax.inject.Inject
@@ -78,6 +79,29 @@ class TxBuilder @Inject constructor(
         return build(wallet, messages, accountNumber, sequence, memo, gas, feeAmount)
     }
 
+    /**
+     * 设备注册（depin.MsgRegisterDevice）。
+     * 链上要求 address 必须等于签名者，因此 creator 与 address 都填当前钱包地址。
+     */
+    fun buildRegisterDeviceTx(
+        model: String,
+        os: String,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "register-device",
+        gas: Long = DEFAULT_GAS_REGISTER,
+        feeAmount: String = DEFAULT_FEE_UMC,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = DepinTx.registerDevice(
+            creator = wallet.address,
+            address = wallet.address,
+            model = model,
+            os = os,
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
     private fun requireWallet(): DerivedWallet =
         walletManager.getStoredWallet() ?: error("钱包未初始化：请先创建或导入助记词")
 
@@ -114,5 +138,6 @@ class TxBuilder @Inject constructor(
         const val DEFAULT_GAS_SEND = 200_000L
         const val DEFAULT_GAS_DELEGATE = 250_000L
         const val DEFAULT_GAS_CLAIM = 300_000L
+        const val DEFAULT_GAS_REGISTER = 200_000L
     }
 }

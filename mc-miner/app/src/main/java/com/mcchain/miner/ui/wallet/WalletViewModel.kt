@@ -51,7 +51,14 @@ class WalletViewModel @Inject constructor(
 
             _transactions.value = walletRepository.getTransactionsForAddress(default.address, 50)
             withContext(Dispatchers.IO) {
+                // 先重放离线队列，再刷新余额：队列里的交易可能已改变余额与 sequence。
+                transactionService.replayPending()
                 transactionService.refreshAccount(default.address)
+                // 首次有余额时自动完成 depin.MsgRegisterDevice（未注册才发起）。
+                transactionService.ensureDeviceRegistered(
+                    model = android.os.Build.MODEL,
+                    os = "Android ${android.os.Build.VERSION.RELEASE}",
+                )?.takeUnless { it.success }?.let { _message.value = it.message }
             }
             _accounts.value = walletRepository.getAllAccounts()
         }
