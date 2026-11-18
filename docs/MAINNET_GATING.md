@@ -8,7 +8,7 @@
 
 **现状（已落地）**：
 
-- `ORACLE_VERIFIER` 显式三态：`soft` / `tee` / `strict`；strict 下未接 TEE 时拒绝启动。
+- `ORACLE_VERIFIER` 显式二态：`soft` / `tee`；strict 下禁止 `soft`，`tee` 缺 `ORACLE_TEE_ROOTS_FILE` 即拒绝启动。
 - 链上 `TeeOracle` 已接入：验证人注入 `MC_ORACLE_PUBKEY` 即按 TeeOracle 验签，
   生产链由 `internal/chainprofile.IsProduction` 闸门强制启用，禁止退化为 SoftOracle。
 - `cmd/oracle` 提供 `/pubkey`、`/sign` 接口，签名私钥固定（重启 pubkey 不变）。

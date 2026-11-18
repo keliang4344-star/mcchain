@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"errors"
 	"testing"
 
 	tmdb "github.com/cometbft/cometbft-db"
@@ -133,4 +134,56 @@ func TestResolveDisputeAuthz(t *testing.T) {
 	// 非法 resolution
 	_, err = ms.ResolveDispute(sdk.WrapSDKContext(ctx), &types.MsgResolveDispute{Creator: arb, TaskId: "t1", Resolution: "bogus"})
 	require.ErrorIs(t, err, types.ErrInvalidResolution)
+}
+
+// mockPhonenodeSlashFail 模拟罚没失败（例如 phonenode 状态损坏/账户不存在）。
+type mockPhonenodeSlashFail struct{ mockPhonenode }
+
+func (m *mockPhonenodeSlashFail) SlashIfBad(sdk.Context, string, string, uint32) error {
+	return errors.New("slash backend unavailable")
+}
+
+// TestResolveDisputeCheatSlashFailureLeavesDisputeOpen 罚没失败时：
+//   - 返回错误（不 panic，不中断区块执行）；
+//   - 不写争议终态（dispute.Resolution 仍为 none）；
+//   - 不扣声誉、不标记任务作弊，仲裁者可重试。
+func TestResolveDisputeCheatSlashFailureLeavesDisputeOpen(t *testing.T) {
+	storeKey := sdk.NewKVStoreKey(types.StoreKey)
+	memKey := storetypes.NewMemoryStoreKey(types.MemStoreKey)
+	db := tmdb.NewMemDB()
+	cs := store.NewCommitMultiStore(db)
+	cs.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
+	cs.MountStoreWithDB(memKey, storetypes.StoreTypeMemory, nil)
+	require.NoError(t, cs.LoadLatestVersion())
+
+	registry := codectypes.NewInterfaceRegistry()
+	cdc := codec.NewProtoCodec(registry)
+	ps := typesparams.NewSubspace(cdc, types.Amino, storeKey, memKey, "EdgeaiParams")
+	pn := &mockPhonenodeSlashFail{}
+	k := NewKeeper(cdc, storeKey, memKey, ps, pn, mockBank{}, nil, &mockReferralKeeper{})
+	ctx := sdk.NewContext(cs, tmproto.Header{}, false, log.NewNopLogger())
+	k.SetParams(ctx, types.DefaultParams())
+
+	arb := addrOf(t)
+	submitter := addrOf(t)
+	params := types.DefaultParams()
+	params.Arbitrator = arb
+	k.SetParams(ctx, params)
+
+	require.NoError(t, k.SetTask(ctx, &Task{Id: "t2", Status: types.TaskStatusOpen}))
+	require.NoError(t, k.SetResult(ctx, &Result{TaskId: "t2", Submitter: submitter, Status: types.ResultStatusPending, SubmittedAtBlock: 1}))
+	require.NoError(t, k.SetDispute(ctx, &Dispute{TaskId: "t2", Challenger: addrOf(t), Submitter: submitter, Status: "open", Resolution: "none", OpenedAtBlock: 1}))
+
+	ms := NewMsgServerImpl(*k)
+	_, err := ms.ResolveDispute(sdk.WrapSDKContext(ctx), &types.MsgResolveDispute{Creator: arb, TaskId: "t2", Resolution: "cheat"})
+	require.Error(t, err, "slash failure must fail the tx instead of silently closing the dispute")
+
+	task, err := k.GetTask(ctx, "t2")
+	require.NoError(t, err)
+	require.Equal(t, types.TaskStatusOpen, task.Status, "罚没失败不得标记任务作弊")
+
+	d, err := k.GetDispute(ctx, "t2")
+	require.NoError(t, err)
+	require.Equal(t, "open", d.Status, "罚没失败必须保持争议 open 以便重试")
+	require.Equal(t, "none", d.Resolution, "罚没失败不得写终态")
 }

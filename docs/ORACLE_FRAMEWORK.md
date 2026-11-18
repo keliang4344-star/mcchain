@@ -1,18 +1,48 @@
-# T2 预言机框架（链侧可插拔 attestation 验证）
+# T2 预言机框架（链上验签 + 链下硬件证明）
 
-## 现状
-- `x/depin/types/oracle.go` 定义了 `AttestationOracle` 接口与两种实现（`SoftOracle` / `TeeOracle`）。
+## 现状（与实现一一对应）
+- `x/depin/types/oracle.go` 定义 `AttestationOracle` 接口与两种实现：`SoftOracle` / `TeeOracle`。
 - `AttestDevice`（`x/depin/keeper/msg_server_attest_device.go`）调用 `types.DefaultOracle.VerifyDeviceAttestation(...)`。
-- **生产强制**：`app.go` 在 `NewMcchain` 模块装配后要求 `MC_ORACLE_PUBKEY` 必须设置，否则直接 `panic`，杜绝「默认 SoftOracle 静默放行任意 attestation」的隐患；仅本地开发可通过 `MC_ORACLE_ALLOW_SOFT=1` 显式退回 SoftOracle。
-- **链下真验硬件**：`internal/oraclesvc` 的 `/sign` 在签发 `deviceAddr|challenge` 前，必须先验证设备提交的真实硬件 attestation（多根：Play Integrity / 华为 / Android Key Attestation），fail-closed。
+- **生产强制（双层）**：
+  1. `app.New` 要求 `MC_ORACLE_PUBKEY` 必须设置，否则 panic；
+  2. `SoftOracle.VerifyDeviceAttestation` 自身在 `chainprofile.IsProduction(chainID)` 时直接拒绝——
+     即使运维误设 `MC_ORACLE_ALLOW_SOFT=1`，生产链也不会接受「非空即通过」的软认证。
+- **信任边界（必须区分）**：链上 `TeeOracle` 只验证「预言机账户对 `deviceAddr|challenge` 的签名」，
+  它证明的是预言机背书，**不是**硬件证明本身；证书链、nonce、过期、撤销、重放由链下 `cmd/oracle`
+  的真实 verifier 完成（见下）。
 
-## 两种实现
-| 实现 | 适用 | 逻辑 |
-|---|---|---|
-| `SoftOracle` | 仅本地开发/测试（`MC_ORACLE_ALLOW_SOFT=1`） | 仅校验 challenge、signature 均非空（来者不拒，不可用于生产） |
-| `TeeOracle` | 生产主网（默认强制） | 校验 signature 为预言机私钥对 `(deviceAddr\|challenge)` 的 secp256k1 签名（链上验签） |
+## 支持的 verifier 模式（唯一权威表）
 
-## 生产启用 TeeOracle（默认强制，无需改代码）
+| `ORACLE_VERIFIER` | 适用环境 | 启动要求 | 行为 |
+|---|---|---|---|
+| `soft`（默认） | 仅开发/测试 | `ORACLE_SIGNER_MNEMONIC` | 仅校验 `SHA256(deviceID)==proof`，不构成抗女巫证据 |
+| `tee` | 生产/测试网 | `ORACLE_TEE_ROOTS_FILE` 必填；strict 模式还会强制校验 signer 后端与撤销文件 | 校验设备证明包：证书链到本地可信根、设备/链/用途绑定、nonce 一次性、有效期/时钟偏差、撤销列表、安全等级 ≥ 阈值 |
+
+strict 模式（`ORACLE_STRICT=1` 或 `ORACLE_ENV=production`）规则：
+- `ORACLE_VERIFIER` 不得为 `soft`；`ORACLE_TEE_ROOTS_FILE` 缺失直接拒绝启动；
+- 禁止 `ORACLE_SIGNER_MNEMONIC`（助记词不得作为常驻生产签名材料）；
+- 禁止 `ORACLE_KEYRING_BACKEND=test|memory`，file 后端必须提供 `ORACLE_KEYRING_PASSWORD_FILE`；
+- `ORACLE_TEE_REVOCATION_FILE` 配置后文件不存在会拒绝启动（杜绝对撤销列表的「以为在检查」）。
+
+## 硬件证明包格式（`attestation_proof`，base64(JSON)）
+
+```json
+{
+  "device_id": "mc1...",
+  "chain_id": "mcchain-mainnet-1",
+  "purpose": "device_attestation",
+  "nonce": "<一次性 challenge>",
+  "expires_at": 1700000000,
+  "security_level": "tee",
+  "cert_chain_pem": ["-----BEGIN CERTIFICATE-----..."],
+  "signature": "<leaf 私钥对规范化上下文的 ECDSA/RSA 签名，base64>"
+}
+```
+
+规范化签名消息：`device_id \x00 chain_id \x00 purpose \x00 nonce \x00 expires_at \x00 security_level`。
+根证书只来自本地 `ORACLE_TEE_ROOTS_FILE`，**绝不采信证明包自带的根**。
+
+## 链上 TeeOracle 的启用（默认强制）
 `app.go` 在初始化阶段读取 `MC_ORACLE_PUBKEY`（33 字节压缩 secp256k1 公钥的 base64）并 `SetOracle(NewTeeOracle(...))`：
 ```go
 import "mcchain/x/depin/types"

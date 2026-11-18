@@ -28,7 +28,7 @@
 | 定位 | **主网唯一**认证签名服务 | 开发/CI 工具 |
 | 鉴权 | `/sign` Bearer `ORACLE_SIGN_TOKEN` | `/attest` Bearer `ORACLE_API_KEY` |
 | 传输 | TLS（`ORACLE_TLS_CERT/KEY`）或显式 `ORACLE_ALLOW_PLAINTEXT` | `ORACLE_BIND_ADDR`，非回环强制 API key |
-| 设备证据 | Play Integrity / Huawei / Android Key Attestation **证书链校验**（`ORACLE_ACCEPT_ROOTS`） | `ORACLE_VERIFIER=soft|tee` 闸门；**strict 下必拒绝启动**（tee 未接线） |
+| 设备证据 | Play Integrity / Huawei / Android Key Attestation **证书链校验**（`ORACLE_ACCEPT_ROOTS`） | `ORACLE_VERIFIER=soft|tee` 闸门；**strict 禁止 soft，tee 缺可信根即拒绝启动** |
 | systemd | `mc-oracle-signer.service` | 无（不要装到生产机） |
 
 > 结论：主网装 `mc-oracle-signer.service`；`cmd/oracle` 只用于本机联调。

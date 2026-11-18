@@ -192,6 +192,11 @@ func (AppModule) ConsensusVersion() uint64 { return 1 }
 
 // BeginBlock compounds accrued staking rewards once per reward epoch.
 func (am AppModule) BeginBlock(ctx sdk.Context, _ abci.RequestBeginBlock) {
+	// 状态版本闸门：每个区块读取一次（单键读，成本恒定）。版本未知/落后时
+	// 必须中止而不是继续在错误结构上记账——资金模块不允许「尽力而为」。
+	if err := am.keeper.EnsureSchemaVersion(ctx); err != nil {
+		panic(fmt.Sprintf("liquidstaking: %v", err))
+	}
 	if ctx.BlockHeight() == 0 || ctx.BlockHeight()%RewardEpochBlocks != 0 {
 		return
 	}

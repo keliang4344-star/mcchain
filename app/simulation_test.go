@@ -517,6 +517,11 @@ func TestAppSimulationAfterImport(t *testing.T) {
 		require.NoError(t, os.RemoveAll(newDir))
 	}()
 
+	// 仿真使用进程内临时 chain-id（chain-id-<i>-<j>），不属于任何登记档位。
+	// 显式豁免「必须已登记」，并按生产档位 fail-closed 处理；仅限测试进程。
+	t.Setenv("MC_ALLOW_UNKNOWN_CHAIN_ID", "1")
+	t.Setenv("MC_ORACLE_PUBKEY", "simulation-test-pubkey")
+
 	newApp := app.New(
 		log.NewNopLogger(),
 		newDB,

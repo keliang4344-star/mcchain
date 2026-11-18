@@ -79,6 +79,23 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    # 4) 文档元数据扫描：禁止 AIGC/生成器水印元数据进入仓库。
+    #    这类 front matter 与项目无关，且会在文档渲染、法务审查与对外发布时
+    #    造成归属混淆；新增文档必须从模板里彻底去掉。
+    for root, _dirs, files in os.walk(ROOT):
+        norm = root.replace("\\", "/")
+        if "/.git" in norm or "docs/generated" in norm:
+            continue
+        for fn in files:
+            if not fn.endswith(".md"):
+                continue
+            path = os.path.join(root, fn)
+            with open(path, encoding="utf-8", errors="ignore") as f:
+                head = f.read(4096)
+            if re.search(r"^\s*AIGC\s*:", head, re.MULTILINE) or "ContentProducer:" in head:
+                errors.append(
+                    f"{os.path.relpath(path, ROOT)}: contains AIGC metadata front matter (remove it)")
+
     if errors:
         print("DOCS CONSISTENCY FAILED:")
         for e in errors:

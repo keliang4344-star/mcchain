@@ -25,6 +25,9 @@ func InitGenesis(ctx sdk.Context, k keeper.Keeper, gs types.GenesisState) {
 	}
 	k.ImportValidatorBonds(ctx, gs.ValidatorBonds)
 	k.ImportNextUnbondingID(ctx, gs.NextUnbondingID)
+	if err := k.EnsureSchemaVersion(ctx); err != nil {
+		panic(fmt.Sprintf("liquidstaking: %v", err))
+	}
 }
 
 // ExportGenesis dumps the module state.

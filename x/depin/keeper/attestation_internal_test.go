@@ -17,9 +17,11 @@ func TestOracleInWhitelist(t *testing.T) {
 // TestIsProductionChainID 单测辅助函数。
 func TestIsProductionChainID(t *testing.T) {
 	require.True(t, isProductionChainID("mcchain-mainnet-1"))
-	require.True(t, isProductionChainID("")) // 空 chain-id 视为生产（fail-closed 更安全的默认）
+	require.True(t, isProductionChainID(""))                    // 空 chain-id 视为生产（fail-closed 更安全的默认）
+	require.True(t, isProductionChainID("local"))               // 未登记的旧名不再按开发链放行
+	require.True(t, isProductionChainID("mcchain-mainnet-dev")) // 混合字符串不得绕过
 	require.False(t, isProductionChainID("mcchain-testnet-1"))
 	require.False(t, isProductionChainID("mcchain-dev-1"))
-	require.False(t, isProductionChainID("local"))
-	require.False(t, isProductionChainID("sim"))
+	require.False(t, isProductionChainID("mcchain-local-1"))
+	require.False(t, isProductionChainID("mcchain-sim-1"))
 }

@@ -29,7 +29,7 @@ fee = gas * min_gas_price
 
 - 区块 `gas` 上限由创世 `consensus_params.block.max_gas` 控制；若创世未显式设置（历史默认 -1 = 无界），
   `InitChainer` 会在链启动首块将其 fail-closed 钳制为 **100,000,000**（`app/app.go` 的 `DefaultBlockMaxGas`），
-  杜绝区块 gas 无界导致的出块失控 DoS。`deploy/init.sh` 与 `server_setup.sh` 均已显式写入该上限。单笔交易的 gas 不得超过区块上限。
+  杜绝区块 gas 无界导致的出块失控 DoS。`deploy/init.sh` 与 `devnet_solo_setup.sh` 均已显式写入该上限。单笔交易的 gas 不得超过区块上限。
 - 移动端交易均为轻量 Msg（注册/ attest / 贡献），`gas=200000` 充足；如引入复杂 Msg 需重新评估。
 - 配合 `minimum-gas-prices` 非零值，可有效阻止空投/刷量类 spam。
 

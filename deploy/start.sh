@@ -85,11 +85,14 @@ self_check() {
   # [1] home 必须是已 init 的节点（genesis.json 存在）
   [[ -f "$HOME_DIR/config/genesis.json" ]] || die "$HOME_DIR/config/genesis.json 不存在：先 ./deploy/init.sh 建链，或 ./scripts/devnet.sh init 建本地链"
 
-  # [2] 闸门齐备（仅在 mainnet chain-id 下严格，dev/test 允许缺失）
+  # [2] 闸门齐备。档位判定必须来自编译进二进制的 chainprofile（mcchaind profile），
+  #     禁止脚本用 *mainnet* 之类的子串自行判断——否则脚本与应用层会对同一条链
+  #     给出不同结论（脚本放行、应用拦截，或反之）。未知 chain-id 直接退出。
   local cid; cid="$(win "$HOME_DIR")"
-  local chain_id
+  local chain_id profile
   chain_id=$(grep -oE '"chain_id"\s*:\s*"[^"]+"' "$HOME_DIR/config/genesis.json" | head -1 | sed 's/.*"chain_id"\s*:\s*"\([^"]*\)".*/\1/')
-  if [[ "$chain_id" == *mainnet* ]]; then
+  profile="$("$MCCHAIND" profile "$chain_id" 2>/dev/null)" || die "chain-id '$chain_id' 未在 internal/chainprofile 登记（未知档位），拒绝启动"
+  if [[ "$profile" == "production" ]]; then
     local missing=0
     for v in MC_REQUIRE_REAL_GENESIS_KEYS MC_ORACLE_PUBKEY \
              MC_FOUNDATION_EARLY_DEV_PUBKEY MC_FOUNDATION_OPS_PUBKEY \
@@ -103,13 +106,13 @@ self_check() {
       die "$missing 道 fail-closed 闸门缺失（详见 deploy/mainnet.env.example）。主网链不会启动。"
     fi
   else
-    # devnet / testnet：未设 MC_ORACLE_PUBKEY 时自动加 MC_ORACLE_ALLOW_SOFT=1
+    # testnet / development：未设 MC_ORACLE_PUBKEY 时自动加 MC_ORACLE_ALLOW_SOFT=1
     if [[ -z "${MC_ORACLE_PUBKEY:-}" && "${MC_ORACLE_ALLOW_SOFT:-}" != "1" ]]; then
       warn "未检测到 MC_ORACLE_PUBKEY；非主网自动注入 MC_ORACLE_ALLOW_SOFT=1（仅本地/测试）"
       export MC_ORACLE_ALLOW_SOFT=1
     fi
   fi
-  log "闸门齐备（chain-id=$chain_id）"
+  log "闸门齐备（chain-id=$chain_id, profile=$profile）"
 }
 
 # ── stop / status ────────────────────────────────────────────────────────

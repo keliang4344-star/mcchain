@@ -160,3 +160,19 @@ curl -s localhost:26657/consensus_params | jq '.result.consensus_params.block.ma
 任一项不符就停下来排查：devnet 已经用同一套 patch_genesis 校准，
 如果 production genesis 跑出来不一样，说明 deploy 流程里某一步在裸 mcchaind init
 之后没接 patch_genesis。**这是上线 SLA 中的必查项。**
+
+## 7. 生产配置基线（发布前逐项打勾）
+
+以下文件与字段构成主网节点的最小配置基线；任何一项偏离都必须在发布记录中说明理由。
+
+| 范围 | 文件 / 对象 | 基线要求 |
+|---|---|---|
+| CometBFT | `config/config.toml` | `tx_index = "kv"`（RPC 节点可改 `null` + 外部索引）；`mempool.size` 按内存规格显式设定（默认 5000）；`p2p.pex` 公网开启、验证人仅连 sentry；`rpc.laddr` 仅监听内网 |
+| 应用 | `config/app.toml` | `pruning` 显式（验证人 `default`/`everything`，归档 `nothing`）；`minimum-gas-prices` 非零；`api.enable`/`grpc.enable` 与角色匹配；`state-sync.snapshot-interval` 与 `keep-recent` 显式 |
+| 反向代理 | Nginx（RPC/REST/gRPC 前置） | TLS 终止、请求体上限、按 IP 限流、超时、只读路由白名单；不得把 `26656/26657/9090` 直接暴露公网 |
+| 进程守护 | systemd unit | `User=mcchain`（非 root）、`EnvironmentFile=/etc/mcchain/*.env`（600）、`LimitNOFILE=65535`、`Restart=on-failure`、内存上限 |
+| 文件权限 | `~/.mcchain/config`、keyring、env 文件 | 目录 `700`、文件 `600`；助记词/私钥不得进入仓库、日志、shell history、CI artifact |
+| 端口边界 | 验证人主机 | P2P `26656` 仅对 sentry 开放；RPC `26657`/gRPC `9090`/REST `1317` 默认关闭或仅回环；SSH 仅密钥登录 |
+
+发布门禁：`bash scripts/mainnet_readiness.sh all --mainnet` 必须在目标主机（或等价的发布环境）
+跑出 `MAINNET GO`，并把 JSON 报告随发布记录归档。

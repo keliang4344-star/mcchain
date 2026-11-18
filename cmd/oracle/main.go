@@ -31,10 +31,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -77,6 +79,11 @@ type OracleService struct {
 	chainID    string
 	listenAddr string
 	httpServer *http.Server
+	// rpcClient 用于广播后轮询交易是否已上链（区分 submitted / committed）。
+	rpcClient *rpchttp.HTTP
+	// waitCommit / waitCommitTimeout 控制是否等待交易上链。
+	waitCommit        bool
+	waitCommitTimeout time.Duration
 
 	// monitor 记录链上提交的成败与最近一次成功时间，供周期自检判定降级。
 	monitor *oraclesvc.HealthMonitor
@@ -144,11 +151,26 @@ type oracleConfig struct {
 	listenAddr string
 	mnemonic   string
 	keyringDir string
-	apiKey     string
+	// keyringBackend 是签名密钥后端。生产（strict）禁止 test/memory，
+	// 只允许 file/os/pass/kwallet 等持久化后端。
+	keyringBackend string
+	// keyringPasswordFile 是 file 后端的口令文件（strict 必填），
+	// 避免把口令写进环境变量/命令行/进程列表。
+	keyringPasswordFile string
+	apiKey              string
 	// trustedProxies 是受信反向代理来源（IP/CIDR）。仅当请求的 RemoteAddr 命中其中之一时，
 	// 才采信 X-Forwarded-For 里的客户端 IP 用于限流，否则一律以 RemoteAddr 计。
 	trustedProxies []*net.IPNet
 	strict         bool
+	// verifierMode 是 attestation 验证器档位：soft（仅开发/测试）或 tee（生产）。
+	verifierMode string
+	// tee 验证器配置。
+	teeRootsFile        string
+	teeRevocationFile   string
+	teeMinSecurityLevel string
+	// waitCommit 为 true 时在广播后轮询交易上链结果，用于区分 submitted / committed。
+	waitCommit        bool
+	waitCommitTimeout time.Duration
 }
 
 // resolveConfig 按「命令行 > 环境变量 > 默认值」解析配置，并逐项校验。
@@ -208,13 +230,74 @@ func resolveConfig(chainID, node string, port int) (oracleConfig, error) {
 		cfg.listenAddr = fmt.Sprintf("127.0.0.1:%d", listenPort)
 	}
 
-	// 4) 签名账户助记词：没有它就无法向链上提交 attestation 结果。
+	// 4) 签名账户：开发可用助记词；生产禁止把助记词作为常驻材料。
+	//
+	// 生产路径（strict）：
+	//   - 禁止 ORACLE_SIGNER_MNEMONIC（环境变量会被 /proc、systemd show、崩溃转储捕获）；
+	//   - 只允许持久化 keyring 后端（禁止 test/memory）；
+	//   - file 后端必须提供 ORACLE_KEYRING_PASSWORD_FILE（口令文件，权限由运维收紧）。
+	// 密钥预置：运维用 mcchaind keys add/import 在同一 keyring 目录预置
+	// "oracle" 账户，oracle 服务只读取、不创建。
+	cfg.keyringBackend = strings.ToLower(strings.TrimSpace(envOrDefault("ORACLE_KEYRING_BACKEND", keyring.BackendTest)))
+	cfg.keyringPasswordFile = strings.TrimSpace(os.Getenv("ORACLE_KEYRING_PASSWORD_FILE"))
 	cfg.mnemonic = strings.TrimSpace(os.Getenv("ORACLE_SIGNER_MNEMONIC"))
-	if cfg.mnemonic == "" {
-		return oracleConfig{}, errors.New("ORACLE_SIGNER_MNEMONIC is required: oracle needs a funded account to submit attestation results on-chain")
+
+	if cfg.strict {
+		switch cfg.keyringBackend {
+		case keyring.BackendTest, keyring.BackendMemory:
+			return oracleConfig{}, fmt.Errorf(
+				"ORACLE_KEYRING_BACKEND=%q is a development backend and is forbidden in strict/production mode; use file or os",
+				cfg.keyringBackend)
+		case keyring.BackendFile:
+			if cfg.keyringPasswordFile == "" {
+				return oracleConfig{}, errors.New(
+					"ORACLE_KEYRING_PASSWORD_FILE is required for the file keyring in strict/production mode")
+			}
+			if _, err := os.Stat(cfg.keyringPasswordFile); err != nil {
+				return oracleConfig{}, fmt.Errorf("ORACLE_KEYRING_PASSWORD_FILE is not readable: %w", err)
+			}
+		}
+		if cfg.mnemonic != "" {
+			return oracleConfig{}, errors.New(
+				"ORACLE_SIGNER_MNEMONIC is forbidden in strict/production mode: pre-provision the " +
+					"\"oracle\" key in the keyring and let the service read it (no resident mnemonic)")
+		}
+	} else {
+		// 非生产：保留助记词便捷路径，但仍校验词数。
+		if cfg.mnemonic == "" {
+			return oracleConfig{}, errors.New("ORACLE_SIGNER_MNEMONIC is required in development mode: oracle needs a funded account to submit attestation results on-chain")
+		}
+		if n := len(strings.Fields(cfg.mnemonic)); n != 12 && n != 24 {
+			return oracleConfig{}, fmt.Errorf("ORACLE_SIGNER_MNEMONIC must be a 12 or 24 word BIP39 mnemonic, got %d words", n)
+		}
 	}
-	if n := len(strings.Fields(cfg.mnemonic)); n != 12 && n != 24 {
-		return oracleConfig{}, fmt.Errorf("ORACLE_SIGNER_MNEMONIC must be a 12 or 24 word BIP39 mnemonic, got %d words", n)
+
+	// 5) 验证器档位：strict 必须显式 tee，且不得回退软验证。
+	cfg.verifierMode = strings.ToLower(strings.TrimSpace(envOrDefault("ORACLE_VERIFIER", "soft")))
+	switch cfg.verifierMode {
+	case "soft":
+		if cfg.strict {
+			return oracleConfig{}, errors.New("ORACLE_VERIFIER=soft 不可用于 strict 模式（attestation 不构成抗女巫证据）；生产必须接入 TEE 验签")
+		}
+	case "tee":
+		cfg.teeRootsFile = strings.TrimSpace(os.Getenv("ORACLE_TEE_ROOTS_FILE"))
+		cfg.teeRevocationFile = strings.TrimSpace(os.Getenv("ORACLE_TEE_REVOCATION_FILE"))
+		cfg.teeMinSecurityLevel = strings.ToLower(strings.TrimSpace(envOrDefault("ORACLE_TEE_MIN_SECURITY_LEVEL", "tee")))
+		if cfg.teeRootsFile == "" {
+			return oracleConfig{}, errors.New("ORACLE_TEE_ROOTS_FILE is required when ORACLE_VERIFIER=tee")
+		}
+	default:
+		return oracleConfig{}, fmt.Errorf("未知 ORACLE_VERIFIER=%q（可选：soft | tee）", cfg.verifierMode)
+	}
+
+	cfg.waitCommit = envBool("ORACLE_WAIT_COMMIT")
+	cfg.waitCommitTimeout = 10 * time.Second
+	if raw := strings.TrimSpace(os.Getenv("ORACLE_WAIT_COMMIT_TIMEOUT")); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil || d <= 0 || d > 60*time.Second {
+			return oracleConfig{}, fmt.Errorf("ORACLE_WAIT_COMMIT_TIMEOUT must be a positive duration <=60s, got %q", raw)
+		}
+		cfg.waitCommitTimeout = d
 	}
 
 	// 6) API key：/attest 需携带 Authorization: Bearer <key>，避免开放中继被任意调用
@@ -361,9 +444,9 @@ func runOracle(cfg oracleConfig) error {
 
 	chainID, nodeURI, listenAddr := cfg.chainID, cfg.nodeURI, cfg.listenAddr
 
-	kr, err := keyring.New("mcchain-oracle", keyring.BackendTest, cfg.keyringDir, os.Stdin, depintypes.ModuleCdc)
+	kr, err := openKeyring(cfg)
 	if err != nil {
-		return fmt.Errorf("create keyring: %w", err)
+		return err
 	}
 
 	// 接入 RPC client 与 SDK 编码配置。
@@ -376,14 +459,27 @@ func runOracle(cfg oracleConfig) error {
 		return fmt.Errorf("connect to rpc node %s: %w", nodeURI, err)
 	}
 
-	// 通过助记词恢复或创建 oracle 账户
-	oracleRecord, err := kr.NewAccount("oracle", cfg.mnemonic, "", sdk.GetConfig().GetFullBIP44Path(), hd.Secp256k1)
-	if err != nil {
-		// 账户可能已存在，尝试获取
-		var getErr error
-		oracleRecord, getErr = kr.Key("oracle")
-		if getErr != nil {
-			return fmt.Errorf("load oracle key: %w (original: %w)", getErr, err)
+	// 解析签名账户：
+	//   - 开发模式：允许用助记词创建/恢复；
+	//   - 生产模式：只读取运维预置的 "oracle" 密钥，不接触助记词。
+	var oracleRecord *keyring.Record
+	if cfg.mnemonic != "" {
+		oracleRecord, err = kr.NewAccount("oracle", cfg.mnemonic, "", sdk.GetConfig().GetFullBIP44Path(), hd.Secp256k1)
+		if err != nil {
+			// 账户可能已存在，尝试获取
+			var getErr error
+			oracleRecord, getErr = kr.Key("oracle")
+			if getErr != nil {
+				return fmt.Errorf("load oracle key: %w (original: %w)", getErr, err)
+			}
+		}
+	} else {
+		oracleRecord, err = kr.Key("oracle")
+		if err != nil {
+			return fmt.Errorf(
+				"oracle key not found in keyring (backend=%s, dir=%s): pre-provision it with "+
+					"'mcchaind keys add oracle --keyring-backend %s --keyring-dir %s' before starting in strict mode: %w",
+				cfg.keyringBackend, cfg.keyringDir, cfg.keyringBackend, cfg.keyringDir, err)
 		}
 	}
 
@@ -417,20 +513,26 @@ func runOracle(cfg oracleConfig) error {
 		WithGasPrices("0.001umc").
 		WithSignMode(signing.SignMode_SIGN_MODE_DIRECT)
 
-	// verifier 模式闸门（fail-closed）。
-	// _VERIFIER=soft（默认）仅限开发/测试；strict 模式必须显式选择
-	// verifier，而当前 TEE 验签尚未接线 —— strict + 未就绪 = 拒绝启动，
-	// 而不是静默接受「仅凭 SHA256(deviceID) 即可伪造」的软验证上链。
-	switch verifierMode := strings.ToLower(strings.TrimSpace(os.Getenv("ORACLE_VERIFIER"))); verifierMode {
-	case "soft":
-		if cfg.strict {
-			return fmt.Errorf("ORACLE_VERIFIER=soft 不可用于 strict 模式（attestation 不构成抗女巫证据）；生产部署须接入 TEE 验签后再以 strict 启动")
-		}
-		oraclesvc.Warnf("使用 SoftOracleVerifier（SHA256 比对）——仅供开发/测试，不构成抗女巫证据")
+	// verifier 构造（fail-closed）：strict 只允许 tee；tee 必须有可信根。
+	// 这里不再有「strict + tee 直接报未接入」的分支 —— 真实验证器已实现，
+	// 缺少根证书/撤销文件会在 NewTeeVerifier 内拒绝启动。
+	var verifier AttestationVerifier
+	switch cfg.verifierMode {
 	case "tee":
-		return fmt.Errorf("ORACLE_VERIFIER=tee：真实 TEE 验签尚未接入 cmd/oracle；请实现 AttestationVerifier 接口后替换，或以非 strict 模式明确接受软验证风险")
+		tv, verr := NewTeeVerifier(TeeVerifierConfig{
+			ChainID:          chainID,
+			RootsFile:        cfg.teeRootsFile,
+			RevocationFile:   cfg.teeRevocationFile,
+			MinSecurityLevel: cfg.teeMinSecurityLevel,
+		})
+		if verr != nil {
+			return fmt.Errorf("initialise tee verifier: %w", verr)
+		}
+		verifier = tv
+		oraclesvc.Infof("attestation verifier: TEE (roots=%s, min_security_level=%s)", cfg.teeRootsFile, cfg.teeMinSecurityLevel)
 	default:
-		return fmt.Errorf("未知 ORACLE_VERIFIER=%q（可选：soft | tee）", verifierMode)
+		oraclesvc.Warnf("使用 SoftOracleVerifier（SHA256 比对）——仅供开发/测试，不构成抗女巫证据")
+		verifier = SoftOracleVerifier{}
 	}
 
 	svc := &OracleService{
@@ -439,14 +541,17 @@ func runOracle(cfg oracleConfig) error {
 		oracleAddr: oracleAddr,
 		chainID:    chainID,
 		listenAddr: listenAddr,
+		rpcClient:  rpcClient,
 		// 生产加固④：监控链上提交的最近成功时间。
 		monitor:     oraclesvc.NewHealthMonitor("chain-submit", healthInterval, healthStaleAfter),
 		apiKey:      cfg.apiKey,
 		rateLimiter: newRateLimiter(20, 10*time.Second), // 单 IP 每 10s 最多 20 次 /attest
 		// 受信代理为空时，X-Forwarded-For 一律不采信（限流按 RemoteAddr）。
 		trustedProxies: cfg.trustedProxies,
-		// 经上方 ORACLE_VERIFIER 闸门放行后注入（当前仅 soft 可达）。
-		verifier: SoftOracleVerifier{},
+		verifier:       verifier,
+		// 是否等待交易上链：用于把 submitted 与 committed 分开返回。
+		waitCommit:        cfg.waitCommit,
+		waitCommitTimeout: cfg.waitCommitTimeout,
 	}
 
 	// HTTP 路由
@@ -520,10 +625,19 @@ type AttestRequest struct {
 }
 
 // AttestResponse attestation 验证结果响应体。
+//
+// 三个状态字段刻意分开，避免把「本地验过」「已广播」「已上链」混成一个 passed：
+//   - verification: verified_offchain | rejected_offchain
+//   - submission:   submitted | failed | not_attempted
+//   - commitment:   committed | committed_failed | unknown | not_found
 type AttestResponse struct {
-	Passed bool   `json:"passed"`
-	Reason string `json:"reason"`
-	TxHash string `json:"tx_hash,omitempty"`
+	Passed       bool   `json:"passed"`
+	Reason       string `json:"reason"`
+	Verification string `json:"verification"`
+	Submission   string `json:"submission"`
+	Commitment   string `json:"commitment"`
+	TxHash       string `json:"tx_hash,omitempty"`
+	Height       int64  `json:"height,omitempty"`
 }
 
 // handleHealth 健康检查端点。除基本信息外，一并暴露自检统计，
@@ -583,9 +697,15 @@ func (s *OracleService) handleAttest(w http.ResponseWriter, r *http.Request) {
 
 	// 1. 本地校验 attestation 证据（经可插拔 verifier，生产为真实 TEE 验签）。
 	passed, reason := s.verifier.Verify(req.DeviceID, req.AttestationProof, req.Signature)
+	verification := "verified_offchain"
+	if !passed {
+		verification = "rejected_offchain"
+	}
 
 	// 2. 将结果提交到链上（depin.MsgSubmitAttestation），失败自动指数退避重试。
 	//    使用请求上下文：客户端断开或进程退出时可及时中止重试。
+	//    注意：即使本地验证失败也要上链记录（审计需要），但响应里必须明确区分
+	//    「验证结论」与「是否成功提交」——绝不能把广播成功当成验证通过。
 	txHash, submitErr := s.submitAttestationResult(r.Context(), req.DeviceID, req.AttestationProof, req.Signature, passed, reason)
 	if submitErr != nil {
 		oraclesvc.Errorf("[attest] device=%s on-chain submission failed: %v", req.DeviceID, submitErr)
@@ -595,16 +715,29 @@ func (s *OracleService) handleAttest(w http.ResponseWriter, r *http.Request) {
 		// 指数退避重试，链上恢复后会自动补录）。
 		w.WriteHeader(http.StatusBadGateway)
 		_ = json.NewEncoder(w).Encode(AttestResponse{
-			Passed: passed,
-			Reason: "attestation verified but on-chain submission failed: " + submitErr.Error(),
+			Passed:       passed,
+			Reason:       "attestation processed but on-chain submission failed: " + submitErr.Error(),
+			Verification: verification,
+			Submission:   "failed",
+			Commitment:   "unknown",
 		})
 		return
 	}
 
+	commitment := "unknown"
+	var height int64
+	if s.waitCommit {
+		commitment, height = s.waitForCommit(r.Context(), txHash)
+	}
+
 	resp := AttestResponse{
-		Passed: passed,
-		Reason: reason,
-		TxHash: txHash,
+		Passed:       passed,
+		Reason:       reason,
+		Verification: verification,
+		Submission:   "submitted",
+		Commitment:   commitment,
+		TxHash:       txHash,
+		Height:       height,
 	}
 
 	switch {
@@ -684,11 +817,22 @@ func (s *OracleService) submitAttestationResult(ctx context.Context, deviceID, p
 
 // broadcastAttestation 执行单次链上提交（供退避重试调用）。
 func (s *OracleService) broadcastAttestation(deviceID, proof, signature string) (string, error) {
+	// 链上 TeeOracle 验证的是「预言机账户对 deviceAddr|challenge 的签名」，
+	// 不是设备签名。修复前这里直接把设备签名提交上链，生产 TeeOracle 必然
+	// 验签失败（软验证模式下被「仅校验非空」掩盖）。现在由预言机账户对
+	// 规范化消息签名后再提交；设备证明本身已在上一步由 verifier 消费。
+	_ = signature
+	challenge := proof
+	sigBz, _, err := s.clientCtx.Keyring.Sign("oracle", []byte(deviceID+"|"+challenge))
+	if err != nil {
+		return "", fmt.Errorf("sign attestation challenge: %w", err)
+	}
+
 	// 构造 MsgSubmitAttestation
 	msg := depintypes.NewMsgSubmitAttestation(
 		deviceID,
 		proof,
-		signature,
+		base64.StdEncoding.EncodeToString(sigBz),
 		s.oracleAddr.String(),
 	)
 
@@ -747,6 +891,83 @@ func envOrDefault(key, defaultValue string) string {
 		return v
 	}
 	return defaultValue
+}
+
+// openKeyring 按配置打开 keyring。
+//
+// 生产（strict）用 file/os 等持久化后端，口令来自文件而不是环境变量/终端；
+// 开发可用 test 后端 + 助记词，保持本地体验不变。
+func openKeyring(cfg oracleConfig) (keyring.Keyring, error) {
+	var reader io.Reader = os.Stdin
+	if cfg.keyringPasswordFile != "" {
+		reader = &passwordFileReader{path: cfg.keyringPasswordFile}
+	}
+	kr, err := keyring.New("mcchain-oracle", cfg.keyringBackend, cfg.keyringDir, reader, depintypes.ModuleCdc)
+	if err != nil {
+		return nil, fmt.Errorf("create keyring (backend=%s, dir=%s): %w", cfg.keyringBackend, cfg.keyringDir, err)
+	}
+	return kr, nil
+}
+
+// passwordFileReader 每次读到 EOF 后重新打开口令文件。
+//
+// keyring 的 file 后端在每次签名/解锁时都会重新读取口令；直接复用 os.File
+// 会在第一次读完后停在 EOF，导致后续操作拿不到口令。这里在 EOF 时关闭并按
+// 需重开，保证进程生命周期内可重复解锁。
+type passwordFileReader struct {
+	path string
+	mu   sync.Mutex
+	f    *os.File
+}
+
+func (r *passwordFileReader) Read(p []byte) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.f == nil {
+		f, err := os.Open(r.path)
+		if err != nil {
+			return 0, err
+		}
+		r.f = f
+	}
+	n, err := r.f.Read(p)
+	if errors.Is(err, io.EOF) {
+		_ = r.f.Close()
+		r.f = nil
+	}
+	return n, err
+}
+
+// waitForCommit 轮询交易是否已上链，返回 commitment 状态与区块高度。
+//
+// 广播成功（CheckTx 通过）只代表交易被节点接受，不代表已进入区块。
+// 只有显式开启 ORACLE_WAIT_COMMIT 时才等待，避免默认把请求延迟拉到秒级；
+// 未等待时返回 unknown，绝不假装 committed。
+func (s *OracleService) waitForCommit(ctx context.Context, txHash string) (string, int64) {
+	if s.rpcClient == nil || strings.TrimSpace(txHash) == "" {
+		return "unknown", 0
+	}
+	hash, err := hex.DecodeString(strings.ToUpper(strings.TrimSpace(txHash)))
+	if err != nil {
+		return "unknown", 0
+	}
+	deadline := time.Now().Add(s.waitCommitTimeout)
+	for {
+		if res, err := s.rpcClient.Tx(ctx, hash, false); err == nil && res != nil {
+			if res.TxResult.Code != 0 {
+				return "committed_failed", res.Height
+			}
+			return "committed", res.Height
+		}
+		if time.Now().After(deadline) || ctx.Err() != nil {
+			return "not_found", 0
+		}
+		select {
+		case <-ctx.Done():
+			return "not_found", 0
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------

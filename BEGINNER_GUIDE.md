@@ -13,20 +13,20 @@
 链的 Linux 二进制和一键启动脚本已随仓库提供，需要把以下 2 个文件传到服务器：
 
 1. `build/mcchaind` —— 链程序（Linux 版）
-2. `server_setup.sh` —— 一键启动脚本
+2. `devnet_solo_setup.sh` —— 一键启动脚本（仅 devnet，拒绝主网 chain-id）
 
 传文件的两种方式（任选其一）：
 
 ### 方式 A：云服务商控制台网页上传（最简单，不用配 SSH）
 1. 打开云服务商控制台 → 找到你的服务器 → 点 **「登录」**（浏览器内会打开一个终端窗口）。
-2. 在文件管理器里，把 `build/mcchaind` 和 `server_setup.sh` 上传到服务器（建议传到 `/root/` 目录）。
+2. 在文件管理器里，把 `build/mcchaind` 和 `devnet_solo_setup.sh` 上传到服务器（建议传到 `/root/` 目录）。
 
 ### 方式 B：用 scp 命令上传（需要先设置服务器密码/SSH）
 在终端里执行：
 ```bash
 # 把 <服务器IP> 换成你的公网 IP，<用户名> 通常是 root
 scp build/mcchaind root@<服务器IP>:/root/
-scp server_setup.sh root@<服务器IP>:/root/
+scp devnet_solo_setup.sh root@<服务器IP>:/root/
 ```
 
 ---
@@ -35,8 +35,8 @@ scp server_setup.sh root@<服务器IP>:/root/
 
 ```bash
 cd /root
-chmod +x server_setup.sh
-sudo ./server_setup.sh
+chmod +x devnet_solo_setup.sh
+sudo ./devnet_solo_setup.sh
 ```
 
 脚本会自动完成：

@@ -115,6 +115,10 @@ const (
 	// DeferReasonDailyCap 延后原因：当日额度已满。
 	DeferReasonDailyCap = "daily_network_cap"
 
+	// DeferReasonBudgetExhausted 告警原因：可用预算不足以覆盖本笔返佣，
+	// 无法入账也无法延后（延后同样构成负债）。
+	DeferReasonBudgetExhausted = "budget_exhausted"
+
 	// BudgetLowThresholdBps 预算低水位告警阈值（bps）：剩余预算低于初始预算的
 	// 5% 时发出 BudgetLow 事件。
 	BudgetLowThresholdBps uint32 = 500

@@ -6,6 +6,49 @@ set -euo pipefail
 CHAIN_ID="${CHAIN_ID:-mcchain-mainnet-1}"
 HOME_DIR="${HOME_DIR:-$HOME/.mcchain}"
 MONIKER="${MONIKER:-mc-validator}"
+GENESIS_CONFIG="${GENESIS_CONFIG:-scripts/mainnet-genesis-config.json}"
+
+# ── 参数 schema / 默认值校验（P2-07）─────────────────────────────────────────
+# 这个脚本产出的是主网创世，任何拼装错误都会变成不可回滚的链级问题。
+# 因此所有入参必须在写任何文件之前校验，且失败要指出具体变量名。
+command -v mcchaind >/dev/null 2>&1 || {
+  echo "ERROR: mcchaind not found in PATH (build with: go build -o build/mcchaind ./cmd/mcchaind)" >&2
+  exit 2
+}
+[[ -n "$CHAIN_ID" ]] || { echo "ERROR: CHAIN_ID is empty" >&2; exit 2; }
+[[ "$CHAIN_ID" =~ ^[a-z0-9][a-z0-9-]*$ ]] || {
+  echo "ERROR: CHAIN_ID '$CHAIN_ID' must be lowercase alphanumeric with dashes" >&2
+  exit 2
+}
+[[ -n "$MONIKER" ]] || { echo "ERROR: MONIKER is empty" >&2; exit 2; }
+[[ -n "$HOME_DIR" ]] || { echo "ERROR: HOME_DIR is empty" >&2; exit 2; }
+if [[ ! -f "$GENESIS_CONFIG" ]]; then
+  echo "ERROR: genesis config '$GENESIS_CONFIG' not found (set GENESIS_CONFIG=...)" >&2
+  exit 2
+fi
+# 档位一致性：主网 chain-id 必须由 chainprofile 认作 production，避免
+# 用测试网/未登记链名产出「自称主网」的创世。
+if [[ -x build/mcchaind ]]; then
+  PROFILE="$(build/mcchaind profile "$CHAIN_ID" 2>/dev/null || true)"
+elif command -v mcchaind >/dev/null 2>&1; then
+  PROFILE="$(mcchaind profile "$CHAIN_ID" 2>/dev/null || true)"
+else
+  PROFILE=""
+fi
+if [[ -z "$PROFILE" ]]; then
+  echo "ERROR: chain-id '$CHAIN_ID' is not registered in internal/chainprofile; register it before genesis" >&2
+  exit 2
+fi
+if [[ "$CHAIN_ID" == mcchain-mainnet-* && "$PROFILE" != "production" ]]; then
+  echo "ERROR: chain-id '$CHAIN_ID' resolved to profile '$PROFILE', expected production" >&2
+  exit 2
+fi
+if [[ "$PROFILE" == "production" && "${MC_REQUIRE_REAL_GENESIS_KEYS:-}" != "1" ]]; then
+  echo "ERROR: production genesis requires MC_REQUIRE_REAL_GENESIS_KEYS=1 (no generated placeholder keys)" >&2
+  exit 2
+fi
+echo ">> params: chain-id=$CHAIN_ID profile=$PROFILE home=$HOME_DIR moniker=$MONIKER"
+echo ">> genesis config: $GENESIS_CONFIG"
 
 echo ">> init chain $CHAIN_ID"
 mcchaind init "$MONIKER" --chain-id "$CHAIN_ID" --home "$HOME_DIR"

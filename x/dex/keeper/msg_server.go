@@ -20,6 +20,27 @@ func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 
 var _ types.MsgServer = msgServer{}
 
+// parseNonNegativeDecimal 严格解析十进制非负整数。
+//
+// sdk.NewIntFromString 接受 "0x10" 这类十六进制写法；对外消息字段是 JSON
+// 十进制字符串，接受 hex 会让同一语义出现两套编码（以及前端/脚本的隐式歧义）。
+// 这里只允许 ASCII 数字，空串、负号、小数点、指数、hex 一律拒绝。
+func parseNonNegativeDecimal(s string) (sdk.Int, bool) {
+	if s == "" {
+		return sdk.Int{}, false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return sdk.Int{}, false
+		}
+	}
+	v, ok := sdk.NewIntFromString(s)
+	if !ok || v.IsNegative() {
+		return sdk.Int{}, false
+	}
+	return v, true
+}
+
 func (m msgServer) CreatePool(goCtx context.Context, msg *types.MsgCreatePool) (*types.MsgCreatePoolResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
@@ -51,8 +72,8 @@ func (m msgServer) AddLiquidity(goCtx context.Context, msg *types.MsgAddLiquidit
 	if !ok {
 		return nil, types.ErrZeroAmount
 	}
-	minLPOut, ok := sdk.NewIntFromString(msg.MinLpOut)
-	if !ok || minLPOut.IsNil() || minLPOut.IsNegative() {
+	minLPOut, ok := parseNonNegativeDecimal(msg.MinLpOut)
+	if !ok {
 		// 解析失败绝不能降级为 0：0 是「用户明确接受任意滑点」的语义，
 		// 而非法输入应被拒绝，否则前端/脚本编码错误会静默关闭最小份额保护。
 		return nil, types.ErrInvalidMinOut.Wrapf("invalid min_lp_out %q", msg.MinLpOut)
@@ -77,11 +98,11 @@ func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLi
 	if !ok || lpAmount.LTE(sdk.ZeroInt()) {
 		return nil, types.ErrZeroAmount
 	}
-	minAOut, ok := sdk.NewIntFromString(msg.MinAOut)
+	minAOut, ok := parseNonNegativeDecimal(msg.MinAOut)
 	if !ok {
 		return nil, types.ErrInvalidMinOut.Wrapf("invalid min_a_out %q", msg.MinAOut)
 	}
-	minBOut, ok := sdk.NewIntFromString(msg.MinBOut)
+	minBOut, ok := parseNonNegativeDecimal(msg.MinBOut)
 	if !ok {
 		return nil, types.ErrInvalidMinOut.Wrapf("invalid min_b_out %q", msg.MinBOut)
 	}
@@ -104,7 +125,7 @@ func (m msgServer) SwapExactIn(goCtx context.Context, msg *types.MsgSwapExactIn)
 	if !ok || amountIn.LTE(sdk.ZeroInt()) {
 		return nil, types.ErrZeroAmount
 	}
-	minAmountOut, ok := sdk.NewIntFromString(msg.MinAmountOut)
+	minAmountOut, ok := parseNonNegativeDecimal(msg.MinAmountOut)
 	if !ok {
 		return nil, types.ErrInvalidMinOut.Wrapf("invalid min_amount_out %q", msg.MinAmountOut)
 	}

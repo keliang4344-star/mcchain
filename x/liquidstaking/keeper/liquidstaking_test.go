@@ -125,6 +125,45 @@ func TestRewardsRaiseExchangeRate(t *testing.T) {
 	require.Equal(t, uint64(100_000_000), bobShares, "110 MC at rate 1.1 buys 100 ulmc")
 }
 
+// TestAccrueRewardsCursorStableAcrossSetChanges 验证地址游标在验证人集合变化时
+// 不跳过任何现存/新增验证人（P1-08）。
+func TestAccrueRewardsCursorStableAcrossSetChanges(t *testing.T) {
+	f := setupLiquidStaking(t)
+	alice := f.fundedAddr(t, 1_000_000_000)
+
+	vals := []sdk.ValAddress{
+		f.staking.addValidator(t, false),
+		f.staking.addValidator(t, false),
+		f.staking.addValidator(t, false),
+	}
+	for _, v := range vals {
+		_, err := f.k.LiquidStake(f.ctx, alice, v, 10_000_000)
+		require.NoError(t, err)
+		f.distr.setReward(v.String(), 1_000)
+	}
+
+	_, err := f.k.AccrueRewards(f.ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, f.k.getRewardsCursorAddr(f.ctx), "cursor must advance to a validator address")
+	require.Empty(t, f.distr.rewards, "all validators in the sweep window must be processed")
+
+	// 集合变化：新增验证人 + 委托。地址游标不能让新成员被永久跳过。
+	newVal := f.staking.addValidator(t, false)
+	_, err = f.k.LiquidStake(f.ctx, alice, newVal, 10_000_000)
+	require.NoError(t, err)
+	f.distr.setReward(newVal.String(), 1_000)
+
+	for i := 0; i < 4; i++ {
+		_, err = f.k.AccrueRewards(f.ctx)
+		require.NoError(t, err)
+		if _, pending := f.distr.rewards[newVal.String()]; !pending {
+			break
+		}
+	}
+	_, pending := f.distr.rewards[newVal.String()]
+	require.False(t, pending, "newly delegated validator must be reached by the rotating cursor")
+}
+
 // TestUnstakeAndClaimFullCycle walks stake → unstake → wait out the unbonding
 // period → claim, and checks the receipt is burned and the MC returned.
 func TestUnstakeAndClaimFullCycle(t *testing.T) {

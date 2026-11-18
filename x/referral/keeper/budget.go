@@ -194,6 +194,25 @@ func (k Keeper) AvailableBudget(ctx sdk.Context) sdkmath.Int {
 	return avail
 }
 
+// VerifyBudgetConservation 校验返佣预算的全局负债守恒。
+//
+// 不变量：已承诺负债（pending + deferred）≤ 生态账户余额。
+//
+// 等价于「已支付 + 已承诺 ≤ 初始预算」（已支付 = 初始预算 − 当前余额）。
+// TrackReward 只允许在 AvailableBudget > 0 时计提，因此该不变量必须始终成立；
+// 任何违反都说明存在绕过预算检查的写入路径，需要立即告警。
+func (k Keeper) VerifyBudgetConservation(ctx sdk.Context) error {
+	balance := k.EcosystemBalance(ctx)
+	committed := k.CommittedLiabilities(ctx)
+	if committed.GT(balance) {
+		return fmt.Errorf(
+			"referral: budget conservation violated: committed liabilities %s exceed ecosystem balance %s "+
+				"(pending=%s, deferred=%s)",
+			committed, balance, k.getPendingRewardTotal(ctx), k.getDeferredTotal(ctx))
+	}
+	return nil
+}
+
 // EffectiveNetworkCap 返回当日_实际生效_的全网返佣上限（umc）。
 //
 //	配速项     = 可用预算（余额 − 已承诺负债）/ 剩余天数

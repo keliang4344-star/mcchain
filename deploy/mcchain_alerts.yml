@@ -107,6 +107,16 @@ groups:
           summary: "链上 30+ 分钟没有任何新 attestation（认证链路或预言机停滞）"
           runbook: docs/VALIDATOR_RUNBOOK.md#15-oracleattestationstale
 
+      - alert: OracleSignerDown
+        # blackbox 探测链下签名服务 /healthz（deploy/prometheus-mcchain.yml 的
+        # blackbox-oracle job）。probe_success 是 blackbox_exporter 的实指标。
+        expr: probe_success{job="blackbox-oracle"} == 0
+        for: 3m
+        labels: { severity: critical }
+        annotations:
+          summary: "链下 attestation 签名服务不可用（/healthz 探测失败）"
+          runbook: docs/ORACLE_FRAMEWORK.md
+
   # ───────────────────────── 4. 经济不变量（链级） ─────────────────────────
   - name: chain_invariants
     rules:

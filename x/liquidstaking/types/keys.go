@@ -46,6 +46,16 @@ var (
 
 	// ValidatorBondKeyPrefix tracks how much umc this module delegated per validator.
 	ValidatorBondKeyPrefix = []byte("ValBond:")
+
+	// SchemaVersionKey stores the on-disk state schema version (uint64 big-endian).
+	// 资金状态的结构一旦变更，必须显式迁移；未知/更高版本直接拒绝读取，
+	// 绝不让新代码在旧结构上「猜字段」。
+	SchemaVersionKey = []byte("SchemaVersion:")
+
+	// RewardsCursorValKey stores the stable reward-sweep cursor as the last
+	// processed validator address. 取代易变数组下标：验证人集合增删时，
+	// 下标游标会跳过或重复处理，地址游标不会。
+	RewardsCursorValKey = []byte("RewardsCursorVal:")
 )
 
 // UnbondingEntryKey builds the storage key for one unbonding receipt.

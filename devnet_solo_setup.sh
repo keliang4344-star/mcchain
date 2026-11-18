@@ -1,28 +1,41 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  MC 公链 · 一键拉起「solo 创世节点」（新手友好）
+#  MC 公链 · 一键拉起「devnet solo 创世节点」（新手友好）
 #  用法：把 mcchaind 和本脚本放到同一目录，然后：
-#        chmod +x server_setup.sh
-#        sudo ./server_setup.sh
+#        chmod +x devnet_solo_setup.sh
+#        sudo ./devnet_solo_setup.sh
 #  脚本会自动完成：初始化 → 创世规范化 → 建验证人 → 拨款 → 生成 gentx → 启动
 #  注意：这是单验证人「原始/创世节点」（solo 网络，0 容错），不是去中心化主网。
+#  主网创世必须走 deploy/init.sh 的受控流程，绝不能用本脚本拼装。
 # ============================================================================
 
 set -e
 
 BIN="$(cd "$(dirname "$0")" && pwd)/mcchaind"
 HOME_DIR="$HOME/.mcchain"
-# 本脚本只拉起「本地/测试 solo 创世节点」（单验证人、0 容错），绝不用于主网。
-# 主网 chain-id 会启用全部生产安全闸门（Oracle 真实验签、白名单、资金不变量），
-# 且主网 genesis 必须走 deploy/ 的受控流程，不允许用本脚本的 add-genesis-account
-# 直接给验证人预置余额。因此默认使用显式非生产命名的 chain-id，并硬拒绝主网链名。
-CHAIN_ID="${CHAIN_ID:-mcchain-solo-1}"
+# 本脚本只允许 development 档位的 devnet chain-id（前缀 mcchain-dev-）。
+# 硬约束的理由：solo 脚本会 init、给验证人预置余额、生成 gentx 并直接启动，
+# 任何一步误用到主网 chain-id 都会产出与正式创世不兼容的链，且极易被当成
+# 主网 Genesis 使用。因此这里同时做三件事：
+#   1) 默认值就是 devnet（mcchain-dev-1），不提供「看起来像主网」的默认；
+#   2) 只接受 mcchain-dev- 前缀；
+#   3) 显式拒绝全部已登记的主网/测试网 chain-id。
+CHAIN_ID="${CHAIN_ID:-mcchain-dev-1}"
 MONIKER="${MONIKER:-mc-genesis}"
 KEY="validator"
 
-for MAINNET_ID in mcchain-mainnet mcchain-mainnet-1; do
-  if [ "$CHAIN_ID" = "$MAINNET_ID" ]; then
-    echo "ERROR: server_setup.sh 仅用于本地/测试 solo 节点，拒绝主网 chain-id '$CHAIN_ID'。" >&2
+case "$CHAIN_ID" in
+  mcchain-dev-*) : ;;
+  *)
+    echo "ERROR: devnet_solo_setup.sh 只接受 mcchain-dev-* 前缀的 devnet chain-id，收到 '$CHAIN_ID'。" >&2
+    echo "       主网/测试网创世请使用 deploy/init.sh 的受控流程。" >&2
+    exit 1
+    ;;
+esac
+
+for RESERVED_ID in mcchain-mainnet mcchain-mainnet-1 mcchain-testnet-1; do
+  if [ "$CHAIN_ID" = "$RESERVED_ID" ]; then
+    echo "ERROR: devnet_solo_setup.sh 拒绝已登记的正式 chain-id '$CHAIN_ID'。" >&2
     echo "       主网请使用 deploy/ 下的受控创世与验证人流程（禁止 test keyring / 明文助记词）。" >&2
     exit 1
   fi
@@ -109,9 +122,14 @@ g["chain_id"] = sys.argv[2] if len(sys.argv) > 2 else g["chain_id"]
 # 100_000_000 对 4s 出块周期足够宽松，同时封顶单块计算量。
 if "consensus" in as_ and "params" in as_["consensus"] and "block" in as_["consensus"]["params"]:
     as_["consensus"]["params"]["block"]["max_gas"] = "100000000"
-json.dump(g, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+json.dump(g, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False, sort_keys=True)
 PY
-echo "    创世已规范化"
+echo "    创世已规范化（sort_keys 输出，配置相同则字节序确定）"
+python3 - "$HOME_DIR/config/genesis.json" <<'PY'
+import hashlib, sys
+h = hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()
+print("    genesis sha256: " + h)
+PY
 
 # 3) 创建验证人密钥
 #    ⚠️ 安全加固：改用 file 后端（加密口令来自 MC_KEY_PASSWORD，缺省提示交互输入），

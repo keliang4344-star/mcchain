@@ -1181,6 +1181,14 @@ func (app *App) EndBlocker(ctx sdk.Context, req abci.RequestEndBlock) abci.Respo
 
 // InitChainer application update at chain initialization
 func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
+	// 启动期档位闸门（fail-closed）：chain-id 必须与显式档位精确匹配，
+	// 未知链默认拒绝启动（本地临时链需显式 MC_ALLOW_UNKNOWN_CHAIN_ID=1）。
+	// 这是「未知组合拒绝启动」的唯一执行点——InitChainer 只跑一次，
+	// 但此时 chain-id 已由创世确定，是所有启动路径（node/CLI/测试网）的共同入口。
+	if err := chainprofile.ValidateStartup(req.ChainId); err != nil {
+		panic(fmt.Errorf("app: genesis chain profile rejected: %w", err))
+	}
+
 	var genesisState GenesisState
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 		panic(err)
@@ -1279,7 +1287,7 @@ func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.Res
 	// baseapp.GetMaximumBlockGas 会返回 0 并改用 InfiniteGasMeter —— 单笔交易即可无限消耗
 	// gas 占满整个区块，构成出块失控 / 全网停摆的零成本 DoS 路径。
 	//
-	// 该上限若只由离链脚本保证（server_setup.sh 与 scripts/make_genesis.py 写入 1e8）：
+	// 该上限若只由离链脚本保证（devnet_solo_setup.sh 与 scripts/make_genesis.py 写入 1e8）：
 	// 任何绕开脚本手工拼装创世的部署都会静默失守，而且从链上看不出任何异常。
 	// 这里把兜底移到链上——创世若未设或仍为「不限」，直接钳制到 DefaultBlockMaxGas。
 	if cp := app.enforceBlockMaxGas(ctx); cp != nil {
@@ -1356,7 +1364,7 @@ func productionGenesisRequired(chainID string) bool {
 
 // DefaultBlockMaxGas 是创世未显式设定时链上强制的区块 gas 上限。
 //
-// 取值与离链创世脚本（server_setup.sh、scripts/make_genesis.py）写入的 100000000 一致，
+// 取值与离链创世脚本（devnet_solo_setup.sh、scripts/make_genesis.py）写入的 100000000 一致，
 // 确保「用脚本建链」与「手工建链」落到同一个上限，不产生第二套口径。
 const DefaultBlockMaxGas int64 = 100_000_000
 

@@ -3,6 +3,7 @@ package keeper
 import (
 	"fmt"
 	stdmath "math"
+	"sort"
 	"strconv"
 
 	"cosmossdk.io/math"
@@ -376,22 +377,35 @@ func (k Keeper) AccrueRewards(ctx sdk.Context) (uint64, error) {
 
 	moduleAddr := k.ModuleAddress()
 
-	// P1-06：持久化轮转游标。原实现每次从同一起点取前 maxDelegationsScanned
-	// 个 delegation，模块 delegation 超过 200 个验证人时，后面的 validator
-	// 永远轮不到复利，收益分配出现系统性偏差。这里每块从游标位置继续处理
-	// 固定预算，扫完一轮后回绕，保证全部 validator 最终都会被扫到。
+	// P1-06/P1-08：稳定地址游标 + 固定预算。
+	//
+	// 原实现每次从同一起点取前 maxDelegationsScanned 个 delegation，模块
+	// delegation 超过 200 个验证人时，后面的 validator 永远轮不到复利，
+	// 收益分配出现系统性偏差。改用「上一轮最后处理的验证人地址」作为游标：
+	//   - 集合增删不会跳过任何现存验证人（最迟下一轮回绕时被处理）；
+	//   - 每块处理量恒定，BeginBlock 成本可预测；
+	//   - 全序按地址字节排序，结果与 KV 迭代顺序一致且确定。
 	all := k.stakingKpr.GetAllDelegatorDelegations(ctx, moduleAddr)
 	if len(all) == 0 {
 		return 0, nil
 	}
+	sort.Slice(all, func(i, j int) bool {
+		return all[i].ValidatorAddress < all[j].ValidatorAddress
+	})
 
-	start := k.getRewardsCursor(ctx) % uint64(len(all))
+	cursor := k.getRewardsCursorAddr(ctx)
+	start := sort.Search(len(all), func(i int) bool { return all[i].ValidatorAddress > cursor })
+	if start == len(all) {
+		start = 0 // 已到末尾：回绕到开头
+	}
 
 	var compounded uint64
 	processed := 0
+	lastAddr := cursor
 	for i := 0; i < len(all) && processed < int(maxDelegationsScanned); i++ {
-		del := all[(start+uint64(i))%uint64(len(all))]
+		del := all[(start+i)%len(all)]
 		processed++
+		lastAddr = del.ValidatorAddress
 		valAcc, err := sdk.ValAddressFromBech32(del.ValidatorAddress)
 		if err != nil {
 			continue
@@ -427,8 +441,8 @@ func (k Keeper) AccrueRewards(ctx sdk.Context) (uint64, error) {
 			saturatingAddU64(k.GetValidatorBond(ctx, del.ValidatorAddress), gained))
 	}
 
-	// 游标推进到下一个未处理位置（mod 总数保证回绕）。
-	k.setRewardsCursor(ctx, (start+uint64(processed))%uint64(len(all)))
+	// 游标推进到本轮最后处理的验证人地址（下一轮从它之后继续）。
+	k.setRewardsCursorAddr(ctx, lastAddr)
 
 	if compounded == 0 {
 		return 0, nil

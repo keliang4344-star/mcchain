@@ -61,12 +61,16 @@ func (k msgServer) ResolveDispute(goCtx context.Context, msg *types.MsgResolveDi
 		// 调用两次会第二次划走其他任务的资金。
 		if dispute.Submitter != "" {
 			if serr := k.Keeper.phonenodeKeeper.SlashIfBad(ctx, dispute.Submitter, "cheat_result", types.CheatSlashBps); serr != nil {
-				// fail-closed：人工仲裁裁定「作弊」后的不可逆罚没是链上必须达成的
-				// 终态（声誉扣减在前、资金处置在后）。此处若仅记日志吞错，任务会以
-				// 作弊结论结案但作弊者既未被罚没也未被吊销 attestation，等于
-				// 仲裁形同虚设。panic 中止区块，由治理介入修复，绝不静默放行。
-				panic(fmt.Sprintf("edgeai: fatal: cheat slash failed for task %s submitter %s: %v",
-					msg.TaskId, dispute.Submitter, serr))
+				// 罚没失败 → 整笔交易失败，争议保持 open，仲裁者可修复后重试。
+				//
+				// 为什么不是 panic：panic 虽能回滚本笔状态，但会把「业务上可重试的
+				// 外部状态问题」升级成「节点/区块执行中断」的共识风险。返回错误同样
+				// 保证原子性（本 tx 的所有状态变更随失败回滚），且可被上层捕获。
+				// 唯一会写终态的 resolveDispute 在罚没成功之后才执行，因此不存在
+				// 「已结案但未罚没」的中间态。
+				return nil, fmt.Errorf(
+					"edgeai: cheat slash failed for task %s submitter %s (dispute left open for retry): %w",
+					msg.TaskId, dispute.Submitter, serr)
 			}
 			// 声誉更新：仲裁裁定作弊 → -10（白皮书行 497）
 			k.Keeper.DecrementReputation(ctx, dispute.Submitter, types.ReputationCheatDecrease)

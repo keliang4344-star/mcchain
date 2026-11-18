@@ -247,7 +247,10 @@ func (k Keeper) TrackReward(ctx sdk.Context, invitee string, rewardAmount sdkmat
 			// 预算判定必须用 AvailableBudget（生态余额 − 已承诺负债）而非裸余额：
 			// 裸余额为正时，余额可能已被 pending/deferred 全额承诺，继续延后只会
 			// 制造「账本越滚越大、永远补发不出来」的负债黑洞。
-			if k.AvailableBudget(ctx).IsPositive() {
+			//
+			// 注意门槛是 GTE(bonus) 而不是 IsPositive()：延后本身也是负债，
+			// 延后额超过可用预算同样会击穿「已支付 + 已承诺 ≤ 初始预算」。
+			if k.AvailableBudget(ctx).GTE(bonus) {
 				k.deferReward(ctx, ref.Inviter, bonus)
 			} else {
 				ctx.EventManager().EmitEvent(sdk.NewEvent(
@@ -258,6 +261,20 @@ func (k Keeper) TrackReward(ctx sdk.Context, invitee string, rewardAmount sdkmat
 				))
 			}
 			// 单级触顶不应阻断整条链的其余层级：继续向上追溯。
+			currentInvitee = ref.Inviter
+			continue
+		}
+
+		// 预算守恒闸门：入账（pending）同样只能在可用预算内承诺。
+		// CheckDailyCaps 只约束日上限/单用户上限，不约束总预算；缺了这一步，
+		// 单笔大额返佣可以直接把 pending 抬到余额之上，最终领取时账户已空。
+		if !k.AvailableBudget(ctx).GTE(bonus) {
+			ctx.EventManager().EmitEvent(sdk.NewEvent(
+				types.EventTypeReferralBudgetExhausted,
+				sdk.NewAttribute(types.AttrInviter, ref.Inviter),
+				sdk.NewAttribute(types.AttrAmount, bonus.String()),
+				sdk.NewAttribute(types.AttrReason, types.DeferReasonBudgetExhausted),
+			))
 			currentInvitee = ref.Inviter
 			continue
 		}
