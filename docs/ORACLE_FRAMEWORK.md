@@ -22,7 +22,9 @@ strict 模式（`ORACLE_STRICT=1` 或 `ORACLE_ENV=production`）规则：
 - `ORACLE_VERIFIER` 不得为 `soft`；`ORACLE_TEE_ROOTS_FILE` 缺失直接拒绝启动；
 - 禁止 `ORACLE_SIGNER_MNEMONIC`（助记词不得作为常驻生产签名材料）；
 - 禁止 `ORACLE_KEYRING_BACKEND=test|memory`，file 后端必须提供 `ORACLE_KEYRING_PASSWORD_FILE`；
-- `ORACLE_TEE_REVOCATION_FILE` 配置后文件不存在会拒绝启动（杜绝对撤销列表的「以为在检查」）。
+- `ORACLE_TEE_REVOCATION_FILE` 配置后文件不存在会拒绝启动（杜绝对撤销列表的「以为在检查」）；
+- `ORACLE_GAS_PRICES`（默认 `0.0025umc`）必须 **不低于** 节点 `minimum-gas-prices`，
+  否则交易在 CheckTx 因手续费不足被拒（表现为「本地验证通过但链上提交失败」）。
 
 ## 硬件证明包格式（`attestation_proof`，base64(JSON)）
 

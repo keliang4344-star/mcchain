@@ -2,7 +2,7 @@
 //
 // 用法：
 //
-//	oracle --port 8080 --chain-id mcchain-1 --node tcp://localhost:26657
+//	oracle --port 8080 --chain-id mcchain-dev-1 --node tcp://localhost:26657
 //
 // 环境变量：
 //
@@ -138,7 +138,7 @@ func newOracleCmd() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&port, "port", 8080, "HTTP 监听端口")
-	cmd.Flags().StringVar(&chainID, "chain-id", "", "链 ID（例如 mcchain-1）")
+	cmd.Flags().StringVar(&chainID, "chain-id", "", "链 ID（例如 mcchain-mainnet-1 / mcchain-dev-1）")
 	cmd.Flags().StringVar(&node, "node", "", "链 RPC 端点（例如 tcp://localhost:26657）")
 
 	return cmd
@@ -171,12 +171,15 @@ type oracleConfig struct {
 	// waitCommit 为 true 时在广播后轮询交易上链结果，用于区分 submitted / committed。
 	waitCommit        bool
 	waitCommitTimeout time.Duration
+	// gasPrices 是提交交易时声明的 gas 价格，必须不低于节点 minimum-gas-prices，
+	// 否则主网 CheckTx 直接因手续费不足拒绝。默认与生产文档口径一致（0.0025umc）。
+	gasPrices string
 }
 
 // resolveConfig 按「命令行 > 环境变量 > 默认值」解析配置，并逐项校验。
 //
 // 严格模式（ORACLE_STRICT=1 或 ORACLE_ENV=production）下，chain-id 与 node 必须显式
-// 提供 —— 生产环境静默回落到 mcchain-1 / localhost:26657 会让服务连到错误的链或
+// 提供 —— 生产环境静默回落到 mcchain-dev-1 / localhost:26657 会让服务连到错误的链或
 // 根本连不上，却看不出任何异常。
 func resolveConfig(chainID, node string, port int) (oracleConfig, error) {
 	strict := envBool("ORACLE_STRICT") || strings.EqualFold(os.Getenv("ORACLE_ENV"), "production")
@@ -189,7 +192,7 @@ func resolveConfig(chainID, node string, port int) (oracleConfig, error) {
 		if strict {
 			return oracleConfig{}, errors.New("chain id is required in strict mode: set --chain-id or ORACLE_CHAIN_ID")
 		}
-		cfg.chainID = "mcchain-1"
+		cfg.chainID = "mcchain-dev-1"
 	}
 
 	// 2) 链 RPC 端点
@@ -298,6 +301,13 @@ func resolveConfig(chainID, node string, port int) (oracleConfig, error) {
 			return oracleConfig{}, fmt.Errorf("ORACLE_WAIT_COMMIT_TIMEOUT must be a positive duration <=60s, got %q", raw)
 		}
 		cfg.waitCommitTimeout = d
+	}
+
+	// 6) gas 价格：必须 >= 节点 minimum-gas-prices，否则交易在 CheckTx 即被拒。
+	//    默认 0.0025umc 与生产文档一致；devnet（节点 0umc）可用更低价甚至 0。
+	cfg.gasPrices = envOrDefault("ORACLE_GAS_PRICES", "0.0025umc")
+	if _, err := sdk.ParseDecCoins(cfg.gasPrices); err != nil {
+		return oracleConfig{}, fmt.Errorf("ORACLE_GAS_PRICES %q is not a valid coin set: %w", cfg.gasPrices, err)
 	}
 
 	// 6) API key：/attest 需携带 Authorization: Bearer <key>，避免开放中继被任意调用
@@ -510,7 +520,7 @@ func runOracle(cfg oracleConfig) error {
 		WithTxConfig(clientCtx.TxConfig).
 		WithAccountRetriever(clientCtx.AccountRetriever).
 		WithGasAdjustment(1.5).
-		WithGasPrices("0.001umc").
+		WithGasPrices(cfg.gasPrices).
 		WithSignMode(signing.SignMode_SIGN_MODE_DIRECT)
 
 	// verifier 构造（fail-closed）：strict 只允许 tee；tee 必须有可信根。

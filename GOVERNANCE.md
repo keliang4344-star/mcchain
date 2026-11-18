@@ -56,7 +56,7 @@
 1. 提 RFC（在 `docs/` 或 Issue 加 `rfc` 标签），说明动机、设计、影响。
 2. Core 评审通过。
 3. 实现 + 单测（覆盖率目标见上）。
-4. **先在测试网（`mcchain-1` 或专用 testnet）验证出块与状态迁移**，再提 PR。
+4. **先在测试网（`mcchain-testnet-1` 或本地 `mcchain-dev-1`）验证出块与状态迁移**，再提 PR。
 5. PR 经 ≥2 Core approve + CI 绿 + 安全自查 → merge 到 `main`。
 6. 主网升级走 `docs/MAINNET_*` 发布流程。
 

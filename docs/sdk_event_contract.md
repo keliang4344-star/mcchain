@@ -9,17 +9,17 @@
 
 每个事件都自动带 `message.module`（处理该消息的模块名）与 `message.sender`（交易发起地址）属性，SDK 可按模块过滤。
 
-> 链上共 **61 类事件**（`sdk.NewEvent` 实发，按模块聚合如下；完整逐条清单由
-> `scripts/gen_events_doc.py` 生成到 `docs/generated/events.md`，CI 门禁比对漂移）。
+> 链上共 **66 类事件**（`sdk.NewEvent` 实发，按模块聚合如下；完整逐条清单由
+> `scripts/gen_events_doc.py` 生成，CI 会校验本文总数与生成结果一致）。
 
 | 模块 | 事件数 | 关键事件（移动端 UX 关注） |
 |---|---|---|
-| depin | 5 | `depin.RewardPaid`（挖矿到账）、`depin.DeviceAttested`、`depin.DefenseBlocked`、`depin.ReleaseCapped` |
+| depin | 5 | `depin.RewardPaid`（挖矿到账）、`depin.AttestationResult`、`depin.DeviceAttested`、`depin.DefenseBlocked`、`depin.ReleaseCapped` |
 | phonenode | 11 | `phonenode.Attestation`、`phonenode.Slash`、`phonenode.SlashRouted`、`phonenode.NodeCapitalAllowance`、`phonenode.CosignVerified` |
-| edgeai | 26 | `edgeai.TaskCreated`、`edgeai.ResultSubmitted`、`edgeai.Settled`、`edgeai.RewardPaid`、`edgeai.DisputeOpened`、`edgeai.DisputeResolved`、`edgeai.CheatDetected` |
+| edgeai | 29 | `edgeai.TaskCreated`、`edgeai.ResultSubmitted`、`edgeai.Settled`、`edgeai.RewardPaid`、`edgeai.DisputeOpened`、`edgeai.DisputeResolved`、`edgeai.CheatDetected` |
 | dex | 4 | `dex.SettlementBatchSubmitted`、`dex.SettlementBatchFinalized`、`dex.MinimumLiquidityLocked`、`dex.LPIncentiveThrottled` |
 | referral | 4 | `referral.created`、`referral.reward_claimed`、`referral.reward_tracked`、`referral.deferred_invalid_keys_removed` |
-| liquidstaking | 2 | `liquidstaking.LiquidStaked`、`liquidstaking.LiquidUnstaked`（见 §2.4 说明） |
+| liquidstaking | 5 | `liquid_stake`、`liquid_unstake`、`liquid_claim`、`liquid_rewards_accrue`、`liquid_slash_applied`（见 §2.4） |
 | mcchain | 2 | `mcchain.GovernanceHandoverInitiated`、`mcchain.GovernanceHandoverCompleted` |
 | tokenomics | 6 | `tokenomics.SecurityDripped`、`tokenomics.GasBurned`、`tokenomics.GasRebated`、`tokenomics.BlackHoleBurn`、`tokenomics.EnterpriseSettlementFee` |
 

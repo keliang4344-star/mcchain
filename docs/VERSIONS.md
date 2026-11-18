@@ -20,10 +20,15 @@
 | Cosmos SDK | v0.47.14 | `github.com/cosmos/cosmos-sdk` |
 | CometBFT | v0.37.6 | cometbft |
 | IBC-Go | v7.3.0 | `github.com/cosmos/ibc-go/v7` |
+| wasmd | v0.45.0 | 仅在 CGO + libwasmvm 可链接的构建中启用（见下） |
 | gogoproto | v1.7.0 | proto 代码生成 |
 | cosmos-proto | v1.0.0-beta.5 | google.api/http 注解依赖 |
 
-> 升级依赖时：1) 改 `go.mod`；2) 同步更新本文档；3) 重新生成 proto 代码（`make proto-gen`，见 DEVELOPMENT.md）。
+> 构建矩阵：`wasm` 模块通过 `wasm_setup_{cgo,nocgo}.go` 条件编译。默认 `CGO_ENABLED=0`
+> 的构建**不含** CosmWasm；发布 wasm-enabled 版本必须使用 Linux + CGO + libwasmvm，
+> 并在 release 说明中标注，两种二进制不可混用。
+>
+> 升级依赖时：1) 改 `go.mod`；2) 同步更新本文档；3) 用 `bash scripts/generate_proto.sh <module>` 重新生成 proto（唯一入口）。
 
 ## 3. 关键协议常量（速查）
 

@@ -15,7 +15,7 @@
 | gRPC 端口 | 默认 `9090`（app.toml `grpc.enable = true`） |
 | REST(grpc-gateway) 端口 | 默认 `1317`（app.toml `api.enable = true`） |
 
-> 端点注册已由 Ignite 脚手架生成（`x/depin/module.go`、`x/phonenode/module.go` 的 `RegisterServices` / `RegisterGRPCGatewayRoutes`）。Query 服务带有 `google.api.http` 注解，因此**同时**暴露 gRPC 与 REST；Msg 服务**仅 gRPC**（无 HTTP 注解，无 REST 路由），移动端请用 gRPC 客户端或 `mcchaind tx` CLI 发交易。
+> 端点注册由 `x/depin/module.go`、`x/phonenode/module.go` 的 `RegisterServices` / `RegisterGRPCGatewayRoutes` 完成（仓库不使用 Ignite 脚手架；proto 生成统一走 `scripts/generate_proto.sh`）。Query 服务带有 `google.api.http` 注解，因此**同时**暴露 gRPC 与 REST；Msg 服务**仅 gRPC**（无 HTTP 注解，无 REST 路由），移动端请用 gRPC 客户端或 `mcchaind tx` CLI 发交易。
 
 ## 2. gRPC / REST 端点清单
 

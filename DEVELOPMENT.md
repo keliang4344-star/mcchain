@@ -95,10 +95,10 @@ protoc -I proto -I "$GOMODCACHE/github.com/cosmos/gogoproto@v1.4.10" \
 ## 4. 常用命令
 
 ```bash
-# 本地单节点
-mcchaind init mynode --chain-id mcchain-1
-mcchaind keys add alice
-mcchaind start
+# 本地单节点（推荐：脚本会写入 denom、创世参数、gentx 并启动）
+./scripts/devnet.sh init 1
+./scripts/devnet.sh start
+./scripts/devnet.sh status
 
 # 链下预言机签名服务（默认读 MC_ORACLE_PRIVKEY / MC_ORACLE_PUBKEY 环境变量）
 mcchaind oracle

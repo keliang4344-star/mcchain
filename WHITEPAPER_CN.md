@@ -6,6 +6,10 @@
 
 **A Public Chain That Puts a Full Node in Every Phone**
 
+> **实现状态提示**：本白皮书描述的是目标架构。当前移动端是「设备认证 + 交易客户端」，
+> 不运行共识、不做区块头验证；轻客户端与手机侧共识参与仍在路线图中。
+> 已实现/规划中的准确口径见仓库根目录 [STATUS.md](./STATUS.md)。
+
 链标识 `mcchain-mainnet-1` · 主币 MC（最小单位 umc，精度 6）· 固定总量 10 亿 · 零通胀
 
 </div>

@@ -27,11 +27,12 @@ if [[ ! -f "$GENESIS_CONFIG" ]]; then
   exit 2
 fi
 # 档位一致性：主网 chain-id 必须由 chainprofile 认作 production，避免
-# 用测试网/未登记链名产出「自称主网」的创世。
-if [[ -x build/mcchaind ]]; then
-  PROFILE="$(build/mcchaind profile "$CHAIN_ID" 2>/dev/null || true)"
-elif command -v mcchaind >/dev/null 2>&1; then
+# 用测试网/未登记链名产出「自称主网」的创世。优先用 PATH 中的已安装二进制，
+# 避免误用 build/ 下过期的旧产物（旧产物可能没有 profile 子命令）。
+if command -v mcchaind >/dev/null 2>&1; then
   PROFILE="$(mcchaind profile "$CHAIN_ID" 2>/dev/null || true)"
+elif [[ -x build/mcchaind ]]; then
+  PROFILE="$(build/mcchaind profile "$CHAIN_ID" 2>/dev/null || true)"
 else
   PROFILE=""
 fi
@@ -47,7 +48,22 @@ if [[ "$PROFILE" == "production" && "${MC_REQUIRE_REAL_GENESIS_KEYS:-}" != "1" ]
   echo "ERROR: production genesis requires MC_REQUIRE_REAL_GENESIS_KEYS=1 (no generated placeholder keys)" >&2
   exit 2
 fi
-echo ">> params: chain-id=$CHAIN_ID profile=$PROFILE home=$HOME_DIR moniker=$MONIKER"
+
+# 最小 gas 价格：主网必须显式非零（防 mempool spam）。
+# 文档口径 0.0025umc；devnet/testnet 允许 0 以便零手续费联调。
+MIN_GAS="${MIN_GAS_PRICES:-0umc}"
+if [[ "$PROFILE" == "production" ]]; then
+  if [[ -z "${MIN_GAS_PRICES:-}" ]]; then
+    echo "ERROR: production requires MIN_GAS_PRICES to be set explicitly (e.g. 0.0025umc)" >&2
+    exit 2
+  fi
+  gas_num="${MIN_GAS%umc}"
+  if [[ "$gas_num" =~ ^0+(\.0+)?$ ]]; then
+    echo "ERROR: MIN_GAS_PRICES='$MIN_GAS' disables spam protection and is forbidden on production" >&2
+    exit 2
+  fi
+fi
+echo ">> params: chain-id=$CHAIN_ID profile=$PROFILE home=$HOME_DIR moniker=$MONIKER min-gas=$MIN_GAS"
 echo ">> genesis config: $GENESIS_CONFIG"
 
 echo ">> init chain $CHAIN_ID"
@@ -97,10 +113,23 @@ if [[ "$_app_ok" != "1" ]]; then
 fi
 echo ">> telemetry 已启用（指标经 API server /metrics 暴露，见 prometheus-mcchain.yml）"
 
-# 最小 gas 价格（防 spam）。默认 0umc 方便移动端 0 手续费挖矿联调；
-# 生产主网设环境变量 MIN_GAS_PRICES=0.0025umc 再跑 init.sh。
-MIN_GAS="${MIN_GAS_PRICES:-0umc}"
+# 出块间隔：文档与所有块数参数（slashing 21600 块 = 1 天）都以 4s 为准。
+# CometBFT 默认 timeout_commit = 5s，必须显式写入并回读校验；否则主网实际
+# 30 小时才算「一天」，且堆高/告警/释放窗口全部偏离口径。
+# 该字段在 config.toml 根级，不在 genesis。
+sed -i 's/^timeout_commit = .*/timeout_commit = "4s"/' "$HOME_DIR/config/config.toml"
+grep -q '^timeout_commit = "4s"' "$HOME_DIR/config/config.toml" || {
+  echo "ERROR: failed to pin timeout_commit=4s in $HOME_DIR/config/config.toml" >&2
+  exit 1
+}
+echo ">> timeout_commit pinned to 4s"
+
+# 最小 gas 价格（防 spam）。主网在参数校验阶段已强制非零；此处落盘。
 sed -i "s/^minimum-gas-prices = .*/minimum-gas-prices = \"$MIN_GAS\"/" "$HOME_DIR/config/app.toml"
+grep -q "^minimum-gas-prices = \"$MIN_GAS\"" "$HOME_DIR/config/app.toml" || {
+  echo "ERROR: failed to set minimum-gas-prices='$MIN_GAS' in app.toml" >&2
+  exit 1
+}
 echo ">> min-gas-prices set to: $MIN_GAS"
 
 # 可选：区块 gas 上限（防无限 gas DoS）。

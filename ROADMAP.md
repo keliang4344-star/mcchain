@@ -5,16 +5,16 @@
 ## 当前阶段：主网启动前（Pre-Mainnet）
 
 - 八大原生模块：`depin` / `edgeai` / `phonenode` / `tokenomics` / `mcchain` / `dex` / `referral` / `liquidstaking` 均已实现。
-- 链 ID：主网 `mcchain-mainnet-1`，本地 / 测试网 `mcchain-1`。
+- 链 ID：主网 `mcchain-mainnet-1`，测试网 `mcchain-testnet-1`，本地 `mcchain-dev-1`（唯一事实源：`internal/chainprofile`）。
 
 ## 近期里程碑
 
 | 里程碑 | 状态 | 说明 |
 |--------|------|------|
 | 模块开发完成 | ✓ | 八大原生模块全部完成 |
-| 测试覆盖率 ≥70% | 进行中 | 关键模块 CI 门禁 |
+| 测试覆盖率 ≥70% | 进行中 | nightly 报告跟踪（当前未设阻断阈值） |
 | 安全审计 | 待启动 | 第三方审计 + 修复 |
-| dex 上线 | ✓ | AMM 与手续费销毁已上线 |
+| dex 功能完成（devnet 验证） | ✓ | AMM 与手续费销毁已在 devnet 跑通 |
 | 多验证人主网 | 待启动 | ≥4 独立验证人 + TMKMS |
 
 ## 🆘 Help Wanted（求援模块）

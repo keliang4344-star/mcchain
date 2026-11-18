@@ -1,6 +1,6 @@
 # MC 公链 · Prometheus 告警规则（mcchain_alerts.yml）
 #
-# 本文是 docs/ALERTS.md 六组规则的可加载落地文件，由
+# 本文是 docs/ALERTS.md 五组规则的可加载落地文件（第 6 节是部署建议），由
 # deploy/prometheus-mcchain.yml 的 rule_files 引用。
 #
 # 所有表达式只引用**真实存在**的指标：

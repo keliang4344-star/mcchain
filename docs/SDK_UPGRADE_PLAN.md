@@ -27,7 +27,7 @@
 | 变更域 | 影响 | 应对 |
 |---|---|---|
 | `app.go` 结构 | 模块管理方式调整（`module.Manager` 生命周期 API 变化） | 按 0.50 迁移指南重写 app 组装，保持模块清单等价 |
-| proto 生成 | `buf` 生成产物与 `google.golang.org/protobuf` 版本对齐 | 重新跑 `make proto-gen`，提交生成物 diff 审查 |
+| proto 生成 | protoc 产物与 `google.golang.org/protobuf` 版本对齐 | 用 `bash scripts/generate_proto.sh <module>` 重生成，提交生成物 diff 审查 |
 | 状态存储迁移 | 部分模块 store key / codec 注册变化 | 走 `StoreUpgrades`，测试网从创世高度做升级演练 |
 | 查询/事件接口 | REST/gRPC 路由注解与事件命名可能微调 | 以 `docs/static/openapi.yml` 与 `docs/sdk_event_contract.md` 为基准回归 |
 | 依赖版本 | ibc-go v8、cometbft 0.38 API 破坏性变化 | 逐模块编译修复 + 单测回归 |
@@ -37,7 +37,7 @@
 1. **分支与基线**：从当前 `main` 切 `release/sdk-v0.50`，锁定 go.mod 目标版本。
 2. **依赖升级**：先升级 CometBFT 0.38 → IBC-Go v8 → SDK 0.50，逐层 `go build` 验证。
 3. **app 重构**：按 SDK 0.50 迁移指南重构 `app/app.go` 模块组装与 lifecycle。
-4. **proto 重生成**：`make proto-gen`，提交生成物，diff 审查事件/路由契约。
+4. **proto 重生成**：`bash scripts/generate_proto.sh <module>`，提交生成物，diff 审查事件/路由契约。
 5. **状态迁移**：实现 `StoreUpgrades`；在 devnet 上从 0.47 高度快照 → 升级 → 校验状态哈希。
 6. **测试矩阵**：全模块单测 + `tests/e2e/smoke.sh` 冒烟 + 既有 `mainnet_readiness.sh` 门禁。
 7. **文档对齐**：更新 `docs/VERSIONS.md`、README、DEPLOYMENT_GUIDE、sdk_event_contract、

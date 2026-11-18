@@ -1,15 +1,18 @@
 # MobileChain（MC）
 
-> 一条把全节点装进每一部手机的公链  
-> **A Public Chain That Puts a Full Node in Every Phone**
+> 一条让每一部手机成为可验证节点的公链  
+> **A Public Chain That Turns Every Phone into a Verifiable Node**
 
 [![Cosmos SDK](https://img.shields.io/badge/Cosmos_SDK-v0.47.14-blue?logo=cosmos)](https://github.com/cosmos/cosmos-sdk)
 [![CometBFT](https://img.shields.io/badge/CometBFT-v0.37.6-purple)](https://github.com/cometbft/cometbft)
 [![Go](https://img.shields.io/badge/Go-1.22.5-00ADD8?logo=go)](https://go.dev)
-[![Ignite](https://img.shields.io/badge/Ignite-v28.3.0-orange?logo=ignite)](https://github.com/ignite/cli)
 [![License](https://img.shields.io/badge/License-Apache_2.0-green)](./LICENSE)
 
-MC 是基于 **Cosmos SDK + CometBFT** 构建的移动优先 Layer 1 区块链，核心创新是让智能手机以「轻全节点」方式参与共识与贡献，真正实现「一部手机即一个节点」。链上经济由 8 个原生模块驱动，通证固定总量 10 亿 MC、零通胀。
+MC 是基于 **Cosmos SDK + CometBFT** 构建的移动优先 Layer 1 区块链。链上经济由 8 个原生模块驱动，通证固定总量 10 亿 MC、零通胀。
+
+> **实现状态说明**：移动端当前是「设备认证 + 交易客户端」（WebView + CosmJS 走 gRPC/RPC），
+> **不运行 CometBFT 共识、不做区块头验证**。轻客户端与「手机参与共识」在路线图中，
+> 落地前请以 [STATUS.md](./STATUS.md) 的口径为准。
 
 **开源可审计 · 参数写代码 · 链上求真 · 共识共生**
 
@@ -68,15 +71,18 @@ graph TD
 # 依赖：Go 1.22+
 git clone https://github.com/keliang4344-star/mcchain.git
 cd mcchain
-go build ./...                          # 全量编译（仓库未内置 Makefile）
-go build -o build/mcchaind.exe ./cmd/mcchaind   # 构建节点程序（Linux 产物见 BEGINNER_GUIDE）
+go build ./...                                  # 全量编译（仓库未内置 Makefile）
+go build -o build/mcchaind ./cmd/mcchaind       # 构建节点程序
 
-# 本地单节点
-mcchaind init mynode --chain-id mcchain-1
-mcchaind keys add alice --keyring-backend test
-# ... 配置创世后启动
-mcchaind start
+# 本地单节点（推荐：脚本会写入 denom、创世参数、gentx 并启动）
+./scripts/devnet.sh init 1
+./scripts/devnet.sh start
+./scripts/devnet.sh status
 ```
+
+> 手动建链时 chain-id 必须使用已登记值（本地 `mcchain-dev-1`）；未登记链名会被应用层拒绝启动
+> （临时链可显式设置 `MC_ALLOW_UNKNOWN_CHAIN_ID=1`）。链 ID 档位的唯一事实源是
+> `internal/chainprofile`，可用 `mcchaind profile <chain-id>` 查询。
 
 > 新手部署请参阅 [新手部署指南](./BEGINNER_GUIDE.md)，从零开始一键启动 MC 节点。
 
@@ -102,9 +108,8 @@ mcchaind start
 go test ./...
 ```
 
-模块测试用例：depin 36 · dex 48 · edgeai 81 · liquidstaking 18 · mcchain 15 · phonenode 48 · referral 30 · tokenomics 31 · app 10 · internal 22，总数随新增测试持续变化（以 CI 运行结果为准）。
-
-关键模块目标覆盖率 ≥ 70%（CI 门禁见 `.github/workflows/ci.yml`）。
+测试数量随迭代变化，以 CI 运行结果为准。关键模块的覆盖率目标为 ≥70%，
+当前由 nightly 报告跟踪（尚未作为阻断式门禁）。
 
 ## 社群
 
@@ -113,7 +118,8 @@ go test ./...
 | Twitter / X | [@MobileChain](https://x.com/MobileChain) |
 | Discord | [discord.gg/mcchain](https://discord.gg/mcchain) |
 | GitHub | [github.com/keliang4344-star/mcchain](https://github.com/keliang4344-star/mcchain) |
-| 链上事件 | [docs/generated/events.md](docs/generated/events.md) |
+| 链上事件 | [docs/sdk_event_contract.md](./docs/sdk_event_contract.md)（完整清单由 `scripts/gen_events_doc.py` 生成，CI 校验数量） |
+| 实现状态 | [STATUS.md](./STATUS.md)（主网/审计/验证人/已知风险） |
 
 ## 贡献
 

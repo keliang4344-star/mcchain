@@ -6,6 +6,11 @@
 
 **A Public Chain That Puts a Full Node in Every Phone**
 
+> **Implementation status**: this whitepaper describes the target architecture. The current mobile app
+> is a device-attestation + transaction client; it does not run consensus or verify block headers.
+> Light client and phone-side consensus participation remain on the roadmap. See [STATUS.md](./STATUS.md)
+> for the authoritative implemented/planned breakdown.
+
 Chain ID `mcchain-mainnet-1` · Native coin MC (smallest unit umc, precision 6) · Fixed supply 1 billion · Zero inflation
 
 </div>

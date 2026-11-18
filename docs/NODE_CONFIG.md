@@ -19,13 +19,17 @@ pex             = true              # 主网打开；私有网（如 devnet）�
 
 ```toml
 # app.toml（应用层）
-minimum-gas-prices = "0.0025umc"    # 主网建议；私有网/devnet 用 0umc（权威口径见 GAS_AND_FEES.md）
+minimum-gas-prices = "0.0025umc"    # 主网必须非零；私有网/devnet 用 0umc（权威口径见 GAS_AND_FEES.md）
 pruning             = "custom"
-pruning-keep-recent = "362880"      # ≈3 天（21,600 块 × 16.8）
+pruning-keep-recent = "362880"      # 362880 块 × 4s ≈ 16.8 天（不是 3 天）
 pruning-interval    = "100"
-api                 = { enable = true, address = "tcp://0.0.0.0:1317" }
-grpc                = { enable = true, address = "0.0.0.0:9090" }
-grpc-web            = { enable = true, address = "0.0.0.0:9091" }
+# ⚠️ 绑定地址按角色区分，不要照抄到验证人：
+#   - 验证人：API/gRPC/gRPC-web 一律只绑回环或直接关闭；
+#   - 对外 RPC Provider：绑内网地址，由 Nginx/CDN 终止 TLS、限流并只暴露只读路由。
+# 下面三行是「RPC Provider」形态示例，验证人主机禁止直接使用。
+api                 = { enable = false }
+grpc                = { enable = false }
+grpc-web            = { enable = false }
 state-sync          = { snapshot-interval = 1000, snapshot-keep-recent = 2 }
 ```
 

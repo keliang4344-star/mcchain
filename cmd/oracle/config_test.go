@@ -16,6 +16,7 @@ func clearOracleEnv(t *testing.T) {
 		"ORACLE_TEE_REVOCATION_FILE", "ORACLE_TEE_MIN_SECURITY_LEVEL",
 		"ORACLE_API_KEY", "ORACLE_BIND_ADDR", "ORACLE_LISTEN_PORT",
 		"ORACLE_TRUSTED_PROXY", "ORACLE_WAIT_COMMIT", "ORACLE_WAIT_COMMIT_TIMEOUT",
+		"ORACLE_GAS_PRICES",
 	} {
 		t.Setenv(k, "")
 	}
@@ -56,6 +57,21 @@ func TestResolveConfig_StrictGates(t *testing.T) {
 		}
 		if cfg.verifierMode != "tee" || cfg.keyringBackend != "file" || !cfg.strict {
 			t.Fatalf("unexpected config: %+v", cfg)
+		}
+		if cfg.gasPrices != "0.0025umc" {
+			t.Fatalf("default gas price must match production docs, got %q", cfg.gasPrices)
+		}
+	})
+
+	t.Run("非法 gas price 拒绝", func(t *testing.T) {
+		baseStrict(t)
+		t.Setenv("ORACLE_VERIFIER", "tee")
+		t.Setenv("ORACLE_TEE_ROOTS_FILE", roots)
+		t.Setenv("ORACLE_KEYRING_BACKEND", "file")
+		t.Setenv("ORACLE_KEYRING_PASSWORD_FILE", password)
+		t.Setenv("ORACLE_GAS_PRICES", "not-a-coin")
+		if _, err := resolveConfig("", "", 8080); err == nil {
+			t.Fatal("invalid ORACLE_GAS_PRICES must be rejected")
 		}
 	})
 

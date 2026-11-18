@@ -1,14 +1,18 @@
 # MobileChain (MC)
 
-> A Public Chain That Puts a Full Node in Every Phone  
-> **一条把全节点装进每一部手机的公链**
+> A Public Chain That Turns Every Phone into a Verifiable Node  
+> **一条让每一部手机成为可验证节点的公链**
 
 [![Cosmos SDK](https://img.shields.io/badge/Cosmos_SDK-v0.47.14-blue?logo=cosmos)](https://github.com/cosmos/cosmos-sdk)
 [![CometBFT](https://img.shields.io/badge/CometBFT-v0.37.6-purple)](https://github.com/cometbft/cometbft)
 [![Go](https://img.shields.io/badge/Go-1.22.5-00ADD8?logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-Apache_2.0-green)](./LICENSE)
 
-MC is a DePIN + Edge AI public chain built on **Cosmos SDK + CometBFT**. Its core innovation is enabling smartphones to participate in consensus and contribution as "light full nodes," addressing the node centralization problem in current public chains. On-chain economics are driven by eight native modules, with a fixed total supply of 1 billion MC and zero inflation.
+MC is a DePIN + Edge AI public chain built on **Cosmos SDK + CometBFT**. On-chain economics are driven by eight native modules, with a fixed total supply of 1 billion MC and zero inflation.
+
+> **Implementation status**: the mobile app is currently a *device-attestation + transaction client*
+> (WebView + CosmJS over gRPC/RPC). It does **not** run CometBFT consensus or verify block headers.
+> Light client and phone-side consensus participation are on the roadmap; see [STATUS.md](./STATUS.md).
 
 **Open Source & Auditable · Parameters in Code · Truth on Chain · Consensus Symbiosis**
 
@@ -77,12 +81,15 @@ cd mcchain
 go build ./...                          # full build (no Makefile in repo)
 go build -o build/mcchaind ./cmd/mcchaind   # build the node binary
 
-# Local single node
-mcchaind init mynode --chain-id mcchain-1
-mcchaind keys add alice --keyring-backend test
-# ... configure genesis then start
-mcchaind start
+# Local single node (recommended: the script writes denom, genesis params, gentx and starts)
+./scripts/devnet.sh init 1
+./scripts/devnet.sh start
+./scripts/devnet.sh status
 ```
+
+> A manually created chain must use a registered chain-id (`mcchain-dev-1` locally);
+> unknown ids are rejected at startup unless `MC_ALLOW_UNKNOWN_CHAIN_ID=1` is set.
+> `internal/chainprofile` is the single source of truth; query it with `mcchaind profile <chain-id>`.
 
 > See [DEVELOPMENT.md](./DEVELOPMENT.md) for detailed dev environment setup.
 
@@ -105,9 +112,8 @@ mcchaind start
 go test ./...
 ```
 
-Module test cases: depin 36 · dex 48 · edgeai 81 · liquidstaking 18 · mcchain 15 · phonenode 48 · referral 30 · tokenomics 31 · app 10 · internal 22 — the total keeps growing with new tests (see CI run logs).
-
-Key modules target ≥ 70% coverage (CI gate: `.github/workflows/ci.yml`).
+Module test counts change with every iteration; use CI run logs as the source of truth.
+Key modules target ≥ 70% coverage, currently tracked by nightly reports (not yet a blocking gate).
 
 ## Community
 
