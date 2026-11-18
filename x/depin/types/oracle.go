@@ -6,6 +6,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"mcchain/internal/chainprofile"
 )
 
 // AttestationOracle 设备 attestation 验证抽象（T2 可插拔预言机框架）。
@@ -36,7 +38,15 @@ func SetOracle(o AttestationOracle) {
 // 对应原 msg_server 占位逻辑，保证测试网与本地挖矿流程不变。
 type SoftOracle struct{}
 
-func (SoftOracle) VerifyDeviceAttestation(_ sdk.Context, _ string, challenge, signature string) error {
+func (SoftOracle) VerifyDeviceAttestation(ctx sdk.Context, _ string, challenge, signature string) error {
+	// P0-01 兜底（信任根层 fail-closed）：SoftOracle 仅校验 challenge/signature 非空，
+	// 不构成抗女巫的设备真实性证据，因此绝不允许在主网/生产 chain-id 上放行。
+	// 即便运维误设 MC_ORACLE_ALLOW_SOFT=1 导致 DefaultOracle 被选为 SoftOracle，
+	// 真实验证路径也在此按 chain-id 硬性拒绝——生产链只认 TeeOracle 的 secp256k1 验签。
+	if chainprofile.IsProduction(ctx.ChainID()) {
+		return ErrInvalidAttestation.Wrapf(
+			"SoftOracle not permitted on production chain %q; TeeOracle required", ctx.ChainID())
+	}
 	if challenge == "" || signature == "" {
 		return ErrInvalidAttestation
 	}

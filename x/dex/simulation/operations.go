@@ -105,10 +105,17 @@ func SimulateMsgSubmitSettlementBatch(
 	) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
 		simAccount, _ := simtypes.RandomAcc(r, accs)
 		recipient, _ := simtypes.RandomAcc(r, accs)
+		// merkle_root 必须是 32 字节 hex（64 字符），与 ValidateBasic/keeper 的
+		// 形态约束保持一致；模拟器不能生成会被链上拒绝的随机字符串。
+		const hexAlphabet = "0123456789abcdef"
+		root := make([]byte, types.MerkleRootHexLen)
+		for i := range root {
+			root[i] = hexAlphabet[r.Intn(len(hexAlphabet))]
+		}
 		msg := &types.MsgSubmitSettlementBatch{
 			Creator:    simAccount.Address.String(),
 			BatchId:    simtypes.RandStringOfLength(r, 16),
-			MerkleRoot: simtypes.RandStringOfLength(r, 64),
+			MerkleRoot: string(root),
 			Entries: []*types.SettlementEntry{
 				{
 					Recipient: recipient.Address.String(),

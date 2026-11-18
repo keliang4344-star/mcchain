@@ -1,12 +1,54 @@
 package types
 
 import (
+	"encoding/hex"
+	"fmt"
 	"math"
 	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
+
+// ValidateSettlementBatchID enforces a fixed maximum length and a conservative
+// character set. The id becomes a KVStore key verbatim, so arbitrary bytes are
+// both a storage-griefing and an index/debugging hazard.
+func ValidateSettlementBatchID(id string) error {
+	if id == "" {
+		return fmt.Errorf("batch_id is required")
+	}
+	if len(id) > MaxSettlementIDLen {
+		return fmt.Errorf("batch_id exceeds max length %d", MaxSettlementIDLen)
+	}
+	for i := 0; i < len(id); i++ {
+		c := id[i]
+		switch {
+		case c >= 'a' && c <= 'z',
+			c >= 'A' && c <= 'Z',
+			c >= '0' && c <= '9',
+			c == '-', c == '_', c == '.', c == ':':
+		default:
+			return fmt.Errorf("batch_id contains invalid character %q", c)
+		}
+	}
+	return nil
+}
+
+// ValidateSettlementMerkleRoot requires a 32-byte hex-encoded root. The root is
+// an audit commitment; accepting arbitrary strings would let a submitter store
+// unbounded data and publish a "Merkle root" that can never be verified.
+func ValidateSettlementMerkleRoot(root string) error {
+	if root == "" {
+		return fmt.Errorf("merkle_root is required")
+	}
+	if len(root) != MerkleRootHexLen {
+		return fmt.Errorf("merkle_root must be %d hex chars (32 bytes), got %d", MerkleRootHexLen, len(root))
+	}
+	if _, err := hex.DecodeString(root); err != nil {
+		return fmt.Errorf("merkle_root must be hex encoded: %w", err)
+	}
+	return nil
+}
 
 // Message type assertions — struct definitions live in tx.pb.go (proto-generated).
 var (
@@ -206,6 +248,12 @@ func (m *MsgSubmitSettlementBatch) ValidateBasic() error {
 	if m.BatchId == "" || m.MerkleRoot == "" {
 		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "batch_id and merkle_root are required")
 	}
+	if err := ValidateSettlementBatchID(m.BatchId); err != nil {
+		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())
+	}
+	if err := ValidateSettlementMerkleRoot(m.MerkleRoot); err != nil {
+		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())
+	}
 	if len(m.Entries) == 0 {
 		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "batch must contain at least one entry")
 	}
@@ -214,12 +262,18 @@ func (m *MsgSubmitSettlementBatch) ValidateBasic() error {
 			"batch may contain at most %d entries, got %d", MaxSettlementEntries, len(m.Entries))
 	}
 	var total uint64
+	var payloadBytes int
 	for _, e := range m.Entries {
 		if e == nil {
 			return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "nil settlement entry")
 		}
 		if _, err := sdk.AccAddressFromBech32(e.Recipient); err != nil {
 			return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid recipient %s: %s", e.Recipient, err)
+		}
+		payloadBytes += len(e.Recipient)
+		if payloadBytes > MaxSettlementBatchBytes {
+			return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest,
+				"batch recipient payload exceeds %d bytes", MaxSettlementBatchBytes)
 		}
 		if e.AmountUmc == 0 {
 			return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "entry amount must be positive")

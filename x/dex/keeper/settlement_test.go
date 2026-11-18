@@ -9,6 +9,9 @@ import (
 	"mcchain/x/dex/types"
 )
 
+// testMerkleRoot 是合法的 32 字节 hex 结算根（链上只校验形态，不作为放行依据）。
+const testMerkleRoot = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+
 // TestSettlementBatchEndToEnd 离链批处理：提交批次 → 链上最终清算一次性拨付各接收方。
 func TestSettlementBatchEndToEnd(t *testing.T) {
 	k, ctx, bk := setupDex(t)
@@ -22,7 +25,7 @@ func TestSettlementBatchEndToEnd(t *testing.T) {
 		{Recipient: r1, Amount: 100_000_000}, // 100 MC
 		{Recipient: r2, Amount: 50_000_000},  // 50 MC
 	}
-	require.NoError(t, k.SubmitBatch(ctx, "batch-1", "deadbeef", addrOfDex(t), entries))
+	require.NoError(t, k.SubmitBatch(ctx, "batch-1", testMerkleRoot, addrOfDex(t), entries))
 
 	b, ok := k.GetBatch(ctx, "batch-1")
 	require.True(t, ok)
@@ -54,16 +57,26 @@ func TestSettlementBatchEndToEnd(t *testing.T) {
 func TestSettlementBatchValidation(t *testing.T) {
 	k, ctx, _ := setupDex(t)
 	// 空条目
-	require.Error(t, k.SubmitBatch(ctx, "b2", "root", addrOfDex(t), nil))
+	require.Error(t, k.SubmitBatch(ctx, "b2", testMerkleRoot, addrOfDex(t), nil))
 	// 非法接收方
-	require.Error(t, k.SubmitBatch(ctx, "b3", "root", addrOfDex(t),
+	require.Error(t, k.SubmitBatch(ctx, "b3", testMerkleRoot, addrOfDex(t),
 		[]BatchEntry{{Recipient: "not-an-address", Amount: 10}}))
 	// 缺少 merkle root
 	require.Error(t, k.SubmitBatch(ctx, "b4", "", addrOfDex(t),
 		[]BatchEntry{{Recipient: addrOfDex(t), Amount: 10}}))
 	// 零金额条目
-	require.Error(t, k.SubmitBatch(ctx, "b5", "root", addrOfDex(t),
+	require.Error(t, k.SubmitBatch(ctx, "b5", testMerkleRoot, addrOfDex(t),
 		[]BatchEntry{{Recipient: addrOfDex(t), Amount: 0}}))
+	// merkle_root 形态非法：过短、非 hex、超长，均必须拒绝而非静默接受
+	require.Error(t, k.SubmitBatch(ctx, "b6", "deadbeef", addrOfDex(t),
+		[]BatchEntry{{Recipient: addrOfDex(t), Amount: 10}}))
+	require.Error(t, k.SubmitBatch(ctx, "b7", "zz112233445566778899aabbccddeeff00112233445566778899aabbccddeeff", addrOfDex(t),
+		[]BatchEntry{{Recipient: addrOfDex(t), Amount: 10}}))
+	require.Error(t, k.SubmitBatch(ctx, "b8", testMerkleRoot+"00", addrOfDex(t),
+		[]BatchEntry{{Recipient: addrOfDex(t), Amount: 10}}))
+	// batch_id 含非法字符（直接进入 KV 键，必须限制字符集）
+	require.Error(t, k.SubmitBatch(ctx, "bad/id", testMerkleRoot, addrOfDex(t),
+		[]BatchEntry{{Recipient: addrOfDex(t), Amount: 10}}))
 }
 
 // TestSettlementBatchIDIsUnique 同一 batch_id 不可复用：否则运营方可覆写已清算批次并重复拨付。
@@ -73,15 +86,15 @@ func TestSettlementBatchIDIsUnique(t *testing.T) {
 	bk.setModuleBalance(types.ModuleName, "umc", 1_000_000)
 
 	entries := []BatchEntry{{Recipient: r1, Amount: 100_000}}
-	require.NoError(t, k.SubmitBatch(ctx, "dup", "root", addrOfDex(t), entries))
+	require.NoError(t, k.SubmitBatch(ctx, "dup", testMerkleRoot, addrOfDex(t), entries))
 
 	// pending 状态下重复提交被拒
-	require.Error(t, k.SubmitBatch(ctx, "dup", "root", addrOfDex(t), entries))
+	require.Error(t, k.SubmitBatch(ctx, "dup", testMerkleRoot, addrOfDex(t), entries))
 
 	require.NoError(t, k.FinalizeBatch(ctx, "dup"))
 
 	// settled 之后仍不可复用（防重放拨付）
-	require.Error(t, k.SubmitBatch(ctx, "dup", "root", addrOfDex(t), entries))
+	require.Error(t, k.SubmitBatch(ctx, "dup", testMerkleRoot, addrOfDex(t), entries))
 	require.Equal(t, int64(100_000), bk.balances[r1]["umc"].Amount.Int64())
 }
 
@@ -89,7 +102,7 @@ func TestSettlementBatchIDIsUnique(t *testing.T) {
 func TestSettlementBatchRejectsDuplicateRecipient(t *testing.T) {
 	k, ctx, _ := setupDex(t)
 	r := addrOfDex(t)
-	require.Error(t, k.SubmitBatch(ctx, "b-dup-r", "root", addrOfDex(t), []BatchEntry{
+	require.Error(t, k.SubmitBatch(ctx, "b-dup-r", testMerkleRoot, addrOfDex(t), []BatchEntry{
 		{Recipient: r, Amount: 10},
 		{Recipient: r, Amount: 20},
 	}))
@@ -100,7 +113,7 @@ func TestSettlementBatchRejectsDuplicateRecipient(t *testing.T) {
 func TestSettlementBatchTotalOverflowRejected(t *testing.T) {
 	k, ctx, _ := setupDex(t)
 	const maxU64 = ^uint64(0)
-	require.Error(t, k.SubmitBatch(ctx, "b-of", "root", addrOfDex(t), []BatchEntry{
+	require.Error(t, k.SubmitBatch(ctx, "b-of", testMerkleRoot, addrOfDex(t), []BatchEntry{
 		{Recipient: addrOfDex(t), Amount: maxU64},
 		{Recipient: addrOfDex(t), Amount: 2},
 	}))
@@ -113,7 +126,7 @@ func TestSettlementBatchTooManyEntries(t *testing.T) {
 	for i := range entries {
 		entries[i] = BatchEntry{Recipient: addrOfDex(t), Amount: 1}
 	}
-	require.Error(t, k.SubmitBatch(ctx, "b-big", "root", addrOfDex(t), entries))
+	require.Error(t, k.SubmitBatch(ctx, "b-big", testMerkleRoot, addrOfDex(t), entries))
 }
 
 // TestSettlementCannotSpendPoolReserves 结算绝不可动用 AMM 池储备。
@@ -140,7 +153,7 @@ func TestSettlementCannotSpendPoolReserves(t *testing.T) {
 
 	// 提交一个想动用储备的批次 → 清算必须被拒，储备分毫不动。
 	r := addrOfDex(t)
-	require.NoError(t, k.SubmitBatch(ctx, "raid", "root", addrOfDex(t),
+	require.NoError(t, k.SubmitBatch(ctx, "raid", testMerkleRoot, addrOfDex(t),
 		[]BatchEntry{{Recipient: r, Amount: 400_000_000}}))
 	require.Error(t, k.FinalizeBatch(ctx, "raid"))
 
@@ -170,7 +183,7 @@ func TestSettlementAtomicity(t *testing.T) {
 
 	// 只给 120 MC，但批次需要 150 MC。
 	bk.setModuleBalance(types.ModuleName, "umc", 120_000_000)
-	require.NoError(t, k.SubmitBatch(ctx, "partial", "root", addrOfDex(t), []BatchEntry{
+	require.NoError(t, k.SubmitBatch(ctx, "partial", testMerkleRoot, addrOfDex(t), []BatchEntry{
 		{Recipient: r1, Amount: 100_000_000},
 		{Recipient: r2, Amount: 50_000_000},
 	}))

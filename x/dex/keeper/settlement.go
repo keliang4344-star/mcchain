@@ -34,7 +34,7 @@ type BatchEntry struct {
 // SettlementBatch 一个离链聚合批次的链上清算记录。
 type SettlementBatch struct {
 	BatchID     string       `json:"batch_id"`
-	MerkleRoot  string       `json:"merkle_root"` // hex（链下聚合器构造，供收款方链下自验）
+	MerkleRoot  string       `json:"merkle_root"` // 32 字节 hex；审计承诺，链上不据此放行（安全边界是 settlement authority + EntriesHash）
 	Entries     []BatchEntry `json:"entries"`
 	EntriesHash string       `json:"entries_hash"` // 链上条目完整性承诺（提交即定，清算时复核）
 	Total       uint64       `json:"total"`
@@ -67,10 +67,14 @@ func (k Keeper) SubmitBatch(ctx sdk.Context, batchID, merkleRoot, submittedBy st
 	if batchID == "" || merkleRoot == "" {
 		return fmt.Errorf("dex: batch_id and merkle_root are required")
 	}
-	// 长度上限：batch_id/merkle_root 原样作为 KV 键与字段持久化，
-	// 不设上限会被恶意提交以超长字符串撑爆存储。
-	if len(batchID) > types.MaxSettlementIDLen || len(merkleRoot) > types.MaxSettlementIDLen {
-		return fmt.Errorf("dex: batch_id/merkle_root exceeds max length %d", types.MaxSettlementIDLen)
+	// 输入形态约束：batch_id 作为 KV 键原样持久化，必须有确定的最大长度与
+	// 保守字符集；merkle_root 固定为 32 字节 hex，避免任意长字符串撑爆状态，
+	// 也避免对外呈现一个永远无法核验的“Merkle 承诺”。
+	if err := types.ValidateSettlementBatchID(batchID); err != nil {
+		return fmt.Errorf("dex: %w", err)
+	}
+	if err := types.ValidateSettlementMerkleRoot(merkleRoot); err != nil {
+		return fmt.Errorf("dex: %w", err)
 	}
 	if len(entries) == 0 {
 		return fmt.Errorf("dex: batch must contain at least one entry")
@@ -84,10 +88,16 @@ func (k Keeper) SubmitBatch(ctx sdk.Context, batchID, merkleRoot, submittedBy st
 			batchID, existing.Status)
 	}
 	var total uint64
+	var payloadBytes int
 	seen := make(map[string]struct{}, len(entries))
 	for _, e := range entries {
 		if _, err := sdk.AccAddressFromBech32(e.Recipient); err != nil {
 			return fmt.Errorf("dex: invalid recipient %s: %w", e.Recipient, err)
+		}
+		payloadBytes += len(e.Recipient)
+		if payloadBytes > types.MaxSettlementBatchBytes {
+			return fmt.Errorf("dex: batch %s recipient payload exceeds %d bytes",
+				batchID, types.MaxSettlementBatchBytes)
 		}
 		if e.Amount == 0 {
 			return fmt.Errorf("dex: entry amount must be positive")

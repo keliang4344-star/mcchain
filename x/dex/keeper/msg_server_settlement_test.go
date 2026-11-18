@@ -27,7 +27,7 @@ func TestMsgServerSettlementBatchFlow(t *testing.T) {
 	submitRes, err := ms.SubmitSettlementBatch(goCtx, &types.MsgSubmitSettlementBatch{
 		Creator:    submitter,
 		BatchId:    "msg-batch-1",
-		MerkleRoot: "deadbeef",
+		MerkleRoot: testMerkleRoot,
 		Entries: []*types.SettlementEntry{
 			{Recipient: r1, AmountUmc: 100_000_000},
 			{Recipient: r2, AmountUmc: 50_000_000},
@@ -65,13 +65,13 @@ func TestMsgServerSettlementBatchRejectsInvalid(t *testing.T) {
 
 	// 空条目
 	_, err := ms.SubmitSettlementBatch(goCtx, &types.MsgSubmitSettlementBatch{
-		Creator: addrOfDex(t), BatchId: "b-empty", MerkleRoot: "root",
+		Creator: addrOfDex(t), BatchId: "b-empty", MerkleRoot: testMerkleRoot,
 	})
 	require.Error(t, err)
 
 	// 非法接收方
 	_, err = ms.SubmitSettlementBatch(goCtx, &types.MsgSubmitSettlementBatch{
-		Creator: addrOfDex(t), BatchId: "b-bad", MerkleRoot: "root",
+		Creator: addrOfDex(t), BatchId: "b-bad", MerkleRoot: testMerkleRoot,
 		Entries: []*types.SettlementEntry{{Recipient: "not-an-address", AmountUmc: 10}},
 	})
 	require.Error(t, err)
@@ -84,6 +84,24 @@ func TestMsgServerSettlementBatchRejectsInvalid(t *testing.T) {
 
 	_, ok := k.GetBatch(ctx, "b-empty")
 	require.False(t, ok)
+}
+
+// TestMsgServerAddLiquidityRejectsInvalidMinLpOut 滑点参数解析失败必须报错，
+// 不能静默降级为 0（0 等于用户主动放弃最小份额保护）。
+func TestMsgServerAddLiquidityRejectsInvalidMinLpOut(t *testing.T) {
+	k, ctx, _ := setupDex(t)
+	ms := NewMsgServerImpl(*k)
+	goCtx := sdk.WrapSDKContext(ctx)
+
+	_, err := ms.AddLiquidity(goCtx, &types.MsgAddLiquidity{
+		Creator:    addrOfDex(t),
+		PoolId:     1,
+		AmountAMax: "1000",
+		AmountBMax: "1000",
+		MinLpOut:   "not-a-number",
+	})
+	require.Error(t, err)
+	require.ErrorIs(t, err, types.ErrInvalidMinOut)
 }
 
 // TestMsgServerSettlementUnauthorized 越权与熔断必须被拒（A1 / A4）。
@@ -99,7 +117,7 @@ func TestMsgServerSettlementUnauthorized(t *testing.T) {
 
 	// 越权提交
 	_, err := ms.SubmitSettlementBatch(goCtx, &types.MsgSubmitSettlementBatch{
-		Creator: attacker, BatchId: "b-attack", MerkleRoot: "root",
+		Creator: attacker, BatchId: "b-attack", MerkleRoot: testMerkleRoot,
 		Entries: []*types.SettlementEntry{{Recipient: addrOfDex(t), AmountUmc: 1}},
 	})
 	require.Error(t, err)
@@ -113,7 +131,7 @@ func TestMsgServerSettlementUnauthorized(t *testing.T) {
 	// 熔断：即使授权方提交也被拒
 	k.SetSettlementConfig(ctx, SettlementConfig{Authority: authority, Halted: true})
 	_, err = ms.SubmitSettlementBatch(goCtx, &types.MsgSubmitSettlementBatch{
-		Creator: authority, BatchId: "b-halt", MerkleRoot: "root",
+		Creator: authority, BatchId: "b-halt", MerkleRoot: testMerkleRoot,
 		Entries: []*types.SettlementEntry{{Recipient: addrOfDex(t), AmountUmc: 1}},
 	})
 	require.Error(t, err)
@@ -125,23 +143,23 @@ func TestSettlementMsgValidateBasic(t *testing.T) {
 	recipient := addrOfDex(t)
 
 	valid := &types.MsgSubmitSettlementBatch{
-		Creator: creator, BatchId: "b1", MerkleRoot: "root",
+		Creator: creator, BatchId: "b1", MerkleRoot: testMerkleRoot,
 		Entries: []*types.SettlementEntry{{Recipient: recipient, AmountUmc: 1}},
 	}
 	require.NoError(t, valid.ValidateBasic())
 
 	require.Error(t, (&types.MsgSubmitSettlementBatch{
-		Creator: "bad", BatchId: "b1", MerkleRoot: "root",
+		Creator: "bad", BatchId: "b1", MerkleRoot: testMerkleRoot,
 		Entries: []*types.SettlementEntry{{Recipient: recipient, AmountUmc: 1}},
 	}).ValidateBasic())
 
 	require.Error(t, (&types.MsgSubmitSettlementBatch{
-		Creator: creator, BatchId: "", MerkleRoot: "root",
+		Creator: creator, BatchId: "", MerkleRoot: testMerkleRoot,
 		Entries: []*types.SettlementEntry{{Recipient: recipient, AmountUmc: 1}},
 	}).ValidateBasic())
 
 	require.Error(t, (&types.MsgSubmitSettlementBatch{
-		Creator: creator, BatchId: "b1", MerkleRoot: "root",
+		Creator: creator, BatchId: "b1", MerkleRoot: testMerkleRoot,
 		Entries: []*types.SettlementEntry{{Recipient: recipient, AmountUmc: 0}},
 	}).ValidateBasic())
 

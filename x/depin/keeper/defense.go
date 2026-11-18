@@ -48,7 +48,7 @@ const (
 	QualityMaxThreshold = 100
 
 	// Layer6: 单区块多设备关联检测阈值。同一区块内超过此数量的不同设备
-	// 提交贡献时，触发 IP/地理分散度告警。
+	// 提交贡献时，触发区块级设备分散度告警（代理指标，非 IP/地理定位）。
 	MaxDevicesPerBlock = 10
 )
 
@@ -155,8 +155,8 @@ func (k Keeper) RunDefensePipeline(ctx sdk.Context, deviceAddr, taskType string,
 		return result
 	}
 
-	// 第 6 层：IP/地理位置分散度
-	if result := k.defenseLayer6IPDispersion(ctx, deviceAddr); !result.Passed {
+	// 第 6 层：区块级设备分散度（BlockDeviceFanout）
+	if result := k.defenseLayer6_BlockDeviceFanout(ctx, deviceAddr); !result.Passed {
 		return result
 	}
 
@@ -353,7 +353,7 @@ func (k Keeper) defenseLayer5_ActivityTracking(ctx sdk.Context, deviceAddr strin
 // “Layer6 应拦截集中提交”的语义，改为超过阈值即拒绝，避免名实不符的
 // “告警层”让刷量者无成本地绕过。
 
-func (k Keeper) defenseLayer6IPDispersion(ctx sdk.Context, deviceAddr string) DefenseResult {
+func (k Keeper) defenseLayer6_BlockDeviceFanout(ctx sdk.Context, deviceAddr string) DefenseResult {
 	store := ctx.KVStore(k.storeKey)
 	height := ctx.BlockHeight()
 	key := defenseBlockSubKey(height)

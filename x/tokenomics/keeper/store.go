@@ -25,6 +25,10 @@ func (k Keeper) SetMintedSupply(ctx sdk.Context, minted sdk.Int) {
 }
 
 // GetMintedSupply 读取累计已发行量（未设置返回 0）。
+//
+// 状态存在但无法解析属账本损坏：静默返回 0 会让 MintCoins 把累计已发行量
+// 当作 0 重算，从而绕过总量硬顶（见 MintCoins 的 cap 校验）。此处与 Set 系列
+// 的 fail-closed 语义一致——账本损坏宁可停机也不静默错账。
 func (k Keeper) GetMintedSupply(ctx sdk.Context) sdk.Int {
 	bz := ctx.KVStore(k.storeKey).Get(KeyMintedSupply)
 	if bz == nil {
@@ -32,7 +36,7 @@ func (k Keeper) GetMintedSupply(ctx sdk.Context) sdk.Int {
 	}
 	minted, ok := sdk.NewIntFromString(string(bz))
 	if !ok {
-		return sdk.ZeroInt()
+		panic(fmt.Sprintf("tokenomics: corrupted minted supply state %q: not a valid integer", string(bz)))
 	}
 	return minted
 }
@@ -54,7 +58,7 @@ func (k Keeper) GetAllocations(ctx sdk.Context) []types.PoolAllocation {
 	}
 	var allocs []types.PoolAllocation
 	if err := json.Unmarshal(bz, &allocs); err != nil {
-		return nil
+		panic(fmt.Sprintf("tokenomics: corrupted allocations state: %v", err))
 	}
 	return allocs
 }
@@ -75,6 +79,8 @@ func (k Keeper) GetReleaseSchedule(ctx sdk.Context) types.ReleaseSchedule {
 	if bz == nil {
 		return rs
 	}
-	_ = json.Unmarshal(bz, &rs)
+	if err := json.Unmarshal(bz, &rs); err != nil {
+		panic(fmt.Sprintf("tokenomics: corrupted release schedule state: %v", err))
+	}
 	return rs
 }

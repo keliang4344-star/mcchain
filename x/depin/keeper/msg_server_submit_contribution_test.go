@@ -242,6 +242,9 @@ func TestAttestDevice_ChallengeReplayRejected(t *testing.T) {
 	deviceAddr := sdk.AccAddress([]byte("1234567890abcdef1234")).String()
 	require.NoError(t, k.SetDevice(ctx, &keeper.DeviceState{Address: deviceAddr, Registered: true}))
 
+	// 非生产链：默认 SoftOracle 允许放行，聚焦 challenge 一次性消费的重放语义。
+	ctx = ctx.WithChainID("mcchain-testnet-1")
+
 	msgServer := keeper.NewMsgServerImpl(*k)
 	msg := types.NewMsgAttestDevice(deviceAddr, deviceAddr, "challenge-once", "sig-once")
 

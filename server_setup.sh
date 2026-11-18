@@ -12,9 +12,21 @@ set -e
 
 BIN="$(cd "$(dirname "$0")" && pwd)/mcchaind"
 HOME_DIR="$HOME/.mcchain"
-CHAIN_ID="mcchain-mainnet-1"
+# 本脚本只拉起「本地/测试 solo 创世节点」（单验证人、0 容错），绝不用于主网。
+# 主网 chain-id 会启用全部生产安全闸门（Oracle 真实验签、白名单、资金不变量），
+# 且主网 genesis 必须走 deploy/ 的受控流程，不允许用本脚本的 add-genesis-account
+# 直接给验证人预置余额。因此默认使用显式非生产命名的 chain-id，并硬拒绝主网链名。
+CHAIN_ID="${CHAIN_ID:-mcchain-solo-1}"
 MONIKER="${MONIKER:-mc-genesis}"
 KEY="validator"
+
+for MAINNET_ID in mcchain-mainnet mcchain-mainnet-1; do
+  if [ "$CHAIN_ID" = "$MAINNET_ID" ]; then
+    echo "ERROR: server_setup.sh 仅用于本地/测试 solo 节点，拒绝主网 chain-id '$CHAIN_ID'。" >&2
+    echo "       主网请使用 deploy/ 下的受控创世与验证人流程（禁止 test keyring / 明文助记词）。" >&2
+    exit 1
+  fi
+done
 
 # 金额（umc，1 MC = 1,000,000 umc）
 SELF_BOND="30000000000umc"         # 自抵押 30k MC（>= ante 最低 3e10umc）
@@ -38,7 +50,7 @@ echo ">> [1/7] 初始化节点"
 # 2) 规范化创世（denom=umc、通胀清零、治理参数、tokenomics 上限）
 #    —— 必须用脚本内联 python 完成，否则默认币种是 stake 而非 umc
 echo ">> [2/7] 规范化创世（denom=umc, 通胀清零, 治理参数）"
-python3 - "$HOME_DIR/config/genesis.json" <<'PY'
+python3 - "$HOME_DIR/config/genesis.json" "$CHAIN_ID" <<'PY'
 import json, sys
 p = sys.argv[1]
 g = json.load(open(p, encoding="utf-8"))
@@ -92,7 +104,7 @@ if "edgeai" in as_ and "tokenomics" in as_:
             break
     if team:
         as_["edgeai"]["params"]["arbitrator"] = team
-g["chain_id"] = "mcchain-mainnet-1"
+g["chain_id"] = sys.argv[2] if len(sys.argv) > 2 else g["chain_id"]
 # 出块 gas 上限：防止单区块被超大交易/合约耗尽资源（零成本 DoS）。
 # 100_000_000 对 4s 出块周期足够宽松，同时封顶单块计算量。
 if "consensus" in as_ and "params" in as_["consensus"] and "block" in as_["consensus"]["params"]:
@@ -112,9 +124,13 @@ if [ -z "${MC_KEY_PASSWORD:-}" ]; then
     "$BIN" keys add "$KEY" --keyring-backend file --home "$HOME_DIR" --output json 2>/dev/null | sed 's/^{.*"mnemonic".*}$/{"status":"created"}/' || true
 else
     echo ">> [3/7] 创建验证人密钥（file 后端，口令来自 MC_KEY_PASSWORD）"
-    echo "$MC_KEY_PASSWORD" | "$BIN" keys add "$KEY" --keyring-backend file --home "$HOME_DIR" --output json 2>/dev/null | sed 's/^{.*"mnemonic".*}$/{"status":"created"}/' || true
+    printf '%s\n%s\n' "$MC_KEY_PASSWORD" "$MC_KEY_PASSWORD" | "$BIN" keys add "$KEY" --keyring-backend file --home "$HOME_DIR" --output json 2>/dev/null | sed 's/^{.*"mnemonic".*}$/{"status":"created"}/' || true
 fi
-ADDR=$("$BIN" keys show "$KEY" -a --keyring-backend file --home "$HOME_DIR")
+if [ -n "${MC_KEY_PASSWORD:-}" ]; then
+    ADDR=$(printf '%s\n' "$MC_KEY_PASSWORD" | "$BIN" keys show "$KEY" -a --keyring-backend file --home "$HOME_DIR")
+else
+    ADDR=$("$BIN" keys show "$KEY" -a --keyring-backend file --home "$HOME_DIR")
+fi
 echo "    验证人地址: $ADDR"
 echo "    ⚠️ 助记词仅由 keys add 输出到终端，未写入任何文件；请立即离线抄写并妥善保管。"
 
@@ -123,14 +139,26 @@ echo ">> [4/7] 创世账户拨款（200k MC）"
 "$BIN" add-genesis-account "$ADDR" "$GENESIS_AMT" --home "$HOME_DIR"
 
 # 5) 生成 gentx（自抵押 30k MC；min-self-delegation 必须 >= 30k MC）
+#    keyring-backend 必须与第 3 步创建密钥时一致（file）：写成 test 会去
+#    另一个未初始化的 keyring 里找同名密钥，生产路径上直接失败或误用测试密钥。
 echo ">> [5/7] 生成 gentx（自抵押 30k MC）"
-"$BIN" gentx "$KEY" "$SELF_BOND" \
-  --chain-id "$CHAIN_ID" \
-  --moniker "$MONIKER" \
-  --commission-rate 0.05 \
-  --min-self-delegation "$MIN_SELF_DELEGATION" \
-  --keyring-backend test \
-  --home "$HOME_DIR"
+if [ -n "${MC_KEY_PASSWORD:-}" ]; then
+  printf '%s\n%s\n' "$MC_KEY_PASSWORD" "$MC_KEY_PASSWORD" | "$BIN" gentx "$KEY" "$SELF_BOND" \
+    --chain-id "$CHAIN_ID" \
+    --moniker "$MONIKER" \
+    --commission-rate 0.05 \
+    --min-self-delegation "$MIN_SELF_DELEGATION" \
+    --keyring-backend file \
+    --home "$HOME_DIR"
+else
+  "$BIN" gentx "$KEY" "$SELF_BOND" \
+    --chain-id "$CHAIN_ID" \
+    --moniker "$MONIKER" \
+    --commission-rate 0.05 \
+    --min-self-delegation "$MIN_SELF_DELEGATION" \
+    --keyring-backend file \
+    --home "$HOME_DIR"
+fi
 
 # 6) 收集 gentx + 校验创世
 echo ">> [6/7] 收集 gentx + 校验创世"

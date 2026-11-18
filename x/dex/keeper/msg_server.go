@@ -52,8 +52,10 @@ func (m msgServer) AddLiquidity(goCtx context.Context, msg *types.MsgAddLiquidit
 		return nil, types.ErrZeroAmount
 	}
 	minLPOut, ok := sdk.NewIntFromString(msg.MinLpOut)
-	if !ok {
-		minLPOut = sdk.ZeroInt()
+	if !ok || minLPOut.IsNil() || minLPOut.IsNegative() {
+		// 解析失败绝不能降级为 0：0 是「用户明确接受任意滑点」的语义，
+		// 而非法输入应被拒绝，否则前端/脚本编码错误会静默关闭最小份额保护。
+		return nil, types.ErrInvalidMinOut.Wrapf("invalid min_lp_out %q", msg.MinLpOut)
 	}
 
 	lpMinted, actualA, actualB, err := m.Keeper.AddLiquidity(ctx, msg.PoolId, amountAMax, amountBMax, minLPOut, msg.Creator)

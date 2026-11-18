@@ -1,9 +1,11 @@
 package keeper_test
 
 import (
+	"encoding/base64"
 	"errors"
 	"testing"
 
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 	keepertest "mcchain/testutil/keeper"
@@ -81,15 +83,25 @@ func TestSubmitAttestation_RejectsWhenOracleNotConfigured(t *testing.T) {
 }
 
 // TestSubmitAttestation_AcceptedWhenAuthorized：白名单内预言机 + 设备已认证 → 通过。
+// 生产链上真实验签须经 TeeOracle（secp256k1 预言机签名），而非 SoftOracle 的
+// 非空校验——这同时覆盖了 P0-01 修复后的生产 happy path。
 func TestSubmitAttestation_AcceptedWhenAuthorized(t *testing.T) {
 	k, ctx := newAttestKeeper(t)
 	auth := oracleAddr("auth-oracle-address-1234567890")
+
+	// 注入真实验签预言机：用预言机私钥对 "device-1|proof" 签名，base64 上链。
+	priv := secp256k1.GenPrivKey()
+	types.SetOracle(types.NewTeeOracle(priv.PubKey()))
+	t.Cleanup(func() { types.SetOracle(&types.SoftOracle{}) })
+
+	sigBz, err := priv.Sign([]byte("device-1|proof"))
+	require.NoError(t, err)
 
 	k.SetOracleWhitelist(ctx, []string{auth})
 	k.SetPhonenodeKeeper(&mockPhonenode{hasNode: true, attested: true})
 	srv := keeper.NewMsgServerImpl(*k)
 
-	msg := types.NewMsgSubmitAttestation("device-1", "proof", "sig", auth)
+	msg := types.NewMsgSubmitAttestation("device-1", "proof", base64.StdEncoding.EncodeToString(sigBz), auth)
 	resp, err := srv.SubmitAttestation(sdk.WrapSDKContext(ctx), msg)
 	require.NoError(t, err)
 	require.True(t, resp.Passed)
@@ -161,12 +173,14 @@ func TestVerifyDeviceAttestation_OracleTierAccepted(t *testing.T) {
 }
 
 // 携带独立证明材料 → 走预言机验签，并把验过的 challenge 回写 phonenode。
+// 使用非生产链，使默认 SoftOracle（开发/测试用）可放行，聚焦「证明消费 + 层级回写」语义。
 func TestVerifyDeviceAttestation_ProofConsumedAndTierPromoted(t *testing.T) {
 	k, ctx := newAttestKeeper(t)
 	pn := &mockPhonenode{hasNode: true, attested: true}
 	k.SetPhonenodeKeeper(pn)
 
-	passed, reason := k.VerifyDeviceAttestation(ctx, "device-1", "challenge-abc", "sig")
+	devCtx := ctx.WithChainID("mcchain-testnet-1")
+	passed, reason := k.VerifyDeviceAttestation(devCtx, "device-1", "challenge-abc", "sig")
 	require.True(t, passed)
 	require.Contains(t, reason, "oracle + phonenode")
 	require.Equal(t, []string{"challenge-abc"}, pn.promotions,
@@ -174,13 +188,31 @@ func TestVerifyDeviceAttestation_ProofConsumedAndTierPromoted(t *testing.T) {
 }
 
 // 回写失败属一致性故障，必须让整次验证失败而不是静默降级为「已通过」。
+// 非生产链使 SoftOracle 可放行，从而让流程推进到回写步骤并验证其失败冒泡。
 func TestVerifyDeviceAttestation_PromotionFailurePropagates(t *testing.T) {
 	k, ctx := newAttestKeeper(t)
 	k.SetPhonenodeKeeper(&mockPhonenode{hasNode: true, attested: true, promoteErr: errors.New("state boom")})
 
-	passed, reason := k.VerifyDeviceAttestation(ctx, "device-1", "challenge-abc", "sig")
+	devCtx := ctx.WithChainID("mcchain-testnet-1")
+	passed, reason := k.VerifyDeviceAttestation(devCtx, "device-1", "challenge-abc", "sig")
 	require.False(t, passed)
 	require.Contains(t, reason, "failed to record oracle endorsement")
+}
+
+// P0-01 回归：生产链上，即便 DefaultOracle 是 SoftOracle（如运维误设
+// MC_ORACLE_ALLOW_SOFT=1），携带任意非空 proof/signature 也必须被拒绝——
+// 生产链只认 TeeOracle 的真实 secp256k1 验签，不允许非空即通过的软认证。
+func TestVerifyDeviceAttestation_SoftOracleRejectedOnProductionChain(t *testing.T) {
+	k, ctx := newAttestKeeper(t)
+	k.SetPhonenodeKeeper(&mockPhonenode{hasNode: true, attested: true})
+
+	// 显式确保当前预言机为 SoftOracle（默认值），并在生产 chain-id 下提交非空证明。
+	types.SetOracle(&types.SoftOracle{})
+	t.Cleanup(func() { types.SetOracle(&types.SoftOracle{}) })
+
+	passed, reason := k.VerifyDeviceAttestation(ctx, "device-1", "challenge-abc", "sig")
+	require.False(t, passed)
+	require.Contains(t, reason, "SoftOracle not permitted on production chain")
 }
 
 // 非生产链（test/dev/local/sim）无独立证明材料时放宽到基础层，保持冷启动与 CI 不变。

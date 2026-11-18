@@ -43,10 +43,20 @@ const (
 	// transaction, so an unbounded batch is a block-time / gas-griefing vector.
 	MaxSettlementEntries = 10000
 
-	// MaxSettlementIDLen caps batch_id / merkle_root length. Both are stored
-	// verbatim as KV keys / fields; an unbounded length is a storage-griefing
-	// vector (submitter can bloat state with arbitrarily long strings).
+	// MaxSettlementIDLen caps batch_id length. It is stored verbatim as a KV key;
+	// an unbounded length is a storage-griefing vector.
 	MaxSettlementIDLen = 128
+
+	// MerkleRootHexLen is the exact length of a settlement Merkle root: a
+	// 32-byte digest encoded as lowercase/uppercase hex. Pinning the format
+	// keeps the field a fixed-size audit commitment instead of an arbitrary
+	// string that could be used to bloat state or mislead verifiers.
+	MerkleRootHexLen = 64
+
+	// MaxSettlementBatchBytes caps the total recipient payload of one batch.
+	// MaxSettlementEntries alone does not bound bytes, so a batch of very long
+	// (but still length-checked) addresses could still inflate state/logs.
+	MaxSettlementBatchBytes = 512 * 1024
 
 	DenomPrefix = "dex/pool/"
 )
