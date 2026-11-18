@@ -40,7 +40,7 @@ fun MiningScreen(viewModel: MiningViewModel = androidx.lifecycle.viewmodel.compo
                     Text("贡献挖矿",
                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f))
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("运行中",
+                    Text("计量中（未上链）",
                         color = StatusActive,
                         style = MaterialTheme.typography.titleMedium)
 
@@ -50,7 +50,7 @@ fun MiningScreen(viewModel: MiningViewModel = androidx.lifecycle.viewmodel.compo
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        MiningStatItem("累计收益", String.format("%.2f MC", totalReward / 1_000_000.0),
+                        MiningStatItem("链上奖励", String.format("%.2f MC", totalReward / 1_000_000.0),
                             McGold, MaterialTheme.colorScheme.onPrimary)
                         MiningStatItem("总贡献", "$contributionCount 次",
                             MaterialTheme.colorScheme.onPrimary, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f))
@@ -86,11 +86,11 @@ fun MiningScreen(viewModel: MiningViewModel = androidx.lifecycle.viewmodel.compo
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("贡献即挖矿 · 收益透明",
+                    Text("本机计量 · 尚未上链",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("所有贡献收益均上链可查，无需信任第三方。DePIN 奖励池初始 ${String.format("%.0f 亿 MC", MCParams.DEPIN_INITIAL_POOL_UMC / 100_000_000.0)}，按贡献分配。",
+                    Text("当前版本只在本机记录带宽/存储计量，不会产生链上收益；贡献上链与结算将在后续版本接入。DePIN 奖励池初始 ${String.format("%.0f 亿 MC", MCParams.DEPIN_INITIAL_POOL_UMC / 100_000_000.0)}，待链路打通后按贡献分配。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
@@ -216,6 +216,7 @@ fun ContributionItem(contrib: Contribution) {
                 )
                 Text(
                     text = when (contrib.status) {
+                        ContribStatus.LOCAL_ONLY -> "仅本机计量"
                         ContribStatus.SUBMITTED -> "已提交"
                         ContribStatus.VERIFYING -> "验证中"
                         ContribStatus.VERIFIED -> "已验证"

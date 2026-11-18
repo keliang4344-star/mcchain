@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "mc-miner-native"
 include(":app")
+include(":shared")

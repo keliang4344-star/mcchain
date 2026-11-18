@@ -45,6 +45,9 @@ class NodeViewModel @Inject constructor(
     private val _isAttesting = MutableStateFlow(false)
     val isAttesting: StateFlow<Boolean> = _isAttesting
 
+    private val _attestationMessage = MutableStateFlow<String?>(null)
+    val attestationMessage: StateFlow<String?> = _attestationMessage
+
     init {
         load()
     }
@@ -78,6 +81,13 @@ class NodeViewModel @Inject constructor(
                             stakedAmount = MCParams.PHONENODE_MIN_STAKE_UMC
                         )
                     )
+                    _attestationMessage.value = if (result.simulated) {
+                        "模拟认证（debug 构建，未上链）"
+                    } else {
+                        "认证成功"
+                    }
+                } else {
+                    _attestationMessage.value = result.error ?: "认证失败"
                 }
             } finally {
                 _isAttesting.value = false

@@ -98,3 +98,6 @@ temp_events_check.md
 # go test -coverprofile Êä³ö£¨±¾µØ¸²¸ÇÂÊÍ³¼Æ£¬²»Èë¿â£©
 coverage
 *.out
+
+# golden vector ç”Ÿæˆè„šæœ¬å…¥åº“ï¼Œä¿è¯ tx å­—èŠ‚å¯¹ç…§å¯å¤ç°
+!mc-miner/tools/gen_golden_tx.ps1

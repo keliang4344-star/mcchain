@@ -22,7 +22,7 @@ android {
         buildConfigField("int", "DECIMALS", "6")
         buildConfigField("String", "BECH32_PREFIX", "\"mc\"")
         buildConfigField("long", "TOTAL_SUPPLY_CAP", "1000000000000000L")
-        buildConfigField("int", "BLOCK_TIME_SECONDS", "5")
+        buildConfigField("int", "BLOCK_TIME_SECONDS", "4")
         buildConfigField("int", "BIP44_COIN_TYPE", "118")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -41,6 +41,7 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            buildConfigField("String", "CHAIN_ID", "\"mcchain-dev-1\"")
             buildConfigField("boolean", "ENABLE_DEBUG_LOGS", "true")
         }
     }

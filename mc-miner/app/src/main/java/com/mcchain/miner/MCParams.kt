@@ -7,25 +7,26 @@ package com.mcchain.miner
 object MCParams {
 
     // === 链基础 ===
-    const val CHAIN_ID = "mcchain-mainnet-1"
+    // 链 ID 由构建类型注入（debug=mcchain-dev-1，release=mcchain-mainnet-1），避免调试包误连主网。
+    val CHAIN_ID: String = BuildConfig.CHAIN_ID
     const val DENOM = "umc"
     const val DISPLAY_DENOM = "MC"
     const val DECIMALS = 6
     const val BECH32_PREFIX = "mc"
     const val TOTAL_SUPPLY_CAP_UMC = 1_000_000_000_000_000L
     const val TOTAL_SUPPLY_MC = 1_000_000_000L
-    const val BLOCK_TIME_SECONDS = 5
-    const val BLOCKS_PER_YEAR = 6_311_520L
+    const val BLOCK_TIME_SECONDS = 4
+    const val BLOCKS_PER_YEAR = 7_884_000L  // 365d × 86400 / 4s
 
     // === 共识 ===
     const val BLOCK_MAX_BYTES = 22_020_096L
     const val TIMEOUT_PROPOSE_MS = 3_000L
     const val TIMEOUT_PREVOTE_MS = 1_000L
     const val TIMEOUT_PRECOMMIT_MS = 1_000L
-    const val TIMEOUT_COMMIT_MS = 5_000L
+    const val TIMEOUT_COMMIT_MS = 4_000L
 
     // === Staking ===
-    const val BOND_DENOM = "stake"
+    const val BOND_DENOM = "umc"
     const val UNBONDING_TIME_SECONDS = 604_800L // 7 days
     const val UNBONDING_DAYS = 7
     const val MAX_VALIDATORS = 100

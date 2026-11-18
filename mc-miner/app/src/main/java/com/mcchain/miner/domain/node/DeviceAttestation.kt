@@ -3,6 +3,7 @@ package com.mcchain.miner.domain.node
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
+import com.mcchain.miner.BuildConfig
 import com.mcchain.miner.MCParams
 import com.mcchain.miner.data.pref.SecurePrefs
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -12,7 +13,11 @@ import javax.inject.Singleton
 
 /**
  * 设备身份与硬件认证。
- * 使用 Play Integrity API 进行设备认证，防女巫攻击。
+ *
+ * Phase 0 现状：硬件证明尚未接入（Android Key Attestation / Play Integrity 均未调用）。
+ * - debug 构建返回显式标记 `simulated=true` 的桩结果，便于 UI 联调；
+ * - release 构建一律返回失败，禁止把本地哈希冒充硬件证明，也禁止写入「已认证」状态。
+ * 真实实现见开发方案 Phase 2（证书链 + nonce + oracle /attest）。
  */
 @Singleton
 class DeviceAttestation @Inject constructor(
@@ -43,38 +48,35 @@ class DeviceAttestation @Inject constructor(
     }
 
     /**
-     * 执行 Play Integrity 认证
-     * @return 认证 token，失败返回 null
+     * 执行设备认证。
+     *
+     * 注意：当前不是硬件证明。release 构建直接失败（fail-closed），
+     * debug 构建返回 `simulated=true` 的桩，调用方必须在 UI 上标注「模拟」。
      */
     suspend fun performAttestation(): AttestationResult {
-        return try {
-            val deviceId = getDeviceId()
-            val nonce = UUID.randomUUID().toString()
-            val raw = "$deviceId|$nonce|${System.currentTimeMillis()}"
-            val token = java.security.MessageDigest.getInstance("SHA-256")
-                .digest(raw.toByteArray())
-                .joinToString("") { "%02x".format(it) }
-
-            securePrefs.attestationToken = token
-            securePrefs.attestationExpiry = System.currentTimeMillis() +
-                    MCParams.PHONENODE_ATTESTATION_VALIDITY_SECONDS * 1000
-
-            AttestationResult(
-                success = true,
-                token = token,
-                deviceId = deviceId,
-                nonce = nonce
-            )
-        } catch (e: Exception) {
-            // 降级：使用设备指纹作为认证
-            AttestationResult(
+        val deviceId = getDeviceId()
+        if (!BuildConfig.DEBUG) {
+            return AttestationResult(
                 success = false,
                 token = "",
-                deviceId = getDeviceId(),
+                deviceId = deviceId,
                 nonce = "",
-                error = e.message
+                error = "硬件证明未接入（见 STATUS.md / 移动端 Phase 2）"
             )
         }
+
+        val nonce = UUID.randomUUID().toString()
+        val debugToken = "debug-simulated-${UUID.randomUUID()}"
+        securePrefs.attestationToken = debugToken
+        securePrefs.attestationExpiry = System.currentTimeMillis() +
+                MCParams.PHONENODE_ATTESTATION_VALIDITY_SECONDS * 1000
+        return AttestationResult(
+            success = true,
+            token = debugToken,
+            deviceId = deviceId,
+            nonce = nonce,
+            simulated = true
+        )
     }
 
     /**
@@ -126,7 +128,8 @@ data class AttestationResult(
     val token: String,
     val deviceId: String,
     val nonce: String,
-    val error: String? = null
+    val error: String? = null,
+    val simulated: Boolean = false
 )
 
 data class HardwareCheck(

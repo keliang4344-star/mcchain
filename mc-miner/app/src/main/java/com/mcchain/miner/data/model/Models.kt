@@ -133,6 +133,7 @@ enum class TaskType {
 }
 
 enum class ContribStatus {
+    LOCAL_ONLY,  // 仅本机计量，尚未上链（Phase 0/1 之间）
     SUBMITTED,
     VERIFYING,
     VERIFIED,

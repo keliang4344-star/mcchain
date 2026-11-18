@@ -33,12 +33,11 @@ class MinerService : LifecycleService() {
     @Inject lateinit var edgeAiTaskDao: EdgeAiTaskDao
     @Inject lateinit var accountDao: AccountDao
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.asCoroutineDispatcher())
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var wakeLock: PowerManager.WakeLock? = null
     private var miningJob: Job? = null
 
-    // 累计奖励统计
-    private var totalRewardToday: Long = 0
+    // 本机计量次数（不代表链上收益）
     private var contributionCount: Int = 0
 
     override fun onCreate() {
@@ -116,17 +115,18 @@ class MinerService : LifecycleService() {
         val totalBytes = bandwidthUp + bandwidthDown
         if (totalBytes < 1024 * 1024) return // 低于 1MB 不报
 
-        val proofHash = generateProof(deviceId, "bandwidth", totalBytes.toString())
+        // Phase 0：只记录本机原始计量，不生成「证明」、不计算奖励、不广播交易。
+        // 真实链路（设备签名 + MsgSubmitContribution + 链上结算）见 Phase 1–3。
         val contribution = Contribution(
             id = "bw_${System.currentTimeMillis()}_$deviceId",
             deviceId = deviceId,
             taskType = TaskType.BANDWIDTH,
             taskId = "",
-            amount = calculateBandwidthReward(totalBytes),
-            proofHash = proofHash,
+            amount = 0,
+            proofHash = "",
             reportedAt = System.currentTimeMillis(),
             verifiedAt = null,
-            status = ContribStatus.SUBMITTED
+            status = ContribStatus.LOCAL_ONLY
         )
         contributionDao.upsert(contribution)
         contributionCount++
@@ -139,17 +139,16 @@ class MinerService : LifecycleService() {
         val storageBytes = measureLocalStorageBytes()
         if (storageBytes < 100 * 1024 * 1024) return // 低于 100MB 不报
 
-        val proofHash = generateProof(deviceId, "storage", storageBytes.toString())
         val contribution = Contribution(
             id = "st_${System.currentTimeMillis()}_$deviceId",
             deviceId = deviceId,
             taskType = TaskType.DATA_STORAGE,
             taskId = "",
-            amount = calculateStorageReward(storageBytes),
-            proofHash = proofHash,
+            amount = 0,
+            proofHash = "",
             reportedAt = System.currentTimeMillis(),
             verifiedAt = null,
-            status = ContribStatus.SUBMITTED
+            status = ContribStatus.LOCAL_ONLY
         )
         contributionDao.upsert(contribution)
         contributionCount++
@@ -159,50 +158,12 @@ class MinerService : LifecycleService() {
      * 检查并执行 EdgeAI 推理任务
      */
     private suspend fun checkAndExecuteAiTasks(deviceId: String) {
-        val availableTasks = edgeAiTaskDao.getAvailableTasks(limit = 5)
-        for (task in availableTasks) {
-            if (task.status != AiTaskStatus.OPEN) continue
-
-            // 标记为执行中
-            edgeAiTaskDao.updateStatus(task.taskId, AiTaskStatus.IN_PROGRESS)
-
-            // 模拟 AI 推理（实际应集成 ONNX Runtime / TFLite）
-            val resultHash = simulateAiInference(task.taskId, task.modelId)
-
-            // 提交贡献
-            val contribution = Contribution(
-                id = "ai_${task.taskId}_$deviceId",
-                deviceId = deviceId,
-                taskType = TaskType.AI_INFERENCE,
-                taskId = task.taskId,
-                amount = calculateAiReward(task),
-                proofHash = resultHash,
-                reportedAt = System.currentTimeMillis(),
-                verifiedAt = null,
-                status = ContribStatus.SUBMITTED
-            )
-            contributionDao.upsert(contribution)
-            contributionCount++
+        // Phase 0：真实推理尚未接入（计划 Phase 4）。
+        // 禁止再用 SHA-256 冒充推理结果，也不要把任务标记为执行中，避免污染任务状态。
+        val available = edgeAiTaskDao.getAvailableTasks(limit = 1)
+        if (available.isNotEmpty()) {
+            Timber.w("EdgeAI task execution not integrated yet; skipping %d task(s)", available.size)
         }
-    }
-
-    // === 奖励计算（基于 MCChain Tokenomics 参数） ===
-
-    private fun calculateBandwidthReward(bytes: Long): Long {
-        // 每 GB 带宽贡献 = 基础奖励
-        val gbContributed = bytes / (1024.0 * 1024.0 * 1024.0)
-        return (gbContributed * 1_000_000).toLong().coerceIn(0, 100_000_000)
-    }
-
-    private fun calculateStorageReward(bytes: Long): Long {
-        // 每 GB 存储贡献 = 基础奖励
-        val gbContributed = bytes / (1024.0 * 1024.0 * 1024.0)
-        return (gbContributed * 500_000).toLong().coerceIn(0, 50_000_000)
-    }
-
-    private fun calculateAiReward(task: EdgeAiTask): Long {
-        // 完成任务获得任务奖励的一定比例
-        return task.reward.coerceAtMost(MCParams.EDGEAI_MAX_TASK_REWARD_UMC)
     }
 
     // === 工具方法 ===
@@ -222,20 +183,6 @@ class MinerService : LifecycleService() {
         return dbFile?.length() ?: 0
     }
 
-    private fun generateProof(deviceId: String, metric: String, value: String): String {
-        val input = "$deviceId|$metric|$value|${System.currentTimeMillis()}|${MCParams.CHAIN_ID}"
-        return java.security.MessageDigest.getInstance("SHA-256")
-            .digest(input.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-    }
-
-    private fun simulateAiInference(taskId: String, modelHash: String): String {
-        val input = "$taskId|$modelHash|${System.currentTimeMillis()}"
-        return java.security.MessageDigest.getInstance("SHA-256")
-            .digest(input.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-    }
-
     // === 通知 ===
 
     private fun buildNotification(): Notification {
@@ -250,18 +197,14 @@ class MinerService : LifecycleService() {
 
     private fun updateMiningNotification() {
         val notification = NotificationCompat.Builder(this, McMinerApp.CHANNEL_MINING)
-            .setContentTitle("贡献挖矿运行中")
-            .setContentText("今日已贡献 $contributionCount 次 | 累计奖励 ${formatUmc(totalRewardToday)} MC")
+            .setContentTitle("贡献计量运行中")
+            .setContentText("本次已计量 $contributionCount 次（仅本机，未上链）")
             .setSmallIcon(android.R.drawable.ic_menu_share)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, notification)
-    }
-
-    private fun formatUmc(umc: Long): String {
-        return String.format("%.2f", umc / 1_000_000.0)
     }
 
     companion object {

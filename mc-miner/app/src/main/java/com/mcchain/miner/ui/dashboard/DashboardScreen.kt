@@ -95,7 +95,7 @@ fun NodeStatusCard(status: NodeStatusSnapshot?, phoneNode: PhoneNodeRecord?) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = when (phoneNode?.status) {
-                        NodeStatus.ACTIVE -> "节点运行中"
+                        NodeStatus.ACTIVE -> "计量中（未上链）"
                         NodeStatus.GRACE -> "宽限期"
                         NodeStatus.JAILED -> "已关押"
                         NodeStatus.PENDING -> "认证中"
@@ -159,7 +159,7 @@ fun BalanceCard(account: WalletAccount?, totalReward: Long) {
                         style = MaterialTheme.typography.bodyMedium)
                 }
                 Column {
-                    Text("挖矿收益", style = MaterialTheme.typography.labelSmall,
+                    Text("链上奖励", style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                     Text(String.format("%.2f MC", totalReward / 1_000_000.0),
                         style = MaterialTheme.typography.bodyMedium,

@@ -54,9 +54,8 @@ class DashboardViewModel @Inject constructor(
             _phoneNode.value = phoneNodeDao.getByDeviceId(deviceId)
             _account.value = accountDao.getDefaultAccount()
             _recentBlocks.value = blockDao.getRecentBlocks(10)
-            _totalReward.value = phoneNodeDao.getByDeviceId(deviceId)?.let {
-                contributionDao.getTotalReward(deviceId)
-            } ?: 0
+            // 收益只认链上账户余额，不再用本地贡献记录推算。
+            _totalReward.value = _account.value?.rewardBalance ?: 0
         }
     }
 }

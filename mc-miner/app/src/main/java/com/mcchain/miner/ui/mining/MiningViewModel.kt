@@ -43,7 +43,8 @@ class MiningViewModel @Inject constructor(
             val deviceId = securePrefs.deviceId ?: ""
             _contributions.value = contributionDao.getByDevice(deviceId, 50)
             _availableTasks.value = edgeAiTaskDao.getAvailableTasks(20)
-            _totalReward.value = contributionDao.getTotalReward(deviceId)
+            // 本地贡献不再折算收益；余额/奖励以链上查询为准（Phase 1 接入）。
+            _totalReward.value = 0
             _contributionCount.value = contributionDao.getCountByDevice(deviceId)
         }
     }

@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package mcchain.phonenode;
+
+option go_package = "mcchain/x/phonenode/types";
+
+// Msg defines the Msg service.
+service Msg {
+  rpc SubmitStateProof      (MsgSubmitStateProof     ) returns (MsgSubmitStateProofResponse     );
+  rpc RegisterNode          (MsgRegisterNode         ) returns (MsgRegisterNodeResponse         );
+  rpc SubmitAttestation     (MsgSubmitAttestation    ) returns (MsgSubmitAttestationResponse    );
+  rpc UpdateVerifierStatus  (MsgUpdateVerifierStatus ) returns (MsgUpdateVerifierStatusResponse );
+  rpc RegisterCloudSigner   (MsgRegisterCloudSigner  ) returns (MsgRegisterCloudSignerResponse  );
+  rpc SubmitCosign          (MsgSubmitCosign         ) returns (MsgSubmitCosignResponse         );
+  rpc UpdateNodeAllowance   (MsgUpdateNodeAllowance  ) returns (MsgUpdateNodeAllowanceResponse  );
+}
+message MsgSubmitStateProof {
+  string creator = 1;
+  string root    = 2;
+  string leaf    = 3;
+  string index   = 4;
+  string proof   = 5;
+}
+
+message MsgSubmitStateProofResponse {}
+
+message MsgRegisterNode {
+  string creator = 1;
+  string address = 2;
+  string model   = 3;
+  string os      = 4;
+  string role    = 5;
+}
+
+message MsgRegisterNodeResponse {}
+
+// MsgSubmitAttestation 提交硬件 attestation 根哈希 + nonce（反女巫/链下重验证）。
+message MsgSubmitAttestation {
+  string creator        = 1;
+  string root_hash      = 2;
+  string nonce          = 3;
+  string device_id_hash = 4;
+  // device_pub_key 是设备持有的 secp256k1 公钥（压缩 33 字节，hex 编码）。
+  // 用于 challenge-response 验签，防止任何人仅凭 SHA256(deviceID) 伪造 attestation。
+  string device_pub_key = 5;
+  // signature 是设备对 "device_id_hash|nonce" 的 secp256k1 签名（64 字节，hex 编码）。
+  string signature = 6;
+}
+
+message MsgSubmitAttestationResponse {}
+
+// MsgUpdateVerifierStatus 由治理/Oracle 更新节点验证者状态。
+message MsgUpdateVerifierStatus {
+  string creator = 1;
+  string node_id = 2;
+  string status  = 3; // "active" / "suspended"
+}
+
+message MsgUpdateVerifierStatusResponse {}
+
+// MsgRegisterCloudSigner binds a node to the cloud co-signer that will
+// counter-sign its sensitive operations.
+message MsgRegisterCloudSigner {
+  string creator = 1;
+  // cloud_pub_key is a compressed secp256k1 public key, 33 bytes, hex encoded.
+  string cloud_pub_key = 2;
+}
+
+message MsgRegisterCloudSignerResponse {}
+
+// MsgSubmitCosign submits the cloud signature over a payload the device already
+// signed locally, producing an on-chain two-factor attestation.
+message MsgSubmitCosign {
+  string creator = 1;
+  // payload_hash is the hex encoded hash both parties signed.
+  string payload_hash = 2;
+  // cloud_signature is the cloud co-signer's secp256k1 signature, 64 bytes, hex.
+  string cloud_signature = 3;
+}
+
+message MsgSubmitCosignResponse {}
+
+// MsgUpdateNodeAllowance 由治理（gov 模块账户）调整节点资本津贴配置。
+// authority 必须是治理模块账户地址（gov module account），否则 MsgServer 拒绝执行——
+// 保证仅经链上治理提案可变更「津贴是否启用 / 每节点每日发放量」，落实白皮书
+// §32「津贴是治理参数，不是固定权利」的可治理承诺。
+message MsgUpdateNodeAllowance {
+  string authority = 1; // gov 模块账户地址（mc10...对应 govtypes.ModuleName）
+  bool   enabled   = 2; // 是否启用节点资本津贴分发
+  uint64 per_day  = 3;  // 每节点每日发放量（umc）；0 表示暂停发放
+}
+message MsgUpdateNodeAllowanceResponse {}
+

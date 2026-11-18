@@ -25,6 +25,7 @@ fun NodeScreen(vm: NodeViewModel = viewModel()) {
     val peers by vm.peers.collectAsState()
     val hwCheck by vm.hardwareCheck.collectAsState()
     val isAttesting by vm.isAttesting.collectAsState()
+    val attestationMessage by vm.attestationMessage.collectAsState()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -43,16 +44,28 @@ fun NodeScreen(vm: NodeViewModel = viewModel()) {
                 ) {
                     val isActive = phoneNode?.status == NodeStatus.ACTIVE
                     Text(
-                        text = if (isActive) "Full Node Running" else "Node Inactive",
+                        text = if (isActive) "Client active (local only)" else "Contribution client inactive",
                         color = MaterialTheme.colorScheme.onPrimary,
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (isActive) "Device verified, participating in consensus" else "Verify device to activate node",
+                        text = if (isActive) {
+                            "Registered locally — on-chain attestation not integrated yet"
+                        } else {
+                            "Hardware attestation is not integrated (Phase 2)"
+                        },
                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
                         style = MaterialTheme.typography.bodySmall
                     )
+                    attestationMessage?.let { message ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                     if (phoneNode?.status != NodeStatus.ACTIVE) {
                         Button(
