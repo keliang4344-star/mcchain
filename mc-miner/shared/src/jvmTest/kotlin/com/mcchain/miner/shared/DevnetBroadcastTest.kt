@@ -127,6 +127,38 @@ class DevnetBroadcastTest {
         }
     }
 
+    /**
+     * 用过期 sequence 签名时，链上必须以 sdk/32 拒绝。
+     * App 的自动重签逻辑依赖这组 (codespace, code) 常量，这里直接对真实链校验。
+     */
+    @Test
+    fun staleSequenceReturnsSdkCode32() {
+        assumeTrue("未设置 MC_DEVNET_PRIVKEY/MC_DEVNET_ADDRESS，跳过 devnet 集成测试", privateKeyHex != null && address != null)
+        val addr = address!!
+        val chainId = System.getenv("MC_DEVNET_CHAIN_ID") ?: "mcchain-dev-1"
+        val info = queryAccount(addr)
+        val currentSequence = info["sequence"].asLong
+        assumeTrue("账户 sequence 为 0，无法构造过期交易", currentSequence > 0)
+
+        val signed = DirectTxBuilder.build(
+            DirectTxInput(
+                messages = listOf(CosmosMsgs.send(addr, addr, Coin("umc", "1"))),
+                chainId = chainId,
+                accountNumber = info["accountNumber"].asLong,
+                sequence = currentSequence - 1,
+                fee = listOf(Coin("umc", "5000")),
+                gasLimit = 200_000,
+                // memo 让这笔交易与同 sequence 的正常用例字节不同，避免命中 "already exists in cache"。
+                memo = "stale-sequence-test",
+            ),
+            Secp256k1Signer(Hex.decode(privateKeyHex!!)),
+        )
+
+        val broadcast = broadcast(signed.txRawBytes)
+        assertEquals("过期 sequence 应被拒绝：${broadcast["raw_log"]}", 32, broadcast["code"].asInt)
+        assertEquals("codespace", "sdk", broadcast["codespace"].asString)
+    }
+
     // ------------------------------------------------------------------
     // REST
     // ------------------------------------------------------------------

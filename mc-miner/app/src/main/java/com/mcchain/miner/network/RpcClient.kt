@@ -175,6 +175,7 @@ class RpcClient @Inject constructor(
             log = txResponse.get("raw_log")?.asString
                 ?: txResponse.get("log")?.asString
                 ?: "",
+            codespace = txResponse.get("codespace")?.asString ?: "",
         )
     }
 
@@ -213,7 +214,8 @@ class RpcClient @Inject constructor(
             code = txResult.get("code")?.asInt ?: -1,
             gasUsed = txResult.get("gas_used")?.asLong ?: 0L,
             gasWanted = txResult.get("gas_wanted")?.asLong ?: 0L,
-            log = txResult.get("log")?.asString ?: ""
+            log = txResult.get("log")?.asString ?: "",
+            codespace = txResult.get("codespace")?.asString ?: "",
         )
     }
 
@@ -320,7 +322,8 @@ data class RpcCoin(val denom: String, val amount: Long)
 data class TxBroadcastResult(
     val hash: String,
     val code: Int,
-    val log: String
+    val log: String,
+    val codespace: String = "",
 )
 
 data class TxResult(
@@ -329,7 +332,8 @@ data class TxResult(
     val code: Int,
     val gasUsed: Long,
     val gasWanted: Long,
-    val log: String
+    val log: String,
+    val codespace: String = "",
 )
 
 data class Delegation(
