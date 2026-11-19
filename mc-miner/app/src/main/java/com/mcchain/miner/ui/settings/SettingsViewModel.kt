@@ -18,6 +18,9 @@ class SettingsViewModel @Inject constructor(
     private val _rpcEndpoint = MutableStateFlow("http://127.0.0.1:${MCParams.DEFAULT_RPC_PORT}")
     val rpcEndpoint: StateFlow<String> = _rpcEndpoint
 
+    private val _oracleEndpoint = MutableStateFlow("")
+    val oracleEndpoint: StateFlow<String> = _oracleEndpoint
+
     private val _nodeSyncEnabled = MutableStateFlow(true)
     val nodeSyncEnabled: StateFlow<Boolean> = _nodeSyncEnabled
 
@@ -31,6 +34,7 @@ class SettingsViewModel @Inject constructor(
         val saved = securePrefs.rpcEndpoint.ifBlank { "http://127.0.0.1:${MCParams.DEFAULT_RPC_PORT}" }
         _rpcEndpoint.value = saved
         rpcClient.setEndpoint(saved)
+        _oracleEndpoint.value = securePrefs.oracleEndpoint
         _nodeSyncEnabled.value = securePrefs.nodeSyncEnabled
         _miningEnabled.value = securePrefs.miningEnabled
         _batteryConfig.value = securePrefs.batteryConfig
@@ -56,5 +60,13 @@ class SettingsViewModel @Inject constructor(
         _rpcEndpoint.value = normalized
         securePrefs.rpcEndpoint = normalized
         rpcClient.setEndpoint(normalized)
+    }
+
+    /** 认证预言机地址与 Bearer Token；留空表示未配置（设备认证会 fail-closed）。 */
+    fun updateOracle(endpoint: String, token: String) {
+        val normalized = endpoint.trim().trimEnd('/')
+        _oracleEndpoint.value = normalized
+        securePrefs.oracleEndpoint = normalized
+        securePrefs.oracleToken = token.trim()
     }
 }

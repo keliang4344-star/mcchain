@@ -159,6 +159,85 @@ class DevnetBroadcastTest {
         assertEquals("codespace", "sdk", broadcast["codespace"].asString)
     }
 
+    /**
+     * 设备认证上链 + 重放拒绝：
+     *  - depin.MsgAttestDevice 在 devnet（SoftOracle）执行成功；
+     *  - 同一个 challenge 第二次提交（新 sequence）必须因 challenge 已消费被拒绝（depin/1106）。
+     * 这条链上行为是 Phase 2「重放被拒」验收的基础。
+     */
+    @Test
+    fun attestDeviceLandsAndReplayIsRejected() {
+        assumeTrue("未设置 MC_DEVNET_PRIVKEY/MC_DEVNET_ADDRESS，跳过 devnet 集成测试", privateKeyHex != null && address != null)
+        val addr = address!!
+        val chainId = System.getenv("MC_DEVNET_CHAIN_ID") ?: "mcchain-dev-1"
+        val signer = Secp256k1Signer(Hex.decode(privateKeyHex!!))
+
+        // 1) 确保设备已注册（重复注册时链上返回 ErrDeviceExists，视为幂等成功）
+        val regInfo = queryAccount(addr)
+        val register = DirectTxBuilder.build(
+            DirectTxInput(
+                messages = listOf(DepinTx.registerDevice(addr, addr, "DevnetTest", "Android14")),
+                chainId = chainId,
+                accountNumber = regInfo["accountNumber"].asLong,
+                sequence = regInfo["sequence"].asLong,
+                fee = listOf(Coin("umc", "5000")),
+                gasLimit = 200_000,
+                memo = "register-device",
+            ),
+            signer,
+        )
+        assertEquals("register broadcast", 0, broadcast(register.txRawBytes)["code"].asInt)
+        val regResponse = waitForReceipt(register.txHashHex).getAsJsonObject("tx_response")
+        if (regResponse["code"].asInt != 0) {
+            assertTrue(
+                "注册失败只允许是 ErrDeviceExists：${regResponse["raw_log"]}",
+                regResponse["raw_log"].asString.contains("device already registered"),
+            )
+        }
+
+        // 2) 首次认证
+        val challenge = "devnet-challenge-${System.currentTimeMillis()}"
+        val attestInfo = queryAccount(addr)
+        val attest = DirectTxBuilder.build(
+            DirectTxInput(
+                messages = listOf(DepinTx.attestDevice(addr, addr, challenge, "00")),
+                chainId = chainId,
+                accountNumber = attestInfo["accountNumber"].asLong,
+                sequence = attestInfo["sequence"].asLong,
+                fee = listOf(Coin("umc", "5000")),
+                gasLimit = 250_000,
+                memo = "attest-device",
+            ),
+            signer,
+        )
+        assertEquals("attest broadcast", 0, broadcast(attest.txRawBytes)["code"].asInt)
+        val attestResponse = waitForReceipt(attest.txHashHex).getAsJsonObject("tx_response")
+        assertEquals("首次认证应成功：${attestResponse["raw_log"]}", 0, attestResponse["code"].asInt)
+
+        // 3) 同一 challenge 重放（新 sequence，字节不同，确实是第二笔交易）
+        val replayInfo = queryAccount(addr)
+        val replay = DirectTxBuilder.build(
+            DirectTxInput(
+                messages = listOf(DepinTx.attestDevice(addr, addr, challenge, "00")),
+                chainId = chainId,
+                accountNumber = replayInfo["accountNumber"].asLong,
+                sequence = replayInfo["sequence"].asLong,
+                fee = listOf(Coin("umc", "5000")),
+                gasLimit = 250_000,
+                memo = "attest-device",
+            ),
+            signer,
+        )
+        assertEquals("replay broadcast", 0, broadcast(replay.txRawBytes)["code"].asInt)
+        val replayResponse = waitForReceipt(replay.txHashHex).getAsJsonObject("tx_response")
+        assertEquals("重放应被拒绝", 1106, replayResponse["code"].asInt)
+        assertEquals("codespace", "depin", replayResponse["codespace"].asString)
+        assertTrue(
+            "失败原因应为 challenge 已消费：${replayResponse["raw_log"]}",
+            replayResponse["raw_log"].asString.contains("already consumed"),
+        )
+    }
+
     // ------------------------------------------------------------------
     // REST
     // ------------------------------------------------------------------

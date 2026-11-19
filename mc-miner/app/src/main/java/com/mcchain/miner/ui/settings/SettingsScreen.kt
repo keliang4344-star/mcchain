@@ -21,8 +21,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.c
     val miningEnabled by viewModel.miningEnabled.collectAsState()
     val batteryConfig by viewModel.batteryConfig.collectAsState()
     val rpcEndpoint by viewModel.rpcEndpoint.collectAsState()
+    val oracleEndpoint by viewModel.oracleEndpoint.collectAsState()
 
     var showEndpointDialog by remember { mutableStateOf(false) }
+    var showOracleDialog by remember { mutableStateOf(false) }
     var showBatteryDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -49,6 +51,14 @@ fun SettingsScreen(viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.c
                 title = "RPC 端点",
                 description = rpcEndpoint,
                 onClick = { showEndpointDialog = true }
+            )
+        }
+        item {
+            ClickableSettingItem(
+                icon = Icons.Filled.VerifiedUser,
+                title = "认证预言机",
+                description = oracleEndpoint.ifBlank { "未配置（设备认证不可用）" },
+                onClick = { showOracleDialog = true }
             )
         }
 
@@ -196,6 +206,43 @@ fun SettingsScreen(viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.c
             },
             dismissButton = {
                 TextButton(onClick = { showEndpointDialog = false }) { Text("取消") }
+            }
+        )
+    }
+
+    // 认证预言机对话框
+    if (showOracleDialog) {
+        var oracleUrl by remember { mutableStateOf(oracleEndpoint) }
+        var oracleToken by remember { mutableStateOf(viewModel.securePrefs.oracleToken) }
+        AlertDialog(
+            onDismissRequest = { showOracleDialog = false },
+            title = { Text("认证预言机") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = oracleUrl,
+                        onValueChange = { oracleUrl = it },
+                        label = { Text("预言机地址（/sign）") },
+                        placeholder = { Text("http://192.168.1.10:8080") },
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = oracleToken,
+                        onValueChange = { oracleToken = it },
+                        label = { Text("Bearer Token（可留空）") },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.updateOracle(oracleUrl, oracleToken)
+                    showOracleDialog = false
+                }) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOracleDialog = false }) { Text("取消") }
             }
         )
     }

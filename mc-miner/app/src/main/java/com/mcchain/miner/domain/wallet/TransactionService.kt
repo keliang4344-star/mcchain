@@ -131,6 +131,21 @@ class TransactionService @Inject constructor(
     }
 
     /**
+     * 设备认证上链（depin.MsgAttestDevice）。
+     * challenge/signature 必须来自认证预言机；同一 challenge 只能使用一次，重放会被链上拒绝。
+     */
+    suspend fun attestDevice(challenge: String, signatureBase64: String): SubmitResult = submitLock.withLock {
+        val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
+        if (challenge.isBlank() || signatureBase64.isBlank()) {
+            return@withLock failure("认证材料为空，请重新发起设备认证")
+        }
+        submit(TxType.ATTEST_NODE, account.address, account.address, 0, "attest-device") {
+                accountNumber, sequence ->
+            txBuilder.buildAttestDeviceTx(challenge, signatureBase64, accountNumber, sequence)
+        }
+    }
+
+    /**
      * 重放离线队列中的交易。
      *
      * 幂等性来自交易字节本身：同一 sequence/账户号的同一笔交易签名结果固定，
@@ -347,6 +362,8 @@ class TransactionService @Inject constructor(
             (codespace == CODESPACE_DEPIN && code == DEPIN_ERR_DEVICE_EXISTS) ||
                 log.contains("device already registered", ignoreCase = true) ->
                 "设备已上链注册，无需重复注册"
+            codespace == CODESPACE_DEPIN && code == DEPIN_ERR_DEVICE_NOT_FOUND ->
+                "设备尚未上链注册，请稍后重试"
             codespace == CODESPACE_DEPIN && code == DEPIN_ERR_DEVICE_NOT_ATTESTED ->
                 "设备尚未通过认证，暂时不能提交贡献"
             (codespace == CODESPACE_DEPIN &&
@@ -382,6 +399,7 @@ class TransactionService @Inject constructor(
 
         // x/depin/types/errors.go
         const val DEPIN_ERR_DEVICE_EXISTS = 1100
+        const val DEPIN_ERR_DEVICE_NOT_FOUND = 1101
         const val DEPIN_ERR_DEVICE_NOT_ATTESTED = 1105
         const val DEPIN_ERR_INVALID_ATTESTATION = 1106
         const val DEPIN_ERR_PHONENODE_NOT_REGISTERED = 1107

@@ -44,16 +44,16 @@ fun NodeScreen(vm: NodeViewModel = viewModel()) {
                 ) {
                     val isActive = phoneNode?.status == NodeStatus.ACTIVE
                     Text(
-                        text = if (isActive) "Client active (local only)" else "Contribution client inactive",
+                        text = if (isActive) "Device attested on-chain" else "Contribution client inactive",
                         color = MaterialTheme.colorScheme.onPrimary,
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (isActive) {
-                            "Registered locally — on-chain attestation not integrated yet"
+                            "Hardware proof verified and registered on-chain"
                         } else {
-                            "Hardware attestation is not integrated (Phase 2)"
+                            "Requires Android Key Attestation (StrongBox/TEE) and the attestation oracle"
                         },
                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
                         style = MaterialTheme.typography.bodySmall

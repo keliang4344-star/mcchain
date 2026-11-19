@@ -102,6 +102,30 @@ class TxBuilder @Inject constructor(
         return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
     }
 
+    /**
+     * 设备认证（depin.MsgAttestDevice）。
+     * challenge 与 signature 由认证预言机签发；链上 TeeOracle 会对 deviceAddr|challenge 验签，
+     * 并记录 challenge 已消费（重放会被拒绝）。
+     */
+    fun buildAttestDeviceTx(
+        challenge: String,
+        signatureBase64: String,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "attest-device",
+        gas: Long = DEFAULT_GAS_ATTEST,
+        feeAmount: String = DEFAULT_FEE_UMC,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = DepinTx.attestDevice(
+            creator = wallet.address,
+            address = wallet.address,
+            challenge = challenge,
+            signature = signatureBase64,
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
     private fun requireWallet(): DerivedWallet =
         walletManager.getStoredWallet() ?: error("钱包未初始化：请先创建或导入助记词")
 
@@ -139,5 +163,6 @@ class TxBuilder @Inject constructor(
         const val DEFAULT_GAS_DELEGATE = 250_000L
         const val DEFAULT_GAS_CLAIM = 300_000L
         const val DEFAULT_GAS_REGISTER = 200_000L
+        const val DEFAULT_GAS_ATTEST = 250_000L
     }
 }

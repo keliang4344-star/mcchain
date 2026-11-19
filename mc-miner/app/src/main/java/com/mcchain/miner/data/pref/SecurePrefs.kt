@@ -66,6 +66,16 @@ class SecurePrefs @Inject constructor(
         get() = requirePrefs().getString(KEY_RPC_ENDPOINT, "") ?: ""
         set(value) = requirePrefs().edit().putString(KEY_RPC_ENDPOINT, value).apply()
 
+    /** 认证预言机地址（internal/oraclesvc 的 /sign）。留空表示未配置。 */
+    var oracleEndpoint: String
+        get() = requirePrefs().getString(KEY_ORACLE_ENDPOINT, "") ?: ""
+        set(value) = requirePrefs().edit().putString(KEY_ORACLE_ENDPOINT, value).apply()
+
+    /** 预言机 Bearer Token（ORACLE_SIGN_TOKEN）；留空表示服务端未启用鉴权。 */
+    var oracleToken: String
+        get() = requirePrefs().getString(KEY_ORACLE_TOKEN, "") ?: ""
+        set(value) = requirePrefs().edit().putString(KEY_ORACLE_TOKEN, value).apply()
+
     // === 挖矿开关 ===
     var miningEnabled: Boolean
         get() = requirePrefs().getBoolean(KEY_MINING_ENABLED, true)
@@ -125,6 +135,8 @@ class SecurePrefs @Inject constructor(
         private const val KEY_PRIVATE_KEY = "encrypted_private_key"
         private const val KEY_SEED_NODES = "seed_nodes"
         private const val KEY_RPC_ENDPOINT = "rpc_endpoint"
+        private const val KEY_ORACLE_ENDPOINT = "oracle_endpoint"
+        private const val KEY_ORACLE_TOKEN = "oracle_token"
         private const val KEY_MINING_ENABLED = "mining_enabled"
         private const val KEY_NODE_SYNC_ENABLED = "node_sync_enabled"
         private const val KEY_WIFI_ONLY = "wifi_only"

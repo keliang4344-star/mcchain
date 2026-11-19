@@ -11,13 +11,17 @@ import com.mcchain.miner.data.model.NodeStatus
 import com.mcchain.miner.data.model.NodeStatusSnapshot
 import com.mcchain.miner.data.model.PeerNode
 import com.mcchain.miner.data.model.PhoneNodeRecord
-import com.mcchain.miner.domain.node.HardwareCheck
 import com.mcchain.miner.data.pref.SecurePrefs
+import com.mcchain.miner.data.repository.WalletRepository
 import com.mcchain.miner.domain.node.DeviceAttestation
+import com.mcchain.miner.domain.node.HardwareCheck
+import com.mcchain.miner.domain.wallet.TransactionService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -27,7 +31,9 @@ class NodeViewModel @Inject constructor(
     private val peerDao: PeerDao,
     private val blockDao: BlockDao,
     private val deviceAttestation: DeviceAttestation,
-    private val securePrefs: SecurePrefs
+    private val securePrefs: SecurePrefs,
+    private val walletRepository: WalletRepository,
+    private val transactionService: TransactionService,
 ) : ViewModel() {
 
     private val _nodeStatus = MutableStateFlow<NodeStatusSnapshot?>(null)
@@ -62,33 +68,68 @@ class NodeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 硬件认证 + 上链：
+     * AndroidKeyStore 出证 → 预言机 /sign 背书 → depin.MsgAttestDevice → 回执。
+     * 任何一步失败都只展示原因，不写「已认证」状态。
+     */
     fun performAttestation() {
         viewModelScope.launch {
-            val deviceId = securePrefs.deviceId ?: ""
             _isAttesting.value = true
             try {
-                val result = deviceAttestation.performAttestation()
-                if (result.success) {
+                val address = withContext(Dispatchers.IO) {
+                    walletRepository.getDefaultAccount()?.address
+                }
+                if (address == null) {
+                    _attestationMessage.value = "请先创建或导入钱包，再认证设备"
+                    return@launch
+                }
+
+                // 认证要求设备已注册（depin.MsgRegisterDevice）；已有余额时会顺手补一次。
+                withContext(Dispatchers.IO) {
+                    transactionService.ensureDeviceRegistered(
+                        model = android.os.Build.MODEL,
+                        os = "Android ${android.os.Build.VERSION.RELEASE}",
+                    )
+                }
+
+                val result = withContext(Dispatchers.IO) {
+                    deviceAttestation.performAttestation(address)
+                }
+                if (!result.success) {
+                    _attestationMessage.value = result.error ?: "认证失败"
+                    return@launch
+                }
+
+                _attestationMessage.value =
+                    "硬件证明已通过（${result.securityLevel}），正在提交上链…"
+                val submit = withContext(Dispatchers.IO) {
+                    transactionService.attestDevice(result.challenge, result.signatureBase64)
+                }
+                if (submit.success) {
                     phoneNodeDao.upsert(
                         PhoneNodeRecord(
-                            deviceId = deviceId,
-                            nodeAddress = "mc_node_${deviceId.take(12)}",
+                            deviceId = result.deviceId,
+                            nodeAddress = address,
                             attestationToken = result.token,
                             attestationTime = System.currentTimeMillis(),
-                            attestationExpiry = System.currentTimeMillis() + MCParams.PHONENODE_ATTESTATION_VALIDITY_SECONDS * 1000,
+                            attestationExpiry = System.currentTimeMillis() +
+                                MCParams.PHONENODE_ATTESTATION_VALIDITY_SECONDS * 1000,
                             lastHeartbeat = System.currentTimeMillis(),
-                            status = NodeStatus.ACTIVE,
-                            stakedAmount = MCParams.PHONENODE_MIN_STAKE_UMC
+                            status = if (submit.pending) NodeStatus.PENDING else NodeStatus.ACTIVE,
+                            stakedAmount = MCParams.PHONENODE_MIN_STAKE_UMC,
                         )
                     )
-                    _attestationMessage.value = if (result.simulated) {
-                        "模拟认证（debug 构建，未上链）"
+                    _attestationMessage.value = if (submit.pending) {
+                        "认证交易已广播，等待链上确认"
                     } else {
-                        "认证成功"
+                        "设备已通过 ${result.securityLevel} 认证并在链上登记"
                     }
                 } else {
-                    _attestationMessage.value = result.error ?: "认证失败"
+                    _attestationMessage.value = "硬件认证已通过，但上链失败：${submit.message}"
                 }
+            } catch (e: Exception) {
+                _attestationMessage.value = "认证失败：${e.message ?: e.javaClass.simpleName}"
             } finally {
                 _isAttesting.value = false
             }
