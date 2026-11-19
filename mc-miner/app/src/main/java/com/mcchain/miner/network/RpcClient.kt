@@ -235,6 +235,39 @@ class RpcClient @Inject constructor(
         }
     }
 
+    /**
+     * 拉取链上 open 状态的 EdgeAI 任务。
+     * REST 形态：/tasks 返回 id 列表，/task/{id} 返回 task_json（snake_case 字段）。
+     */
+    suspend fun getEdgeAiTasks(limit: Int = 50): List<EdgeAiTask> {
+        val body = restGet("/mcchain/edgeai/tasks") ?: return emptyList()
+        val ids = body.getAsJsonArray("task_ids") ?: return emptyList()
+        return ids.take(limit).mapNotNull { element ->
+            val id = runCatching { element.asString }.getOrNull() ?: return@mapNotNull null
+            val taskBody = restGet("/mcchain/edgeai/task/$id") ?: return@mapNotNull null
+            val taskJson = taskBody.get("task_json")?.asString ?: return@mapNotNull null
+            val task = runCatching { gson.fromJson(taskJson, JsonObject::class.java).asJsonObject }
+                .getOrNull() ?: return@mapNotNull null
+            if (task.get("status")?.asString != "open") return@mapNotNull null
+            val description = task.get("description")?.asString ?: ""
+            EdgeAiTask(
+                taskId = id,
+                creator = task.get("creator")?.asString ?: "",
+                taskType = description,
+                modelId = "",
+                inputHash = "",
+                inputSizeBytes = description.toByteArray().size.toLong(),
+                reward = task.get("reward")?.asLong ?: 0L,
+                maxSubmissions = 1,
+                submissionCount = 0,
+                deadlineHeight = (task.get("created_at_block")?.asLong ?: 0L) + EDGEAI_TASK_EXPIRE_BLOCKS,
+                disputeDeadline = 0L,
+                status = AiTaskStatus.OPEN,
+                createdAt = (task.get("created_at")?.asLong ?: 0L) * 1000L,
+            )
+        }
+    }
+
     // === 内部方法 ===
 
     private suspend fun rpcCall(method: String, params: Map<String, Any>): JsonObject? =
@@ -314,6 +347,11 @@ class RpcClient @Inject constructor(
         } catch (e: Exception) {
             System.currentTimeMillis() / 1000
         }
+    }
+
+    private companion object {
+        /** x/edgeai/types/keys.go TaskExpireBlocks：超时未结算任务过期退托管。 */
+        const val EDGEAI_TASK_EXPIRE_BLOCKS = 10_000L
     }
 }
 

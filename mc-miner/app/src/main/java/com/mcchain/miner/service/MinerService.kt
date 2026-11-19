@@ -14,6 +14,7 @@ import com.mcchain.miner.data.db.*
 import com.mcchain.miner.data.model.*
 import com.mcchain.miner.data.pref.SecurePrefs
 import com.mcchain.miner.network.RpcClient
+import com.mcchain.miner.domain.edgeai.EdgeAiService
 import com.mcchain.miner.domain.node.ContributionMeter
 import com.mcchain.miner.domain.node.DeviceAttestation
 import com.mcchain.miner.domain.wallet.TransactionService
@@ -38,6 +39,7 @@ class MinerService : LifecycleService() {
     @Inject lateinit var deviceAttestation: DeviceAttestation
     @Inject lateinit var transactionService: TransactionService
     @Inject lateinit var contributionMeter: ContributionMeter
+    @Inject lateinit var edgeAiService: EdgeAiService
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var wakeLock: PowerManager.WakeLock? = null
@@ -51,6 +53,9 @@ class MinerService : LifecycleService() {
 
     // TrafficStats 是开机以来的累计值；delta 需要基线（进程启动时初始化）。
     private var trafficBaselineBytes: Long = -1L
+
+    // 最近一次成功心跳时间（链上 grace 100 块 ≈ 400s，2 分钟一次留足余量）。
+    private var lastHeartbeatAt: Long = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -103,17 +108,49 @@ class MinerService : LifecycleService() {
         val node = phoneNodeDao.getByDeviceId(deviceId) ?: return
         if (node.status != NodeStatus.ACTIVE) return
 
-        // 1. 计量带宽贡献
+        // 1. 在线心跳（防离线 slash：grace 100 块，这里每 2 分钟一次）
+        maybeSendHeartbeat(deviceId, node)
+
+        // 2. 计量带宽贡献
         measureBandwidthContribution(deviceId)
 
-        // 2. 计量存储贡献
+        // 3. 计量存储贡献
         measureStorageContribution(deviceId)
 
-        // 3. 检查并执行 EdgeAI 任务
+        // 4. 检查并执行 EdgeAI 任务
         checkAndExecuteAiTasks(deviceId)
 
-        // 4. 更新通知
+        // 5. 更新通知
         updateMiningNotification()
+    }
+
+    /**
+     * 心跳闸门：注册为 ACTIVE 的节点必须持续心跳，
+     * 否则链上离线 slash 会吊销 attestation 并进入冷却期（无法再认证）。
+     */
+    private suspend fun maybeSendHeartbeat(deviceId: String, node: PhoneNodeRecord) {
+        if (node.status != NodeStatus.ACTIVE) return
+        val now = System.currentTimeMillis()
+        if (now - lastHeartbeatAt < HEARTBEAT_INTERVAL_MS) return
+        val account = accountDao.getDefaultAccount() ?: return
+        // 余额只够付手续费时才心跳，避免产生排队失败的无效广播。
+        if (account.balance <= 10_000L) return
+
+        val result = transactionService.sendHeartbeat(deviceId)
+        when {
+            result.success -> {
+                lastHeartbeatAt = now
+                securePrefs.lastHeartbeatTime = now
+                phoneNodeDao.updateStatus(deviceId, NodeStatus.ACTIVE, now)
+            }
+            result.message.contains("认证", ignoreCase = false) ||
+                result.message.contains("not attested", ignoreCase = true) -> {
+                // attestation 已被吊销：标记罚没，停止心跳，等待用户重新认证。
+                phoneNodeDao.markSlashed(deviceId, NodeStatus.JAILED)
+                Timber.w("Heartbeat found node attestation revoked; marked JAILED: %s", result.message)
+            }
+            else -> Timber.w("Heartbeat failed: %s", result.message)
+        }
     }
 
     /**
@@ -214,14 +251,21 @@ class MinerService : LifecycleService() {
     }
 
     /**
-     * 检查并执行 EdgeAI 推理任务
+     * 检查并执行 EdgeAI 任务：同步链上 open 任务，执行一个白名单任务并提交结果。
+     * 结算（争议窗口后拨付 85%）由链上完成，App 只读余额。
      */
     private suspend fun checkAndExecuteAiTasks(deviceId: String) {
-        // Phase 0：真实推理尚未接入（计划 Phase 4）。
-        // 禁止再用 SHA-256 冒充推理结果，也不要把任务标记为执行中，避免污染任务状态。
-        val available = edgeAiTaskDao.getAvailableTasks(limit = 1)
-        if (available.isNotEmpty()) {
-            Timber.w("EdgeAI task execution not integrated yet; skipping %d task(s)", available.size)
+        edgeAiService.syncTasks()
+        val report = edgeAiService.runDueTask()
+        when (report.outcome) {
+            EdgeAiService.RunOutcome.SUBMITTED -> {
+                Timber.i("EdgeAI task %s submitted: %s", report.taskId, report.message)
+                contributionCount++
+            }
+            EdgeAiService.RunOutcome.FAILED,
+            EdgeAiService.RunOutcome.EXEC_TIMEOUT ->
+                Timber.w("EdgeAI task %s: %s", report.taskId, report.message)
+            else -> Unit // NO_TASK / SKIP_* 静默
         }
     }
 
@@ -276,6 +320,9 @@ class MinerService : LifecycleService() {
 
     companion object {
         const val NOTIFICATION_ID = 1002
+
+        /** 心跳间隔：远小于链上 OfflineGraceBlocks（100 块 ≈ 400s）。 */
+        const val HEARTBEAT_INTERVAL_MS = 120_000L
 
         fun start(context: Context) {
             val intent = Intent(context, MinerService::class.java)

@@ -5,6 +5,7 @@ import com.mcchain.miner.shared.crypto.Secp256k1Signer
 import com.mcchain.miner.shared.protocol.Coin
 import com.mcchain.miner.shared.protocol.CosmosMsgs
 import com.mcchain.miner.shared.protocol.DepinTx
+import com.mcchain.miner.shared.protocol.EdgeAiTx
 import com.mcchain.miner.shared.protocol.PhonenodeTx
 import com.mcchain.miner.shared.tx.DirectTxBuilder
 import com.mcchain.miner.shared.tx.DirectTxInput
@@ -205,6 +206,80 @@ class TxBuilder @Inject constructor(
         return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
     }
 
+    /**
+     * EdgeAI 结果提交（edgeai.MsgSubmitResult）。
+     * 链上要求提交者 phonenode 已认证、任务 open、同一节点对同一任务只能提交一次。
+     */
+    fun buildSubmitResultTx(
+        taskId: String,
+        resultHash: String,
+        attestationNonce: String,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "edgeai-result",
+        gas: Long = DEFAULT_GAS_EDGEAI,
+        feeAmount: String = DEFAULT_FEE_UMC,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = EdgeAiTx.submitResult(
+            creator = wallet.address,
+            taskId = taskId,
+            resultHash = resultHash,
+            attestationNonce = attestationNonce,
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
+    /** EdgeAI 任务发布（edgeai.MsgCreateTask）：reward 从 creator 余额 escrow 到模块账户。 */
+    fun buildCreateTaskTx(
+        description: String,
+        rewardUmc: Long,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "edgeai-create",
+        gas: Long = DEFAULT_GAS_EDGEAI,
+        feeAmount: String = DEFAULT_FEE_UMC,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = EdgeAiTx.createTask(
+            creator = wallet.address,
+            description = description,
+            rewardUmc = rewardUmc,
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
+    /**
+     * 在线心跳（phonenode.MsgSubmitStateProof）。
+     * 链上要求 root/leaf/index/proof 全部非空并做 Merkle 重建校验，
+     * 这里用两叶树：leaf=自身状态、兄弟=固定 padding 哈希、index=0，
+     * root = SHA256(SHA256(leaf) || paddingHash)，与 VerifyStateProof 折叠规则一致。
+     * leaf 携带高度与时间戳，保证每次心跳字节不同（避免 mempool 去重）。
+     */
+    fun buildHeartbeatTx(
+        leaf: String,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "",
+        gas: Long = DEFAULT_GAS_HEARTBEAT,
+        feeAmount: String = DEFAULT_FEE_UMC,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val leafHash = com.mcchain.miner.shared.util.Sha256.digest(leaf.toByteArray(Charsets.UTF_8))
+        val paddingHash = com.mcchain.miner.shared.util.Sha256.digest(HEARTBEAT_PADDING.toByteArray(Charsets.UTF_8))
+        val root = com.mcchain.miner.shared.util.Hex.encode(
+            com.mcchain.miner.shared.util.Sha256.digest(leafHash + paddingHash)
+        )
+        val message = PhonenodeTx.submitStateProof(
+            creator = wallet.address,
+            root = root,
+            leaf = leaf,
+            index = "0",
+            proof = com.mcchain.miner.shared.util.Hex.encode(paddingHash),
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
     private fun requireWallet(): DerivedWallet =
         walletManager.getStoredWallet() ?: error("钱包未初始化：请先创建或导入助记词")
 
@@ -244,5 +319,10 @@ class TxBuilder @Inject constructor(
         const val DEFAULT_GAS_REGISTER = 200_000L
         const val DEFAULT_GAS_ATTEST = 250_000L
         const val DEFAULT_GAS_CONTRIB = 350_000L
+        const val DEFAULT_GAS_EDGEAI = 300_000L
+        const val DEFAULT_GAS_HEARTBEAT = 200_000L
+
+        /** 心跳 Merkle 的固定兄弟叶（padding，使 proof 非空且重建确定）。 */
+        const val HEARTBEAT_PADDING = "mcchain-phone-node-heartbeat-padding"
     }
 }

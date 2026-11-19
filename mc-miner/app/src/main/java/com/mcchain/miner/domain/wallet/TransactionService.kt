@@ -216,6 +216,32 @@ class TransactionService @Inject constructor(
         }
 
     /**
+     * 在线心跳（phonenode.MsgSubmitStateProof）。
+     * 注册节点若超过 OfflineGraceBlocks（100 块 ≈ 400s）不心跳会被离线 slash：
+     * attestation 被吊销且进入冷却期禁止重认证，设备彻底失去接单/计奖资格。
+     */
+    suspend fun sendHeartbeat(deviceId: String): SubmitResult = submitLock.withLock {
+        val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
+        val height = rpcClient.getLatestBlockHeight()
+        val leaf = "phonenode|$deviceId|$height|${System.currentTimeMillis()}"
+        submit(TxType.UNKNOWN, account.address, account.address, 0, "") { accountNumber, sequence ->
+            txBuilder.buildHeartbeatTx(leaf, accountNumber, sequence)
+        }
+    }
+
+    /** EdgeAI 结果提交（edgeai.MsgSubmitResult）。attestationNonce 用 depin 认证的 challenge。 */
+    suspend fun submitEdgeAiResult(taskId: String, resultHash: String, attestationNonce: String): SubmitResult =
+        submitLock.withLock {
+            val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
+            if (taskId.isBlank() || resultHash.isBlank()) {
+                return@withLock failure("任务 ID 或结果指纹为空")
+            }
+            submit(TxType.SUBMIT_TASK, account.address, "", 0, "edgeai-result") { accountNumber, sequence ->
+                txBuilder.buildSubmitResultTx(taskId, resultHash, attestationNonce, accountNumber, sequence)
+            }
+        }
+
+    /**
      * 重放离线队列中的交易。
      *
      * 幂等性来自交易字节本身：同一 sequence/账户号的同一笔交易签名结果固定，
@@ -457,6 +483,19 @@ class TransactionService @Inject constructor(
             (codespace == CODESPACE_PHONENODE && code == PHONENODE_ERR_INVALID_ATTESTATION) ||
                 log.contains("attestation signature verification failed", ignoreCase = true) ->
                 "设备自签认证验签失败，请重试认证"
+            codespace == CODESPACE_EDGEAI && code == EDGEAI_ERR_TASK_NOT_FOUND ->
+                "任务不存在或已被清理"
+            codespace == CODESPACE_EDGEAI && code == EDGEAI_ERR_TASK_NOT_OPEN ->
+                "任务已不再开放（已被结算或过期）"
+            codespace == CODESPACE_EDGEAI && code == EDGEAI_ERR_TASK_ALREADY_DONE ->
+                "任务已完成（幂等收敛）"
+            codespace == CODESPACE_EDGEAI && code == EDGEAI_ERR_DUPLICATE_RESULT ->
+                "本节点已提交过该任务结果（幂等收敛）"
+            codespace == CODESPACE_EDGEAI && code == EDGEAI_ERR_NOT_ASSIGNED ->
+                "任务已分配给其他节点"
+            (codespace == CODESPACE_SDK && code == SDK_ERR_UNAUTHORIZED) ||
+                log.contains("node not attested", ignoreCase = true) ->
+                "节点未认证或认证已过期，请先完成设备认证"
             log.contains("invalid", ignoreCase = true) ->
                 "交易无效：$log"
             log.isBlank() -> "广播失败，请稍后重试"
@@ -476,9 +515,11 @@ class TransactionService @Inject constructor(
         const val CODESPACE_SDK = "sdk"
         const val CODESPACE_DEPIN = "depin"
         const val CODESPACE_PHONENODE = "phonenode"
+        const val CODESPACE_EDGEAI = "edgeai"
 
         // Cosmos SDK types/errors/errors.go
         const val SDK_ERR_INVALID_SEQUENCE = 3
+        const val SDK_ERR_UNAUTHORIZED = 4
         const val SDK_ERR_INSUFFICIENT_FUNDS = 5
         const val SDK_ERR_INSUFFICIENT_FEE = 13
         const val SDK_ERR_WRONG_SEQUENCE = 32
@@ -497,5 +538,12 @@ class TransactionService @Inject constructor(
         const val PHONENODE_ERR_NONCE_REUSED = 1104
         const val PHONENODE_ERR_DEVICE_ALREADY_BOUND = 1105
         const val PHONENODE_ERR_INVALID_ATTESTATION = 1106
+
+        // x/edgeai/types/errors.go
+        const val EDGEAI_ERR_TASK_NOT_FOUND = 1200
+        const val EDGEAI_ERR_TASK_NOT_OPEN = 1201
+        const val EDGEAI_ERR_TASK_ALREADY_DONE = 1202
+        const val EDGEAI_ERR_DUPLICATE_RESULT = 1203
+        const val EDGEAI_ERR_NOT_ASSIGNED = 1206
     }
 }
