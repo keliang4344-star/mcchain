@@ -5,6 +5,7 @@ import com.mcchain.miner.shared.crypto.Secp256k1Signer
 import com.mcchain.miner.shared.protocol.Coin
 import com.mcchain.miner.shared.protocol.CosmosMsgs
 import com.mcchain.miner.shared.protocol.DepinTx
+import com.mcchain.miner.shared.protocol.PhonenodeTx
 import com.mcchain.miner.shared.tx.DirectTxBuilder
 import com.mcchain.miner.shared.tx.DirectTxInput
 import javax.inject.Inject
@@ -126,6 +127,84 @@ class TxBuilder @Inject constructor(
         return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
     }
 
+    /**
+     * 贡献提交（depin.MsgSubmitContribution）。
+     * taskId 为链上幂等键（Contribution:<taskID> 唯一），重复提交返回 ErrTaskExists。
+     * taskType 必须是链上支持的 inference / data_label / bandwidth，score 为 [0,100] 整数字符串。
+     */
+    fun buildSubmitContributionTx(
+        taskId: String,
+        taskType: String,
+        score: Int,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "",
+        gas: Long = DEFAULT_GAS_CONTRIB,
+        feeAmount: String = DEFAULT_FEE_UMC,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = DepinTx.submitContribution(
+            creator = wallet.address,
+            taskId = taskId,
+            taskType = taskType,
+            score = score.toString(),
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
+    /**
+     * 移动节点注册（phonenode.MsgRegisterNode）。depin 贡献发币闸口要求
+     * Creator 地址已在 phonenode 注册（HasNode），重复注册返回 ErrNodeExists。
+     */
+    fun buildRegisterNodeTx(
+        model: String,
+        os: String,
+        role: String = "depin",
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "register-node",
+        gas: Long = DEFAULT_GAS_REGISTER,
+        feeAmount: String = DEFAULT_FEE_UMC,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = PhonenodeTx.registerNode(
+            creator = wallet.address,
+            address = wallet.address,
+            model = model,
+            os = os,
+            role = role,
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
+    /**
+     * 设备自签 attestation（phonenode.MsgSubmitAttestation）。
+     * signatureHex = 设备私钥对 "deviceIdHash|nonce" 的签名（64 字节 r||s hex）。
+     */
+    fun buildPhonenodeAttestTx(
+        rootHash: String,
+        nonce: String,
+        deviceIdHash: String,
+        devicePubKeyHex: String,
+        signatureHex: String,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "attest-node",
+        gas: Long = DEFAULT_GAS_ATTEST,
+        feeAmount: String = DEFAULT_FEE_UMC,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = PhonenodeTx.submitAttestation(
+            creator = wallet.address,
+            rootHash = rootHash,
+            nonce = nonce,
+            deviceIdHash = deviceIdHash,
+            devicePubKeyHex = devicePubKeyHex,
+            signatureHex = signatureHex,
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
     private fun requireWallet(): DerivedWallet =
         walletManager.getStoredWallet() ?: error("钱包未初始化：请先创建或导入助记词")
 
@@ -164,5 +243,6 @@ class TxBuilder @Inject constructor(
         const val DEFAULT_GAS_CLAIM = 300_000L
         const val DEFAULT_GAS_REGISTER = 200_000L
         const val DEFAULT_GAS_ATTEST = 250_000L
+        const val DEFAULT_GAS_CONTRIB = 350_000L
     }
 }

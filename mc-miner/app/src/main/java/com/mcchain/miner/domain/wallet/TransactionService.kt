@@ -33,6 +33,8 @@ class TransactionService @Inject constructor(
     data class SubmitResult(
         val success: Boolean,
         val pending: Boolean = false,
+        /** 链上判定为「已记录/已消费」：请求幂等收敛，不算失败也不算新成功。 */
+        val idempotent: Boolean = false,
         val txHash: String = "",
         val message: String = "",
     )
@@ -146,6 +148,74 @@ class TransactionService @Inject constructor(
     }
 
     /**
+     * 移动节点注册（phonenode.MsgRegisterNode）。depin 贡献发币闸口要求地址已注册，
+     * 与设备注册一样：成功后记入安全存储，ErrNodeExists 视为幂等成功。
+     */
+    suspend fun ensureNodeRegistered(model: String, os: String): SubmitResult? = submitLock.withLock {
+        val account = defaultAccount() ?: return@withLock null
+        if (securePrefs.registeredNodeAddress == account.address) return@withLock null
+        if (account.balance <= TxBuilder.DEFAULT_FEE_UMC.toLong()) return@withLock null
+
+        val result = submit(TxType.UNKNOWN, account.address, account.address, 0, "register-node") {
+                accountNumber, sequence ->
+            txBuilder.buildRegisterNodeTx(model, os, accountNumber = accountNumber, sequence = sequence)
+        }
+        if (result.success || result.message.contains("节点已注册")) {
+            securePrefs.registeredNodeAddress = account.address
+            return@withLock SubmitResult(true, txHash = result.txHash, message = "节点已上链注册")
+        }
+        result
+    }
+
+    /** 设备自签 attestation 上链（phonenode.MsgSubmitAttestation），depin 防线 Layer2 前置条件。 */
+    suspend fun submitPhonenodeAttestation(
+        rootHash: String,
+        nonce: String,
+        deviceIdHash: String,
+        devicePubKeyHex: String,
+        signatureHex: String,
+    ): SubmitResult = submitLock.withLock {
+        val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
+        submit(TxType.ATTEST_NODE, account.address, account.address, 0, "attest-node") {
+                accountNumber, sequence ->
+            txBuilder.buildPhonenodeAttestTx(
+                rootHash, nonce, deviceIdHash, devicePubKeyHex, signatureHex,
+                accountNumber, sequence,
+            )
+        }
+    }
+
+    /**
+     * 贡献提交（depin.MsgSubmitContribution）。
+     *
+     * 先认证后提交：设备认证（链上 Attested 且未过期）是计奖前置条件，未认证直接跳过，
+     * 避免产生注定被拒的交易。taskId 是链上幂等键：重复提交返回 ErrTaskExists，
+     * 这里收敛为 idempotent 成功，调用方不得重试。
+     */
+    suspend fun submitContribution(taskId: String, chainTaskType: String, score: Int): SubmitResult =
+        submitLock.withLock {
+            val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
+            if (taskId.isBlank() || taskId.length > MAX_TASK_ID_LENGTH) {
+                return@withLock failure("贡献幂等键长度无效（1..$MAX_TASK_ID_LENGTH）")
+            }
+            if (score !in 0..100) return@withLock failure("分数越界：score 必须在 [0,100]")
+
+            val result = submit(TxType.REPORT_CONTRIB, account.address, "", 0, "contribution") {
+                    accountNumber, sequence ->
+                txBuilder.buildSubmitContributionTx(taskId, chainTaskType, score, accountNumber, sequence)
+            }
+            if (result.message.contains("贡献已记录")) {
+                return@withLock SubmitResult(
+                    success = true,
+                    idempotent = true,
+                    txHash = result.txHash,
+                    message = "贡献已记录（幂等收敛）",
+                )
+            }
+            result
+        }
+
+    /**
      * 重放离线队列中的交易。
      *
      * 幂等性来自交易字节本身：同一 sequence/账户号的同一笔交易签名结果固定，
@@ -212,7 +282,7 @@ class TransactionService @Inject constructor(
         to: String,
         amount: Long,
         memo: String,
-        maxAttempts: Int = 2,
+        maxAttempts: Int = 3,
         build: suspend (accountNumber: Long, sequence: Long) -> TxBuilder.BuiltTx,
     ): SubmitResult {
         var lastLog = ""
@@ -240,9 +310,11 @@ class TransactionService @Inject constructor(
             val result = broadcast!!
             val duplicate = result.code != 0 && isAlreadyKnown(result.log)
             if (result.code != 0 && !duplicate) {
-                // sequence 被并发交易抢先消耗：重新拉取账户后重签一次。
+                // sequence 被并发交易抢先消耗，或查询状态落后一个区块：
+                // 等一个出块级间隔再重取账户，避免立刻拿到同样的过期值。
                 if (isSequenceMismatch(result.code, result.codespace, result.log) && attempt < maxAttempts - 1) {
                     lastLog = result.log
+                    kotlinx.coroutines.delay(2_000)
                     return@repeat
                 }
                 return failure(classify(result.code, result.codespace, result.log))
@@ -362,6 +434,10 @@ class TransactionService @Inject constructor(
             (codespace == CODESPACE_DEPIN && code == DEPIN_ERR_DEVICE_EXISTS) ||
                 log.contains("device already registered", ignoreCase = true) ->
                 "设备已上链注册，无需重复注册"
+            (codespace == CODESPACE_DEPIN && code == DEPIN_ERR_TASK_EXISTS) ||
+                log.contains("contribution task id already exists", ignoreCase = true) ||
+                log.contains("task id already exists", ignoreCase = true) ->
+                "贡献已记录（幂等收敛）"
             codespace == CODESPACE_DEPIN && code == DEPIN_ERR_DEVICE_NOT_FOUND ->
                 "设备尚未上链注册，请稍后重试"
             codespace == CODESPACE_DEPIN && code == DEPIN_ERR_DEVICE_NOT_ATTESTED ->
@@ -374,6 +450,13 @@ class TransactionService @Inject constructor(
                 "当前钱包未注册为节点，请先注册节点角色"
             codespace == CODESPACE_PHONENODE && code == PHONENODE_ERR_NODE_EXISTS ->
                 "节点已注册，无需重复注册"
+            codespace == CODESPACE_PHONENODE && code == PHONENODE_ERR_NONCE_REUSED ->
+                "认证 nonce 已被使用，请重新发起认证"
+            codespace == CODESPACE_PHONENODE && code == PHONENODE_ERR_DEVICE_ALREADY_BOUND ->
+                "设备已绑定其他节点地址，拒绝重复绑定"
+            (codespace == CODESPACE_PHONENODE && code == PHONENODE_ERR_INVALID_ATTESTATION) ||
+                log.contains("attestation signature verification failed", ignoreCase = true) ->
+                "设备自签认证验签失败，请重试认证"
             log.contains("invalid", ignoreCase = true) ->
                 "交易无效：$log"
             log.isBlank() -> "广播失败，请稍后重试"
@@ -386,6 +469,9 @@ class TransactionService @Inject constructor(
     private companion object {
         /** 离线队列保留时长：超过仍未上链视为签名时的 sequence 已过期。 */
         const val PENDING_TTL_MS = 10 * 60 * 1000L
+
+        /** depin keeper 对 task_id 的长度闸门（x/depin/types/keys.go）。 */
+        const val MAX_TASK_ID_LENGTH = 128
 
         const val CODESPACE_SDK = "sdk"
         const val CODESPACE_DEPIN = "depin"
@@ -400,6 +486,7 @@ class TransactionService @Inject constructor(
         // x/depin/types/errors.go
         const val DEPIN_ERR_DEVICE_EXISTS = 1100
         const val DEPIN_ERR_DEVICE_NOT_FOUND = 1101
+        const val DEPIN_ERR_TASK_EXISTS = 1102
         const val DEPIN_ERR_DEVICE_NOT_ATTESTED = 1105
         const val DEPIN_ERR_INVALID_ATTESTATION = 1106
         const val DEPIN_ERR_PHONENODE_NOT_REGISTERED = 1107
@@ -407,5 +494,8 @@ class TransactionService @Inject constructor(
 
         // x/phonenode/types/errors.go
         const val PHONENODE_ERR_NODE_EXISTS = 1100
+        const val PHONENODE_ERR_NONCE_REUSED = 1104
+        const val PHONENODE_ERR_DEVICE_ALREADY_BOUND = 1105
+        const val PHONENODE_ERR_INVALID_ATTESTATION = 1106
     }
 }

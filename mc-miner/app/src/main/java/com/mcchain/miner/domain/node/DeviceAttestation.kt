@@ -5,7 +5,9 @@ import android.os.Build
 import android.provider.Settings
 import com.mcchain.miner.MCParams
 import com.mcchain.miner.data.pref.SecurePrefs
+import com.mcchain.miner.domain.wallet.WalletManager
 import com.mcchain.miner.network.OracleClient
+import com.mcchain.miner.shared.crypto.Secp256k1Signer
 import com.mcchain.miner.shared.util.Hex
 import com.mcchain.miner.shared.util.Sha256
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,6 +33,7 @@ class DeviceAttestation @Inject constructor(
     private val securePrefs: SecurePrefs,
     private val keyAttestation: AndroidKeyAttestation,
     private val oracleClient: OracleClient,
+    private val walletManager: WalletManager,
 ) {
     /**
      * 获取或创建设备唯一标识
@@ -106,6 +109,17 @@ class DeviceAttestation @Inject constructor(
         securePrefs.attestationExpiry = System.currentTimeMillis() +
             MCParams.PHONENODE_ATTESTATION_VALIDITY_SECONDS * 1000
 
+        // phonenode 自签 attestation 材料（depin 防线 Layer2 前置）：
+        // 设备钱包私钥对 "deviceIdHash|selfNonce" 签名，链上用注册公钥验签并绑定。
+        val wallet = walletManager.getStoredWallet()
+            ?: return failure(deviceId, challenge, "钱包密钥不可用，无法生成设备自签认证")
+        val deviceIdHash = Hex.encode(Sha256.digest(deviceId.toByteArray(Charsets.UTF_8)))
+        val selfNonce = UUID.randomUUID().toString().replace("-", "")
+        val selfSignatureHex = Hex.encode(
+            Secp256k1Signer(wallet.privateKey)
+                .signDigest(Sha256.digest("$deviceIdHash|$selfNonce".toByteArray(Charsets.UTF_8)))
+        )
+
         return AttestationResult(
             success = true,
             token = challenge,
@@ -114,6 +128,11 @@ class DeviceAttestation @Inject constructor(
             challenge = challenge,
             signatureBase64 = signature.signatureBase64,
             securityLevel = attested.securityLevel.name,
+            selfNonce = selfNonce,
+            deviceIdHash = deviceIdHash,
+            devicePubKeyHex = Hex.encode(wallet.publicKey),
+            selfSignatureHex = selfSignatureHex,
+            rootHash = "android_key_attestation|${attested.securityLevel.name.lowercase()}|${deviceIdHash.take(16)}",
         )
     }
 
@@ -188,6 +207,16 @@ data class AttestationResult(
     val signatureBase64: String = "",
     /** TEE / STRONGBOX / SOFTWARE。 */
     val securityLevel: String = "",
+    /** phonenode 自签 attestation：一次性 nonce（链上重放索引）。 */
+    val selfNonce: String = "",
+    /** SHA256(deviceId) 小写 hex，链上设备绑定键。 */
+    val deviceIdHash: String = "",
+    /** 钱包压缩公钥 hex（33 字节）。 */
+    val devicePubKeyHex: String = "",
+    /** 设备对 "deviceIdHash|selfNonce" 的 secp256k1 签名 hex（64 字节 r||s）。 */
+    val selfSignatureHex: String = "",
+    /** attestation 根留痕（硬件来源标识，链上仅存字符串）。 */
+    val rootHash: String = "",
 )
 
 data class HardwareCheck(

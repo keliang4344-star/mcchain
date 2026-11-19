@@ -14,6 +14,9 @@ import com.mcchain.miner.data.db.*
 import com.mcchain.miner.data.model.*
 import com.mcchain.miner.data.pref.SecurePrefs
 import com.mcchain.miner.network.RpcClient
+import com.mcchain.miner.domain.node.ContributionMeter
+import com.mcchain.miner.domain.node.DeviceAttestation
+import com.mcchain.miner.domain.wallet.TransactionService
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import timber.log.Timber
@@ -32,6 +35,9 @@ class MinerService : LifecycleService() {
     @Inject lateinit var phoneNodeDao: PhoneNodeDao
     @Inject lateinit var edgeAiTaskDao: EdgeAiTaskDao
     @Inject lateinit var accountDao: AccountDao
+    @Inject lateinit var deviceAttestation: DeviceAttestation
+    @Inject lateinit var transactionService: TransactionService
+    @Inject lateinit var contributionMeter: ContributionMeter
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var wakeLock: PowerManager.WakeLock? = null
@@ -39,6 +45,12 @@ class MinerService : LifecycleService() {
 
     // 本机计量次数（不代表链上收益）
     private var contributionCount: Int = 0
+
+    // 链上提交次数（成功广播并被接受）
+    private var submittedCount: Int = 0
+
+    // TrafficStats 是开机以来的累计值；delta 需要基线（进程启动时初始化）。
+    private var trafficBaselineBytes: Long = -1L
 
     override fun onCreate() {
         super.onCreate()
@@ -105,23 +117,25 @@ class MinerService : LifecycleService() {
     }
 
     /**
-     * 计量带宽贡献：监控网络 I/O 并上报
+     * 计量带宽贡献：按进程基线以来的增量映射 score，达到阈值且已认证时提交上链。
      */
     private suspend fun measureBandwidthContribution(deviceId: String) {
-        // 简化的带宽计量：基于应用实际网络流量
-        val bandwidthUp = measureNetworkUpBytes()
-        val bandwidthDown = measureNetworkDownBytes()
+        val totalBytes = measureNetworkUpBytes() + measureNetworkDownBytes()
+        if (totalBytes <= 0) return // TrafficStats 不可用（返回 -1）
+        if (trafficBaselineBytes < 0) {
+            trafficBaselineBytes = totalBytes
+            return
+        }
+        val deltaBytes = (totalBytes - trafficBaselineBytes).coerceAtLeast(0)
+        if (deltaBytes < 1024 * 1024) return // 增量低于 1MB 不报
 
-        val totalBytes = bandwidthUp + bandwidthDown
-        if (totalBytes < 1024 * 1024) return // 低于 1MB 不报
-
-        // Phase 0：只记录本机原始计量，不生成「证明」、不计算奖励、不广播交易。
-        // 真实链路（设备签名 + MsgSubmitContribution + 链上结算）见 Phase 1–3。
+        val score = contributionMeter.bandwidthScore(deltaBytes)
+        val taskId = contributionMeter.taskId(deviceId, contributionMeter.currentEpoch(), "bandwidth")
         val contribution = Contribution(
-            id = "bw_${System.currentTimeMillis()}_$deviceId",
+            id = taskId,
             deviceId = deviceId,
             taskType = TaskType.BANDWIDTH,
-            taskId = "",
+            taskId = taskId,
             amount = 0,
             proofHash = "",
             reportedAt = System.currentTimeMillis(),
@@ -130,10 +144,16 @@ class MinerService : LifecycleService() {
         )
         contributionDao.upsert(contribution)
         contributionCount++
+
+        if (score >= ContributionMeter.MIN_SUBMIT_SCORE) {
+            submitContribution(contribution, "bandwidth", score)
+        }
     }
 
     /**
-     * 计量存储贡献：检查本地数据库占用
+     * 计量存储贡献：检查本地数据库占用。
+     * 链上 depin 暂无存储类任务类型（仅 inference/data_label/bandwidth），
+     * 因此保持 LOCAL_ONLY，不做注定被 ErrUnsupportedType 拒绝的提交。
      */
     private suspend fun measureStorageContribution(deviceId: String) {
         val storageBytes = measureLocalStorageBytes()
@@ -155,6 +175,45 @@ class MinerService : LifecycleService() {
     }
 
     /**
+     * 提交一条贡献上链（depin.MsgSubmitContribution）。
+     *
+     * 先认证后提交：未通过（或已过期）设备认证时只保留本机计量；
+     * taskId 幂等：Room 已存在非失败记录时跳过，链上 ErrTaskExists 收敛为已记录。
+     */
+    private suspend fun submitContribution(contribution: Contribution, chainTaskType: String, score: Int) {
+        // 幂等去重：同一 taskId 已提交/已确认过就不再重复花手续费（REJECTED 允许再次尝试）。
+        val existing = contributionDao.getById(contribution.id)
+        if (existing != null && existing.status != ContribStatus.REJECTED &&
+            existing.status != ContribStatus.LOCAL_ONLY
+        ) {
+            return
+        }
+        // 余额需覆盖手续费。
+        val account = accountDao.getDefaultAccount() ?: return
+        if (account.balance <= 5_000L) return
+
+        // 先认证后计量（方案 §[5]）：认证无效时不产生注定被拒的交易。
+        if (!deviceAttestation.isAttestationValid()) return
+
+        contributionDao.upsert(contribution.copy(status = ContribStatus.SUBMITTED))
+        val result = transactionService.submitContribution(contribution.id, chainTaskType, score)
+        when {
+            result.success || result.idempotent -> {
+                contributionDao.updateVerification(
+                    contribution.id, ContribStatus.VERIFIED, 0L, System.currentTimeMillis()
+                )
+                submittedCount++
+            }
+            else -> {
+                contributionDao.updateVerification(
+                    contribution.id, ContribStatus.REJECTED, 0L, System.currentTimeMillis()
+                )
+                Timber.w("Contribution rejected: %s", result.message)
+            }
+        }
+    }
+
+    /**
      * 检查并执行 EdgeAI 推理任务
      */
     private suspend fun checkAndExecuteAiTasks(deviceId: String) {
@@ -169,12 +228,14 @@ class MinerService : LifecycleService() {
     // === 工具方法 ===
 
     private fun measureNetworkUpBytes(): Long {
-        // 使用 TrafficStats 获取应用上行流量
-        return android.net.TrafficStats.getUidTxBytes(android.os.Process.myUid()) % 1_000_000_000
+        // TrafficStats 返回开机以来累计值；-1 表示不可用。
+        val value = android.net.TrafficStats.getUidTxBytes(android.os.Process.myUid())
+        return if (value < 0) 0 else value
     }
 
     private fun measureNetworkDownBytes(): Long {
-        return android.net.TrafficStats.getUidRxBytes(android.os.Process.myUid()) % 1_000_000_000
+        val value = android.net.TrafficStats.getUidRxBytes(android.os.Process.myUid())
+        return if (value < 0) 0 else value
     }
 
     private fun measureLocalStorageBytes(): Long {
@@ -198,7 +259,13 @@ class MinerService : LifecycleService() {
     private fun updateMiningNotification() {
         val notification = NotificationCompat.Builder(this, McMinerApp.CHANNEL_MINING)
             .setContentTitle("贡献计量运行中")
-            .setContentText("本次已计量 $contributionCount 次（仅本机，未上链）")
+            .setContentText(
+                if (submittedCount > 0) {
+                    "本机计量 $contributionCount 次，已上链提交 $submittedCount 次"
+                } else {
+                    "本次已计量 $contributionCount 次（仅本机，未上链）"
+                }
+            )
             .setSmallIcon(android.R.drawable.ic_menu_share)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)

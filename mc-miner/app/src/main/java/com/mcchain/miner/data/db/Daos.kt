@@ -141,6 +141,9 @@ interface ContributionDao {
     @Query("SELECT * FROM contributions WHERE status = :status ORDER BY reportedAt DESC LIMIT :limit")
     suspend fun getByStatus(status: ContribStatus, limit: Int = 50): List<Contribution>
 
+    @Query("SELECT * FROM contributions WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): Contribution?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(contribution: Contribution)
 

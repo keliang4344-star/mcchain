@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.google.gson.Gson
 import com.mcchain.miner.data.db.McChainDatabase
 import com.mcchain.miner.data.pref.SecurePrefs
+import com.mcchain.miner.domain.node.ContributionMeter
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -69,5 +70,9 @@ object AppModule {
     @Provides
     @Singleton
     fun provideNodeStatusDao(db: McChainDatabase) = db.nodeStatusDao()
+
+    @Provides
+    @Singleton
+    fun provideContributionMeter(): ContributionMeter = ContributionMeter()
 
 }

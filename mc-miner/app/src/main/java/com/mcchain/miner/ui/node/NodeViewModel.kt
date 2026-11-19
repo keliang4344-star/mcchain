@@ -85,9 +85,13 @@ class NodeViewModel @Inject constructor(
                     return@launch
                 }
 
-                // 认证要求设备已注册（depin.MsgRegisterDevice）；已有余额时会顺手补一次。
+                // 认证上链的前置：depin 设备注册 + phonenode 节点注册（发币闸口要求 HasNode）。
                 withContext(Dispatchers.IO) {
                     transactionService.ensureDeviceRegistered(
+                        model = android.os.Build.MODEL,
+                        os = "Android ${android.os.Build.VERSION.RELEASE}",
+                    )
+                    transactionService.ensureNodeRegistered(
                         model = android.os.Build.MODEL,
                         os = "Android ${android.os.Build.VERSION.RELEASE}",
                     )
@@ -103,6 +107,22 @@ class NodeViewModel @Inject constructor(
 
                 _attestationMessage.value =
                     "硬件证明已通过（${result.securityLevel}），正在提交上链…"
+
+                // 先 phonenode 自签认证（Layer2 闸门），再 depin 预言机认证（刷新有效期/背书层级）。
+                val nodeAttest = withContext(Dispatchers.IO) {
+                    transactionService.submitPhonenodeAttestation(
+                        rootHash = result.rootHash,
+                        nonce = result.selfNonce,
+                        deviceIdHash = result.deviceIdHash,
+                        devicePubKeyHex = result.devicePubKeyHex,
+                        signatureHex = result.selfSignatureHex,
+                    )
+                }
+                if (!nodeAttest.success) {
+                    _attestationMessage.value = "节点认证上链失败：${nodeAttest.message}"
+                    return@launch
+                }
+
                 val submit = withContext(Dispatchers.IO) {
                     transactionService.attestDevice(result.challenge, result.signatureBase64)
                 }
