@@ -1,0 +1,43 @@
+# XcodeGen 工程定义（macOS 上 `xcodegen generate` 生成 McMiner.xcodeproj）
+#
+# 为什么用 XcodeGen：Windows 侧无法校验 pbxproj，声明式 project.yml 可在 macOS 上
+# 稳定重建工程；新增 Swift 文件不需要手动改 project.pbxproj。
+name: McMiner
+options:
+  bundleIdPrefix: com.mcchain
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+
+targets:
+  McMiner:
+    type: application
+    platform: iOS
+    sources:
+      - path: McMiner
+        excludes:
+          - "Resources/Info.plist"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mcchain.miner
+        INFOPLIST_FILE: McMiner/Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        FRAMEWORK_SEARCH_PATHS:
+          - $(inherited)
+          - $(PROJECT_DIR)/Frameworks
+        OTHER_LDFLAGS:
+          - $(inherited)
+          - -framework
+          - McChainShared
+    dependencies:
+      # scripts/build_shared.sh 产出的 Kotlin/Native 动态 framework（含 arm64 真机与 arm64 模拟器切片）
+      - framework: Frameworks/McChainShared.xcframework
+        embed: true

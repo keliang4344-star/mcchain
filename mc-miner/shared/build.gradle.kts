@@ -17,9 +17,11 @@ kotlin {
     // Windows/Linux 上这些目标的 task 会失败，但 commonMain 的 metadata
     // 编译可在任意主机验证跨平台兼容性（CI 用 :shared:allTests 分机跑）。
     //
-    // 签名架构：commonMain 的 TxSigner 是纯接口，Swift 侧用 Secure Enclave /
-    // CryptoKit 的 SECP256K1 实现该接口后传入 DirectTxBuilder.build(input, signer)，
-    // 交易编码/摘要在 Kotlin 侧与 Android 完全同码，保证两端字节一致。
+    // 签名架构：签名器已下沉到 commonMain（PureSecp256k1Signer，纯 Kotlin secp256k1 +
+    // RFC6979 + low-S），与 Android 共用同一份实现；iOS 侧直接
+    // `McWallet.signer()` 取到 TxSigner 传入 DirectTxBuilder.build，无需第三方加密库。
+    // 注意 iOS 的 Secure Enclave 只支持 P-256，无法保存 secp256k1 私钥，
+    // 因此私钥由 Keychain（ThisDeviceOnly）托管，签名全程不离开进程。
     //
     // macOS 上构建与打包（framework 名 McChainShared）：
     //   ./gradlew :shared:linkReleaseFrameworkIosArm64 :shared:linkReleaseFrameworkIosSimulatorArm64

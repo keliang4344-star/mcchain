@@ -1,0 +1,7 @@
+# Xcode / XcodeGen 生成物与本地配置
+Frameworks/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+*.xcframework/
