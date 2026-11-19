@@ -150,6 +150,9 @@ interface ContributionDao {
     @Query("UPDATE contributions SET status = :status, reward = :reward, verifiedAt = :verifiedAt WHERE id = :id")
     suspend fun updateVerification(id: String, status: ContribStatus, reward: Long, verifiedAt: Long)
 
+    @Query("UPDATE contributions SET status = :status WHERE id = :id")
+    suspend fun updateStatus(id: String, status: ContribStatus)
+
     @Query("SELECT COALESCE(SUM(reward), 0) FROM contributions WHERE deviceId = :deviceId AND status = 'PAID'")
     suspend fun getTotalReward(deviceId: String): Long
 

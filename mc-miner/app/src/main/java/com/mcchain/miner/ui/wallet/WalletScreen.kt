@@ -1,35 +1,88 @@
 package com.mcchain.miner.ui.wallet
 
+import android.content.Intent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mcchain.miner.data.model.TxRecord
+import com.mcchain.miner.data.model.TxStatus
+import com.mcchain.miner.data.model.TxType
+import com.mcchain.miner.data.model.WalletAccount
+import com.mcchain.miner.domain.wallet.TxBuilder
+import com.mcchain.miner.network.Delegation
 import com.mcchain.miner.ui.theme.*
+import kotlinx.coroutines.delay
+import java.math.BigDecimal
+import java.text.DecimalFormat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/** 链上固定网络手续费（5000 umc），仅用于展示，实际由 TxBuilder 签名时写入。 */
+private val walletFeeUmc: Long = TxBuilder.DEFAULT_FEE_UMC.toLong()
+
+private fun formatMcDisplay(umc: Long): String =
+    DecimalFormat("#,##0.######").format(BigDecimal.valueOf(umc, 6)) + " MC"
+
+private fun formatClock(timestamp: Long): String =
+    SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
+
+private fun formatDateTime(timestamp: Long): String =
+    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
 
 @Composable
 fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
     val accounts by viewModel.accounts.collectAsState()
     val transactions by viewModel.transactions.collectAsState()
+    val delegations by viewModel.delegations.collectAsState()
     val backupMnemonic by viewModel.backupMnemonic.collectAsState()
+    val revealedMnemonic by viewModel.revealedMnemonic.collectAsState()
     val busy by viewModel.busy.collectAsState()
+    val refreshing by viewModel.refreshing.collectAsState()
+    val refreshError by viewModel.refreshError.collectAsState()
+    val chainHint by viewModel.chainHint.collectAsState()
+    val lastUpdated by viewModel.lastUpdated.collectAsState()
     val message by viewModel.message.collectAsState()
+    val outcome by viewModel.outcome.collectAsState()
+    val txDetail by viewModel.txDetail.collectAsState()
 
     val defaultAccount = accounts.firstOrNull { it.isDefault }
+    val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
 
     var showSendDialog by remember { mutableStateOf(false) }
+    var showDelegateDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
+    var showMnemonicConfirm by remember { mutableStateOf(false) }
+    var addressCopied by remember { mutableStateOf(false) }
+
+    LaunchedEffect(addressCopied) {
+        if (addressCopied) {
+            delay(1_800)
+            addressCopied = false
+        }
+    }
 
     if (backupMnemonic != null) {
         AlertDialog(
@@ -87,42 +140,212 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
         )
     }
 
+    if (showMnemonicConfirm) {
+        AlertDialog(
+            onDismissRequest = { showMnemonicConfirm = false },
+            title = { Text("查看助记词") },
+            text = {
+                Text(
+                    "助记词可完全控制钱包资产。请确认周围无人窥视；不要截图或通过网络发送。",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showMnemonicConfirm = false
+                        viewModel.revealMnemonic()
+                    }
+                ) { Text("继续查看") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMnemonicConfirm = false }) { Text("取消") }
+            },
+        )
+    }
+
+    revealedMnemonic?.let { words ->
+        var mnemonicCopied by remember(words) { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { viewModel.hideMnemonic() },
+            title = { Text("助记词") },
+            text = {
+                Column {
+                    Text(
+                        "请逐词核对并离线保存，任何拿到助记词的人都能转走资产。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        words.joinToString("  "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    if (mnemonicCopied) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("已复制到剪贴板", style = MaterialTheme.typography.labelSmall, color = StatusActive)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(words.joinToString(" ")))
+                        mnemonicCopied = true
+                    }
+                ) { Text("复制助记词") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.hideMnemonic() }) { Text("完成") }
+            },
+        )
+    }
+
     if (showSendDialog) {
         var toAddress by remember { mutableStateOf("") }
         var amountMc by remember { mutableStateOf("") }
+        var sendError by remember { mutableStateOf<String?>(null) }
         AlertDialog(
-            onDismissRequest = { showSendDialog = false },
-            title = { Text("发送 MC") },
+            onDismissRequest = { if (!busy) showSendDialog = false },
+            title = { Text("转账 MC") },
             text = {
                 Column {
                     OutlinedTextField(
                         value = toAddress,
-                        onValueChange = { toAddress = it },
+                        onValueChange = { toAddress = it; sendError = null },
                         label = { Text("收款地址（mc1...）") },
                         singleLine = true,
+                        enabled = !busy,
                     )
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = amountMc,
-                        onValueChange = { amountMc = it },
+                        onValueChange = { amountMc = it; sendError = null },
                         label = { Text("金额（MC，最多 6 位小数）") },
                         singleLine = true,
+                        enabled = !busy,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "网络手续费：${formatMcDisplay(walletFeeUmc)}，从可用余额中扣除",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    Text(
+                        "可用余额：${formatMcDisplay(defaultAccount?.balance ?: 0L)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    sendError?.let { error ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             },
             confirmButton = {
                 TextButton(
                     enabled = !busy,
                     onClick = {
-                        viewModel.send(toAddress, amountMc)
-                        showSendDialog = false
+                        val error = viewModel.validateTransfer(toAddress, amountMc)
+                        if (error != null) {
+                            sendError = error
+                        } else {
+                            showSendDialog = false
+                            viewModel.send(toAddress, amountMc)
+                        }
                     }
-                ) { Text("确认发送") }
+                ) { Text(if (busy) "提交中..." else "确认发送") }
             },
             dismissButton = {
-                TextButton(onClick = { showSendDialog = false }) { Text("取消") }
+                TextButton(onClick = { showSendDialog = false }, enabled = !busy) { Text("取消") }
             },
         )
+    }
+
+    if (showDelegateDialog) {
+        var validatorAddress by remember { mutableStateOf("") }
+        var amountMc by remember { mutableStateOf("") }
+        var delegateError by remember { mutableStateOf<String?>(null) }
+        AlertDialog(
+            onDismissRequest = { if (!busy) showDelegateDialog = false },
+            title = { Text("质押委托") },
+            text = {
+                Column {
+                    Text(
+                        "请输入验证人地址：手机端不运行验证节点，也不展示未经链上校验的验证人列表。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = validatorAddress,
+                        onValueChange = { validatorAddress = it; delegateError = null },
+                        label = { Text("验证人地址（mcvaloper1...）") },
+                        singleLine = true,
+                        enabled = !busy,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = amountMc,
+                        onValueChange = { amountMc = it; delegateError = null },
+                        label = { Text("委托金额（MC，最多 6 位小数）") },
+                        singleLine = true,
+                        enabled = !busy,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "网络手续费：${formatMcDisplay(walletFeeUmc)}，从可用余额中扣除",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    Text(
+                        "可用余额：${formatMcDisplay(defaultAccount?.balance ?: 0L)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    delegateError?.let { error ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = {
+                        val error = viewModel.validateDelegation(validatorAddress, amountMc)
+                        if (error != null) {
+                            delegateError = error
+                        } else {
+                            showDelegateDialog = false
+                            viewModel.delegate(validatorAddress, amountMc)
+                        }
+                    }
+                ) { Text(if (busy) "提交中..." else "确认委托") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDelegateDialog = false }, enabled = !busy) { Text("取消") }
+            },
+        )
+    }
+
+    outcome?.let { result ->
+        TxOutcomeDialog(outcome = result, onDismiss = { viewModel.clearOutcome() })
+    }
+
+    txDetail?.let { detail ->
+        TxDetailDialog(state = detail, onDismiss = { viewModel.closeTxDetail() })
     }
 
     LazyColumn(
@@ -132,193 +355,527 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
     ) {
         message?.let { text ->
             item {
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text,
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        TextButton(onClick = { viewModel.clearMessage() }) { Text("关闭") }
-                    }
-                }
+                WalletMessageCard(text = text, onClose = { viewModel.clearMessage() })
             }
+        }
+
+        if (busy) {
+            item { BusyCard() }
         }
 
         if (defaultAccount == null) {
             item {
-                Card(shape = RoundedCornerShape(16.dp)) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            "还没有钱包",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "私钥只保存在本机加密存储中。请创建新钱包或导入已有助记词。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            FilledTonalButton(
-                                onClick = { viewModel.createWallet() },
-                                enabled = !busy,
-                                modifier = Modifier.weight(1f),
-                            ) { Text("创建钱包") }
-                            OutlinedButton(
-                                onClick = { showImportDialog = true },
-                                enabled = !busy,
-                                modifier = Modifier.weight(1f),
-                            ) { Text("导入钱包") }
-                        }
-                    }
+                EmptyWalletCard(
+                    busy = busy,
+                    onCreateWallet = { viewModel.createWallet() },
+                    onImportWallet = { showImportDialog = true },
+                )
+            }
+        } else {
+            item {
+                AssetOverviewCard(
+                    account = defaultAccount,
+                    refreshing = refreshing,
+                    lastUpdated = lastUpdated,
+                    hint = chainHint,
+                    onRefresh = { viewModel.refresh() },
+                )
+            }
+
+            refreshError?.let { error ->
+                item {
+                    RefreshErrorCard(error = error, onRetry = { viewModel.refresh() })
                 }
             }
-        }
 
-        // 余额头图
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = McPrimary)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("总余额", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = String.format("%.6f MC", (defaultAccount?.balance ?: 0L) / 1_000_000.0),
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp)
-                    ) {
-                        Text(
-                            text = defaultAccount?.address?.let { it.take(16) + "..." + it.takeLast(8) } ?: "无地址",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        IconButton(
-                            onClick = {
-                                defaultAccount?.address?.let {
-                                    clipboardManager.setText(AnnotatedString(it))
-                                }
-                            }
-                        ) {
-                            Icon(Icons.Filled.ContentCopy, "复制地址",
-                                tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f))
-                        }
-                    }
-                }
-            }
-        }
-
-        // 操作按钮
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                FilledTonalButton(
-                    onClick = { if (defaultAccount != null) showSendDialog = true },
-                    enabled = !busy && defaultAccount != null,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Filled.Send, null, Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("发送")
-                }
-                FilledTonalButton(
-                    onClick = {
-                        defaultAccount?.address?.let {
-                            clipboardManager.setText(AnnotatedString(it))
-                            viewModel.clearMessage()
-                        }
-                    },
-                    enabled = defaultAccount != null,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Filled.Download, null, Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("收款地址")
-                }
-            }
-        }
-
-        // 质押信息
-        item {
-            Card(shape = RoundedCornerShape(16.dp)) {
+            item {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Column {
-                        Text("质押余额", style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                        Text(String.format("%.2f MC", (defaultAccount?.stakeBalance ?: 0L) / 1_000_000.0),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold)
+                    FilledTonalButton(
+                        onClick = { showSendDialog = true },
+                        enabled = !busy && !refreshing,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Filled.Send, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("转账")
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("待领奖励", style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                        Text(String.format("%.6f MC", (defaultAccount?.rewardBalance ?: 0L) / 1_000_000.0),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = McGold)
-                        TextButton(
-                            onClick = { viewModel.claimRewards() },
-                            enabled = !busy && (defaultAccount?.rewardBalance ?: 0L) > 0,
-                        ) {
-                            Text(if (busy) "处理中..." else "领取")
-                        }
+                    OutlinedButton(
+                        onClick = {
+                            clipboardManager.setText(AnnotatedString(defaultAccount.address))
+                            addressCopied = true
+                        },
+                        enabled = !busy,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Filled.ContentCopy, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("收款地址")
                     }
                 }
             }
-        }
 
-        // 交易历史
-        item {
-            Text("交易历史", style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold)
-        }
+            item {
+                ReceiveCard(
+                    address = defaultAccount.address,
+                    copied = addressCopied,
+                    onCopy = {
+                        clipboardManager.setText(AnnotatedString(defaultAccount.address))
+                        addressCopied = true
+                    },
+                    onShare = {
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, "我的 MC 收款地址：${defaultAccount.address}")
+                        }
+                        context.startActivity(Intent.createChooser(intent, "分享收款地址"))
+                    },
+                )
+            }
 
-        items(transactions.size) { index ->
-            TransactionItem(transactions[index])
+            item {
+                StakingCard(
+                    delegations = delegations,
+                    rewardUmc = defaultAccount.rewardBalance,
+                    busy = busy,
+                    onDelegateClick = { showDelegateDialog = true },
+                    onClaim = { viewModel.claimRewards() },
+                )
+            }
+
+            item {
+                WalletSecurityCard(onViewMnemonic = { showMnemonicConfirm = true })
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "交易记录",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (transactions.isNotEmpty()) {
+                        Text(
+                            "${transactions.size} 笔",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        )
+                    }
+                }
+            }
+
+            if (transactions.isEmpty()) {
+                item { EmptyTransactionsCard() }
+            } else {
+                items(transactions, key = { it.hash }) { tx ->
+                    TransactionItem(tx = tx, onClick = { viewModel.openTxDetail(tx) })
+                }
+            }
         }
     }
 }
 
 @Composable
-fun TransactionItem(tx: TxRecord) {
+private fun WalletMessageCard(text: String, onClose: () -> Unit) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            TextButton(onClick = onClose) { Text("关闭") }
+        }
+    }
+}
+
+@Composable
+private fun BusyCard() {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            Spacer(Modifier.width(8.dp))
+            Text("处理中，请稍候…", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun EmptyWalletCard(
+    busy: Boolean,
+    onCreateWallet: () -> Unit,
+    onImportWallet: () -> Unit,
+) {
+    Card(shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "还没有钱包",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "私钥只保存在本机加密存储中。请创建新钱包或导入已有助记词。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilledTonalButton(
+                    onClick = onCreateWallet,
+                    enabled = !busy,
+                    modifier = Modifier.weight(1f),
+                ) { Text("创建钱包") }
+                OutlinedButton(
+                    onClick = onImportWallet,
+                    enabled = !busy,
+                    modifier = Modifier.weight(1f),
+                ) { Text("导入钱包") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssetOverviewCard(
+    account: WalletAccount?,
+    refreshing: Boolean,
+    lastUpdated: Long?,
+    hint: String?,
+    onRefresh: () -> Unit,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = McPrimary)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "资产总览",
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                if (refreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    IconButton(onClick = onRefresh) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = "刷新链上数据",
+                            tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "可用余额",
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                formatMcDisplay(account?.balance ?: 0L),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimary,
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AssetStat(
+                    label = "质押金额",
+                    value = formatMcDisplay(account?.stakeBalance ?: 0L),
+                    modifier = Modifier.weight(1f),
+                )
+                AssetStat(
+                    label = "待领委托奖励",
+                    value = formatMcDisplay(account?.rewardBalance ?: 0L),
+                    valueColor = McGold,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            lastUpdated?.let {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "更新于 ${formatClock(it)}（链上实时查询）",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.55f),
+                )
+            }
+            hint?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = McGold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssetStat(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    valueColor: Color? = null,
+) {
+    Column(modifier = modifier) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = valueColor ?: MaterialTheme.colorScheme.onPrimary,
+        )
+    }
+}
+
+@Composable
+private fun RefreshErrorCard(error: String, onRetry: () -> Unit) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.ErrorOutline,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "链上数据刷新失败",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                Text(
+                    error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+            TextButton(onClick = onRetry) { Text("重试") }
+        }
+    }
+}
+
+@Composable
+private fun ReceiveCard(
+    address: String,
+    copied: Boolean,
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+) {
+    Card(shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "收款地址",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                if (copied) {
+                    Text(
+                        "已复制",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = StatusActive,
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                address,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilledTonalButton(onClick = onCopy, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Filled.ContentCopy, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("复制地址")
+                }
+                OutlinedButton(onClick = onShare, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Filled.Share, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("分享")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StakingCard(
+    delegations: List<Delegation>,
+    rewardUmc: Long,
+    busy: Boolean,
+    onDelegateClick: () -> Unit,
+    onClaim: () -> Unit,
+) {
+    Card(shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "质押委托",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                FilledTonalButton(onClick = onDelegateClick, enabled = !busy) {
+                    Icon(Icons.Filled.AddCircle, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("委托")
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "待领委托奖励：${formatMcDisplay(rewardUmc)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = McGold,
+            )
+            Spacer(Modifier.height(8.dp))
+            if (delegations.isEmpty()) {
+                Text(
+                    "暂无链上委托记录。手机端不运行验证节点，收益以链上实际发放为准。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            } else {
+                delegations.forEach { delegation ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "验证人",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            )
+                            Text(
+                                shortAddress(delegation.validatorAddress),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Text(
+                            formatMcDisplay(delegation.amount),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onClaim,
+                enabled = !busy && rewardUmc > 0,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (busy) "处理中..." else "领取全部委托奖励")
+            }
+        }
+    }
+}
+
+@Composable
+private fun WalletSecurityCard(onViewMnemonic: () -> Unit) {
+    Card(shape = RoundedCornerShape(16.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "钱包安全",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "助记词仅保存在本机加密存储，查看前需要二次确认。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            }
+            TextButton(onClick = onViewMnemonic) { Text("查看助记词") }
+        }
+    }
+}
+
+@Composable
+private fun EmptyTransactionsCard() {
+    Card(shape = RoundedCornerShape(12.dp)) {
+        Text(
+            "暂无交易记录。链上转账、委托与领取奖励后会显示在这里。",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+    }
+}
+
+@Composable
+fun TransactionItem(tx: TxRecord, onClick: () -> Unit = {}) {
+    val timeText = remember(tx.timestamp) {
+        SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(tx.timestamp))
+    }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(
@@ -328,58 +885,294 @@ fun TransactionItem(tx: TxRecord) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = when (tx.type) {
-                    com.mcchain.miner.data.model.TxType.SEND -> Icons.Filled.ArrowUpward
-                    com.mcchain.miner.data.model.TxType.DELEGATE -> Icons.Filled.AddCircle
-                    com.mcchain.miner.data.model.TxType.CLAIM_REWARDS -> Icons.Filled.CardGiftcard
-                    else -> Icons.Filled.SwapHoriz
-                },
+                imageVector = txTypeIcon(tx.type),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(32.dp)
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = when (tx.type) {
-                        com.mcchain.miner.data.model.TxType.SEND -> "转账"
-                        com.mcchain.miner.data.model.TxType.DELEGATE -> "质押"
-                        com.mcchain.miner.data.model.TxType.CLAIM_REWARDS -> "领取收益"
-                        com.mcchain.miner.data.model.TxType.ATTEST_NODE -> "节点认证"
-                        com.mcchain.miner.data.model.TxType.REPORT_CONTRIB -> "贡献上报"
-                        com.mcchain.miner.data.model.TxType.SUBMIT_TASK -> "提交任务"
-                        else -> "其他"
-                    },
+                    text = txTypeLabel(tx.type),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = tx.hash.take(12) + "...",
+                    text = timeText + " · " + shortHash(tx.hash),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = String.format("%.2f MC", tx.amount / 1_000_000.0),
+                    text = formatSignedAmount(tx),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = if (tx.type == com.mcchain.miner.data.model.TxType.SEND) McHighlight else StatusActive
+                    color = txAmountColor(tx.type),
                 )
                 Text(
-                    text = when (tx.status) {
-                        com.mcchain.miner.data.model.TxStatus.SUCCESS -> "成功"
-                        com.mcchain.miner.data.model.TxStatus.PENDING -> "确认中"
-                        com.mcchain.miner.data.model.TxStatus.FAILED -> "失败"
-                    },
+                    text = txStatusLabel(tx.status),
                     style = MaterialTheme.typography.labelSmall,
-                    color = when (tx.status) {
-                        com.mcchain.miner.data.model.TxStatus.SUCCESS -> StatusActive
-                        com.mcchain.miner.data.model.TxStatus.PENDING -> StatusPending
-                        com.mcchain.miner.data.model.TxStatus.FAILED -> StatusSlashed
-                    }
+                    color = txStatusColor(tx.status),
                 )
             }
         }
     }
 }
+
+@Composable
+private fun TxOutcomeDialog(outcome: TxOutcome, onDismiss: () -> Unit) {
+    val clipboardManager = LocalClipboardManager.current
+    var copied by remember(outcome.txHash) { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(outcome.title) },
+        text = {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (outcome.success) Icons.Filled.CheckCircle else Icons.Filled.ErrorOutline,
+                        contentDescription = null,
+                        tint = if (outcome.success) StatusActive else MaterialTheme.colorScheme.error,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(outcome.message, style = MaterialTheme.typography.bodySmall)
+                }
+                if (outcome.pending) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "交易已广播，正在等待链上确认。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = StatusPending,
+                    )
+                }
+                if (outcome.txHash.isNotBlank()) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "交易哈希",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    Text(
+                        outcome.txHash,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                    TextButton(
+                        contentPadding = PaddingValues(0.dp),
+                        onClick = {
+                            clipboardManager.setText(AnnotatedString(outcome.txHash))
+                            copied = true
+                        }
+                    ) { Text(if (copied) "已复制" else "复制哈希") }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        },
+    )
+}
+
+@Composable
+private fun TxDetailDialog(state: TxDetailState, onDismiss: () -> Unit) {
+    val clipboardManager = LocalClipboardManager.current
+    var rawExpanded by remember(state.record.hash) { mutableStateOf(false) }
+    val receipt = state.receipt
+    val failureReason = when {
+        receipt != null && receipt.code != 0 -> {
+            val codespace = receipt.codespace.ifBlank { "unknown" }
+            receipt.log.ifBlank { "链上返回错误码 ${receipt.code}（$codespace）" }
+        }
+        state.record.status == TxStatus.FAILED ->
+            "链上未返回失败日志（节点可能已裁剪该交易回执）"
+        else -> null
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("交易详情") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = txTypeIcon(state.record.type),
+                        contentDescription = null,
+                        tint = txStatusColor(state.record.status),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        txTypeLabel(state.record.type),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        txStatusLabel(state.record.status),
+                        color = txStatusColor(state.record.status),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                DetailRow("金额", formatSignedAmount(state.record))
+                DetailRow(
+                    label = "交易哈希",
+                    value = state.record.hash,
+                    onCopy = { clipboardManager.setText(AnnotatedString(state.record.hash)) },
+                )
+                DetailRow(
+                    "区块高度",
+                    if (state.record.height > 0) state.record.height.toString() else "待确认",
+                )
+                DetailRow("时间", formatDateTime(state.record.timestamp))
+                DetailRow("手续费", formatMcDisplay(state.record.fee))
+                if (state.record.toAddress.isNotBlank()) {
+                    DetailRow(
+                        label = "对方地址",
+                        value = state.record.toAddress,
+                        onCopy = { clipboardManager.setText(AnnotatedString(state.record.toAddress)) },
+                    )
+                }
+                if (state.record.memo.isNotBlank()) {
+                    DetailRow("备注", state.record.memo)
+                }
+
+                if (state.loading) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("正在查询链上回执…", style = MaterialTheme.typography.bodySmall)
+                    }
+                } else if (receipt != null) {
+                    DetailRow("链上返回码", receipt.code.toString())
+                    if (receipt.gasUsed > 0) DetailRow("Gas 消耗", receipt.gasUsed.toString())
+                } else {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "链上暂未查询到该交易回执（可能仍在打包或节点未保留历史）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                }
+
+                failureReason?.let { reason ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "失败原因",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Text(
+                        reason,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Text("原始信息", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                TextButton(
+                    contentPadding = PaddingValues(0.dp),
+                    onClick = { rawExpanded = !rawExpanded },
+                ) { Text(if (rawExpanded) "收起原始数据" else "展开原始数据") }
+                Text(
+                    state.record.rawJson.ifBlank { "无" },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = if (rawExpanded) Int.MAX_VALUE else 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        },
+    )
+}
+
+@Composable
+private fun DetailRow(label: String, value: String, onCopy: (() -> Unit)? = null) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.weight(1f),
+            )
+            if (onCopy != null) {
+                IconButton(onClick = onCopy, modifier = Modifier.size(24.dp)) {
+                    Icon(
+                        Icons.Filled.ContentCopy,
+                        contentDescription = "复制$label",
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+        }
+        Text(value, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+private fun txTypeLabel(type: TxType): String = when (type) {
+    TxType.SEND -> "转账"
+    TxType.DELEGATE -> "质押委托"
+    TxType.UNDELEGATE -> "解除委托"
+    TxType.REDELEGATE -> "转委托"
+    TxType.CLAIM_REWARDS -> "领取奖励"
+    TxType.REGISTER_DEVICE -> "设备注册"
+    TxType.ATTEST_NODE -> "节点认证"
+    TxType.REPORT_CONTRIB -> "贡献上报"
+    TxType.SUBMIT_TASK -> "提交任务"
+    TxType.UNKNOWN -> "其他"
+}
+
+private fun txTypeIcon(type: TxType): ImageVector = when (type) {
+    TxType.SEND -> Icons.Filled.ArrowUpward
+    TxType.DELEGATE -> Icons.Filled.AddCircle
+    TxType.UNDELEGATE, TxType.REDELEGATE -> Icons.Filled.SwapHoriz
+    TxType.CLAIM_REWARDS -> Icons.Filled.CardGiftcard
+    TxType.REGISTER_DEVICE -> Icons.Filled.PhoneAndroid
+    TxType.ATTEST_NODE -> Icons.Filled.CheckCircle
+    TxType.REPORT_CONTRIB -> Icons.Filled.Upload
+    TxType.SUBMIT_TASK -> Icons.Filled.Memory
+    TxType.UNKNOWN -> Icons.Filled.SwapHoriz
+}
+
+private fun txStatusLabel(status: TxStatus): String = when (status) {
+    TxStatus.SUCCESS -> "成功"
+    TxStatus.PENDING -> "确认中"
+    TxStatus.FAILED -> "失败"
+}
+
+private fun txStatusColor(status: TxStatus): Color = when (status) {
+    TxStatus.SUCCESS -> StatusActive
+    TxStatus.PENDING -> StatusPending
+    TxStatus.FAILED -> StatusSlashed
+}
+
+private fun txAmountColor(type: TxType): Color = when (type) {
+    TxType.SEND, TxType.DELEGATE -> McHighlight
+    TxType.UNDELEGATE, TxType.CLAIM_REWARDS -> StatusActive
+    else -> Color.Unspecified
+}
+
+private fun formatSignedAmount(tx: TxRecord): String = when (tx.type) {
+    TxType.SEND, TxType.DELEGATE -> "-" + formatMcDisplay(tx.amount)
+    TxType.UNDELEGATE, TxType.CLAIM_REWARDS -> "+" + formatMcDisplay(tx.amount)
+    else -> formatMcDisplay(tx.amount)
+}
+
+private fun shortHash(hash: String): String =
+    if (hash.length <= 16) hash else hash.take(8) + "..." + hash.takeLast(6)
+
+private fun shortAddress(address: String): String =
+    if (address.length <= 24) address else address.take(14) + "..." + address.takeLast(8)

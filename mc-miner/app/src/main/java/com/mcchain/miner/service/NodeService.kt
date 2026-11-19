@@ -41,6 +41,7 @@ class NodeService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         acquireWakeLock()
     }
 
@@ -52,10 +53,14 @@ class NodeService : LifecycleService() {
         return START_STICKY
     }
 
-    override fun onBind(intent: Intent): IBinder? = null
+    override fun onBind(intent: Intent): IBinder? {
+        super.onBind(intent)
+        return null
+    }
 
     override fun onDestroy() {
         stopServices()
+        isRunning = false
         super.onDestroy()
     }
 
@@ -66,7 +71,8 @@ class NodeService : LifecycleService() {
             "mcchain:node_sync"
         ).apply {
             setReferenceCounted(false)
-            acquire(10 * 60 * 1000L)
+            // 服务由前台通知维持；不能在 10 分钟后自动释放，否则息屏后同步/心跳中断。
+            acquire()
         }
     }
 
@@ -196,6 +202,8 @@ class NodeService : LifecycleService() {
     }
 
     private fun updateNotification(height: Long, catchingUp: Boolean) {
+        // 「常驻通知」关闭时不刷新状态通知；前台服务仍需保留系统要求的最小通知。
+        if (!securePrefs.notificationEnabled) return
         val text = if (catchingUp) "同步中 - 区块 #$height" else "已同步 - 区块 #$height"
         val notification = NotificationCompat.Builder(this, McMinerApp.CHANNEL_NODE)
             .setContentTitle("MCChain 节点")
@@ -230,6 +238,10 @@ class NodeService : LifecycleService() {
     companion object {
         const val NOTIFICATION_ID = 1001
         const val ALERT_NOTIFICATION_ID = 1003
+
+        /** 前台服务是否存活；仅供 UI 显示，重启进程后由 onCreate 重新置位。 */
+        @Volatile
+        var isRunning: Boolean = false
 
         fun start(context: Context) {
             val intent = Intent(context, NodeService::class.java)

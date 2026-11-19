@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,7 +29,12 @@ import com.mcchain.miner.data.model.PhoneNodeRecord
 import com.mcchain.miner.data.model.WalletAccount
 import com.mcchain.miner.ui.theme.*
 @Composable
-fun DashboardScreen(viewModel: DashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
+fun DashboardScreen(
+    onOpenWallet: () -> Unit = {},
+    onOpenNode: () -> Unit = {},
+    onOpenMining: () -> Unit = {},
+    viewModel: DashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+) {
     val nodeStatus by viewModel.nodeStatus.collectAsState()
     val phoneNode by viewModel.phoneNode.collectAsState()
     val account by viewModel.account.collectAsState()
@@ -45,6 +51,17 @@ fun DashboardScreen(viewModel: DashboardViewModel = androidx.lifecycle.viewmodel
             NodeStatusCard(nodeStatus, phoneNode)
         }
 
+        // 首启接入进度
+        item {
+            OnboardingCard(
+                account = account,
+                phoneNode = phoneNode,
+                onOpenWallet = onOpenWallet,
+                onOpenNode = onOpenNode,
+                onOpenMining = onOpenMining
+            )
+        }
+
         // 余额卡片
         item {
             BalanceCard(account, totalReward)
@@ -52,7 +69,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = androidx.lifecycle.viewmodel
 
         // 快捷操作
         item {
-            QuickActions()
+            QuickActions(onOpenWallet)
         }
 
         // 链参数速览
@@ -95,7 +112,7 @@ fun NodeStatusCard(status: NodeStatusSnapshot?, phoneNode: PhoneNodeRecord?) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = when (phoneNode?.status) {
-                        NodeStatus.ACTIVE -> "计量中（未上链）"
+                        NodeStatus.ACTIVE -> "在线参与中"
                         NodeStatus.GRACE -> "宽限期"
                         NodeStatus.JAILED -> "已关押"
                         NodeStatus.PENDING -> "认证中"
@@ -115,6 +132,15 @@ fun NodeStatusCard(status: NodeStatusSnapshot?, phoneNode: PhoneNodeRecord?) {
                 StatItem("区块高度", "#${status?.currentHeight ?: 0}", Color.White)
                 StatItem("同步节点", "${status?.syncedPeers ?: 0}", Color.White)
                 StatItem("链ID", MCParams.CHAIN_ID, Color.White)
+            }
+
+            if (status == null || status.currentHeight <= 0) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "未连接链上节点：请到「设置 → RPC 端点」填写可达节点并测试连接",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = McGold
+                )
             }
         }
     }
@@ -159,16 +185,9 @@ fun BalanceCard(account: WalletAccount?, totalReward: Long) {
                         style = MaterialTheme.typography.bodyMedium)
                 }
                 Column {
-                    Text("链上奖励", style = MaterialTheme.typography.labelSmall,
+                    Text("待领委托奖励", style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                     Text(String.format("%.2f MC", totalReward / 1_000_000.0),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = McGold)
-                }
-                Column {
-                    Text("待领奖励", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                    Text(String.format("%.2f MC", (account?.rewardBalance ?: 0L) / 1_000_000.0),
                         style = MaterialTheme.typography.bodyMedium,
                         color = StatusActive)
                 }
@@ -178,22 +197,125 @@ fun BalanceCard(account: WalletAccount?, totalReward: Long) {
 }
 
 @Composable
-fun QuickActions() {
-    Row(
+fun OnboardingCard(
+    account: WalletAccount?,
+    phoneNode: PhoneNodeRecord?,
+    onOpenWallet: () -> Unit,
+    onOpenNode: () -> Unit,
+    onOpenMining: () -> Unit
+) {
+    val walletDone = account != null
+    val nodeDone = phoneNode?.status == NodeStatus.ACTIVE
+    // 未完成钱包与认证时不把「服务在跑」算作已开始贡献，避免误导。
+    val miningDone = walletDone && nodeDone && com.mcchain.miner.service.MinerService.isRunning
+    val doneCount = listOf(walletDone, nodeDone, miningDone).count { it }
+
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        ActionButton(Icons.Filled.Send, "转账", Modifier.weight(1f))
-        ActionButton(Icons.Filled.AddCircle, "质押", Modifier.weight(1f))
-        ActionButton(Icons.Filled.Download, "领取收益", Modifier.weight(1f))
-        ActionButton(Icons.Filled.SwapHoriz, "兑换", Modifier.weight(1f))
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("接入进度", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("$doneCount / 3", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = doneCount / 3f,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OnboardingStep(
+                index = 1,
+                title = "创建或导入钱包",
+                done = walletDone,
+                actionText = if (walletDone) "已完成" else "去创建",
+                enabled = !walletDone,
+                onClick = onOpenWallet
+            )
+            OnboardingStep(
+                index = 2,
+                title = "完成设备认证",
+                done = nodeDone,
+                actionText = if (nodeDone) "已在线" else if (walletDone) "去认证" else "需先创建钱包",
+                enabled = walletDone && !nodeDone,
+                onClick = onOpenNode
+            )
+            OnboardingStep(
+                index = 3,
+                title = "开始贡献资源",
+                done = miningDone,
+                actionText = if (miningDone) "运行中" else if (nodeDone) "去开启" else "需先完成认证",
+                enabled = nodeDone && !miningDone,
+                onClick = onOpenMining
+            )
+        }
     }
 }
 
 @Composable
-fun ActionButton(icon: ImageVector, label: String, modifier: Modifier = Modifier) {
+private fun OnboardingStep(
+    index: Int,
+    title: String,
+    done: Boolean,
+    actionText: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = if (done) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+            contentDescription = null,
+            tint = if (done) StatusActive else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = "$index. $title",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+            color = if (done) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+        )
+        Text(
+            text = actionText,
+            style = MaterialTheme.typography.labelSmall,
+            color = when {
+                done -> StatusActive
+                enabled -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            }
+        )
+    }
+}
+
+@Composable
+fun QuickActions(onOpenWallet: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        ActionButton(Icons.Filled.Send, "转账", Modifier.weight(1f), onOpenWallet)
+        ActionButton(Icons.Filled.Download, "领取收益", Modifier.weight(1f), onOpenWallet)
+        ActionButton(Icons.Filled.AccountBalanceWallet, "钱包", Modifier.weight(1f), onOpenWallet)
+    }
+}
+
+@Composable
+fun ActionButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
     Card(
-        modifier = modifier.clickable { },
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {

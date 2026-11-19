@@ -112,7 +112,10 @@ class AndroidKeyAttestation @Inject constructor(
             .setDigests(KeyProperties.DIGEST_SHA256)
             .setAttestationChallenge(challenge)
             .setUserAuthenticationRequired(false)
-        if (strongBox) builder.setIsStrongBoxBacked(true)
+        // StrongBox 参数仅在 API 28+ 存在；低版本调用方不会请求 strongBox。
+        if (strongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            builder.setIsStrongBoxBacked(true)
+        }
 
         val generator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, ANDROID_KEYSTORE)
         generator.initialize(builder.build())

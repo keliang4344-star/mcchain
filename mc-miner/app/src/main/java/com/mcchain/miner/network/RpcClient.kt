@@ -59,6 +59,29 @@ class RpcClient @Inject constructor(
     }
 
     /**
+     * 连通性探测：能取到非零区块高度即视为 RPC 可达。
+     */
+    suspend fun ping(): Boolean = runCatching { getLatestBlockHeight() > 0L }.getOrDefault(false)
+
+    /**
+     * 针对指定端点做探测，不修改当前客户端端点（供设置页「测试连接」使用）。
+     */
+    suspend fun ping(target: String): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val body = gson.toJson(
+                mapOf("jsonrpc" to "2.0", "id" to 1, "method" to "status", "params" to emptyMap<String, Any>())
+            ).toRequestBody(JSON)
+            val request = Request.Builder()
+                .url(target.trim().trimEnd('/'))
+                .post(body)
+                .build()
+            client.newCall(request).execute().use { response ->
+                response.isSuccessful && (response.body?.string()?.contains("latest_block_height") == true)
+            }
+        }.getOrDefault(false)
+    }
+
+    /**
      * 获取节点状态
      */
     suspend fun getNodeStatus(): NodeStatusSnapshot? {

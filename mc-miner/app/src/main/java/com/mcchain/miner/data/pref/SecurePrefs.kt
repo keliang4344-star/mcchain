@@ -93,6 +93,22 @@ class SecurePrefs @Inject constructor(
         get() = requirePrefs().getString(KEY_BATTERY_CONFIG, "medium") ?: "medium"
         set(value) = requirePrefs().edit().putString(KEY_BATTERY_CONFIG, value).apply()
 
+    /**
+     * 是否显示前台服务常驻通知（默认 true）。
+     * 由 E0 在 MinerService / NodeService 构建通知前读取；关闭时服务仍运行，只是不展示常驻通知。
+     */
+    var notificationEnabled: Boolean
+        get() = requirePrefs().getBoolean(KEY_NOTIFICATION_ENABLED, true)
+        set(value) = requirePrefs().edit().putBoolean(KEY_NOTIFICATION_ENABLED, value).apply()
+
+    /**
+     * 是否在设备重启后自动恢复服务（默认 false，需用户显式开启）。
+     * 由 E0 在 BootReceiver 中读取；为 true 时才依据 nodeSyncEnabled / miningEnabled 启动对应服务。
+     */
+    var autoStartEnabled: Boolean
+        get() = requirePrefs().getBoolean(KEY_AUTO_START_ENABLED, false)
+        set(value) = requirePrefs().edit().putBoolean(KEY_AUTO_START_ENABLED, value).apply()
+
     // === 设备标识 ===
     var deviceId: String?
         get() = requirePrefs().getString(KEY_DEVICE_ID, null)
@@ -146,6 +162,8 @@ class SecurePrefs @Inject constructor(
         private const val KEY_NODE_SYNC_ENABLED = "node_sync_enabled"
         private const val KEY_WIFI_ONLY = "wifi_only"
         private const val KEY_BATTERY_CONFIG = "battery_config"
+        private const val KEY_NOTIFICATION_ENABLED = "notification_enabled"
+        private const val KEY_AUTO_START_ENABLED = "auto_start_enabled"
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_ATTEST_TOKEN = "attest_token"
         private const val KEY_ATTEST_EXPIRY = "attest_expiry"

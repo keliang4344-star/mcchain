@@ -3,6 +3,9 @@ package com.mcchain.miner.service
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.BatteryManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -59,6 +62,7 @@ class MinerService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         acquireWakeLock()
     }
 
@@ -69,12 +73,16 @@ class MinerService : LifecycleService() {
         return START_STICKY
     }
 
-    override fun onBind(intent: Intent): IBinder? = null
+    override fun onBind(intent: Intent): IBinder? {
+        super.onBind(intent)
+        return null
+    }
 
     override fun onDestroy() {
         miningJob?.cancel()
         serviceScope.cancel()
         wakeLock?.release()
+        isRunning = false
         super.onDestroy()
     }
 
@@ -85,7 +93,8 @@ class MinerService : LifecycleService() {
             "mcchain:mining"
         ).apply {
             setReferenceCounted(false)
-            acquire(10 * 60 * 1000L)
+            // 服务由前台通知维持；不能在 10 分钟后自动释放，否则息屏后心跳中断会被链上判离线。
+            acquire()
         }
     }
 
@@ -104,12 +113,29 @@ class MinerService : LifecycleService() {
     }
 
     private suspend fun miningCycle() {
-        val deviceId = securePrefs.deviceId ?: return
-        val node = phoneNodeDao.getByDeviceId(deviceId) ?: return
-        if (node.status != NodeStatus.ACTIVE) return
+        val deviceId = securePrefs.deviceId
+        if (deviceId == null) {
+            updateMiningNotification("未初始化设备：请先在「节点」页完成设备认证")
+            return
+        }
+        val node = phoneNodeDao.getByDeviceId(deviceId)
+        if (node == null) {
+            updateMiningNotification("未注册节点：请先在「节点」页完成设备认证")
+            return
+        }
+        if (node.status != NodeStatus.ACTIVE) {
+            updateMiningNotification("节点状态为「${statusText(node.status)}」，暂停贡献")
+            return
+        }
 
         // 1. 在线心跳（防离线 slash：grace 100 块，这里每 2 分钟一次）
         maybeSendHeartbeat(deviceId, node)
+
+        // 心跳不受功耗策略影响：已认证节点停止心跳会被链上判离线并进入冷却期。
+        if (!powerPolicyAllowsMeasurement()) {
+            updateMiningNotification("功耗策略限制：当前不计量贡献（心跳保持在线）")
+            return
+        }
 
         // 2. 计量带宽贡献
         measureBandwidthContribution(deviceId)
@@ -122,6 +148,38 @@ class MinerService : LifecycleService() {
 
         // 5. 更新通知
         updateMiningNotification()
+    }
+
+    private fun statusText(status: NodeStatus): String = when (status) {
+        NodeStatus.UNREGISTERED -> "未注册"
+        NodeStatus.PENDING -> "认证中"
+        NodeStatus.ACTIVE -> "在线"
+        NodeStatus.GRACE -> "宽限期"
+        NodeStatus.JAILED -> "已关押"
+        NodeStatus.SLASHED -> "已罚没"
+    }
+
+    /** 功耗策略：low=仅 Wi-Fi 且充电；medium=仅 Wi-Fi（可关）；high=始终。 */
+    private fun powerPolicyAllowsMeasurement(): Boolean {
+        val config = runCatching { securePrefs.batteryConfig }.getOrDefault("medium")
+        val wifiOnly = runCatching { securePrefs.wifiOnly }.getOrDefault(true)
+        return when (config) {
+            "low" -> isOnWifi() && isCharging()
+            "high" -> true
+            else -> !wifiOnly || isOnWifi()
+        }
+    }
+
+    private fun isOnWifi(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+    }
+
+    private fun isCharging(): Boolean {
+        val bm = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        return bm.isCharging
     }
 
     /**
@@ -236,9 +294,9 @@ class MinerService : LifecycleService() {
         val result = transactionService.submitContribution(contribution.id, chainTaskType, score)
         when {
             result.success || result.idempotent -> {
-                contributionDao.updateVerification(
-                    contribution.id, ContribStatus.VERIFIED, 0L, System.currentTimeMillis()
-                )
+                // 广播成功只代表交易已被接受，链上是否通过验证/结算由链上状态决定，
+                // 这里不能直接标成 VERIFIED（否则等于伪造验证结果）。
+                contributionDao.updateStatus(contribution.id, ContribStatus.SUBMITTED)
                 submittedCount++
             }
             else -> {
@@ -300,16 +358,18 @@ class MinerService : LifecycleService() {
             .build()
     }
 
-    private fun updateMiningNotification() {
+    private fun updateMiningNotification(idleReason: String? = null) {
+        // 「常驻通知」关闭时不刷新状态通知；前台服务仍需保留系统要求的最小通知。
+        if (!securePrefs.notificationEnabled) return
+        val title = if (idleReason != null) "贡献已暂停" else "贡献计量运行中"
+        val text = when {
+            idleReason != null -> idleReason
+            submittedCount > 0 -> "本机计量 $contributionCount 次，已上链提交 $submittedCount 次"
+            else -> "本次已计量 $contributionCount 次（仅本机，未上链）"
+        }
         val notification = NotificationCompat.Builder(this, McMinerApp.CHANNEL_MINING)
-            .setContentTitle("贡献计量运行中")
-            .setContentText(
-                if (submittedCount > 0) {
-                    "本机计量 $contributionCount 次，已上链提交 $submittedCount 次"
-                } else {
-                    "本次已计量 $contributionCount 次（仅本机，未上链）"
-                }
-            )
+            .setContentTitle(title)
+            .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_share)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -323,6 +383,10 @@ class MinerService : LifecycleService() {
 
         /** 心跳间隔：远小于链上 OfflineGraceBlocks（100 块 ≈ 400s）。 */
         const val HEARTBEAT_INTERVAL_MS = 120_000L
+
+        /** 前台服务是否存活；仅供 UI 显示，重启进程后由 onCreate 重新置位。 */
+        @Volatile
+        var isRunning: Boolean = false
 
         fun start(context: Context) {
             val intent = Intent(context, MinerService::class.java)

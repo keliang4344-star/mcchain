@@ -71,12 +71,24 @@ class McMinerApp : Application(), Configuration.Provider {
             description = "罚没警告、下线通知等重要提醒"
         }
         manager.createNotificationChannel(alertChannel)
+
+        // 连接状态通道（供服务层展示 RPC/P2P 连接异常等轻量状态）
+        val connectionChannel = NotificationChannel(
+            CHANNEL_CONNECTION,
+            "连接状态",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "节点连接、RPC 可达性与同步异常提示"
+            setShowBadge(false)
+        }
+        manager.createNotificationChannel(connectionChannel)
     }
 
     companion object {
         const val CHANNEL_NODE = "mcchain_node"
         const val CHANNEL_MINING = "mcchain_mining"
         const val CHANNEL_ALERT = "mcchain_alert"
+        const val CHANNEL_CONNECTION = "mcchain_connection"
 
         lateinit var instance: McMinerApp
             private set

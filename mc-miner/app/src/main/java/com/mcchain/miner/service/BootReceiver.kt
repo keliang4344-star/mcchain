@@ -18,6 +18,9 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
 
+        // 用户未开启「开机自启」时不自动恢复服务。
+        if (!securePrefs.autoStartEnabled) return
+
         if (securePrefs.nodeSyncEnabled) {
             NodeService.start(context)
         }
