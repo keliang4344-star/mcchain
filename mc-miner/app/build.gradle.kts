@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,9 +8,28 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// 发布签名：keystore.properties 存在才启用（不入库，见根 .gitignore）；
+// 缺失时 release 退回 debug 签名，保证 CI/本地仍能产出可安装的 release 包。
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+val keystoreProperties = Properties().apply {
+    if (hasReleaseKeystore) load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.mcchain.miner"
     compileSdk = 34
+
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.mcchain.miner"
@@ -38,6 +60,12 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                // 无 keystore 时用 debug 签名：产物可安装自测，但绝不可上传 Play。
+                signingConfigs.getByName("debug")
+            }
         }
         debug {
             isMinifyEnabled = false

@@ -20,6 +20,9 @@
 -keep class org.bitcoinj.** { *; }
 -dontwarn org.bitcoinj.**
 
+# slf4j（bitcoinj 传递依赖，运行期用 no-op 绑定即可，R8 不需要 StaticLoggerBinder）
+-dontwarn org.slf4j.**
+
 # BouncyCastle
 -keep class org.bouncycastle.** { *; }
 -dontwarn org.bouncycastle.jce.provider.**

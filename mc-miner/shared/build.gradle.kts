@@ -5,11 +5,36 @@ plugins {
 kotlin {
     jvmToolchain(17)
 
-    // Phase 0 只启用 JVM 目标（Android 直接消费）。
-    // iOS 目标（iosArm64/iosX64/iosSimulatorArm64）在 Phase 1 接入，届时只需在此追加。
+    // Android 直接消费 jvm 目标。
     jvm {
         compilations.all {
             kotlinOptions.jvmTarget = "17"
+        }
+    }
+
+    // Phase 5：iOS 目标（XCFramework 供 SwiftUI 工程消费）。
+    // 注意：Kotlin/Native 的 iOS 编译/链接只能在 macOS 主机执行；
+    // Windows/Linux 上这些目标的 task 会失败，但 commonMain 的 metadata
+    // 编译可在任意主机验证跨平台兼容性（CI 用 :shared:allTests 分机跑）。
+    //
+    // 签名架构：commonMain 的 TxSigner 是纯接口，Swift 侧用 Secure Enclave /
+    // CryptoKit 的 SECP256K1 实现该接口后传入 DirectTxBuilder.build(input, signer)，
+    // 交易编码/摘要在 Kotlin 侧与 Android 完全同码，保证两端字节一致。
+    //
+    // macOS 上构建与打包（framework 名 McChainShared）：
+    //   ./gradlew :shared:linkReleaseFrameworkIosArm64 :shared:linkReleaseFrameworkIosSimulatorArm64
+    //   xcodebuild -create-xcframework \
+    //     -framework build/bin/iosArm64/releaseFramework/McChainShared.framework \
+    //     -framework build/bin/iosSimulatorArm64/releaseFramework/McChainShared.framework \
+    //     -output build/McChainShared.xcframework
+    iosArm64 {
+        binaries.framework {
+            baseName = "McChainShared"
+        }
+    }
+    iosSimulatorArm64 {
+        binaries.framework {
+            baseName = "McChainShared"
         }
     }
 
