@@ -24,8 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import java.math.BigDecimal
-import java.math.RoundingMode
 
 /** 生态子页面统一头部：返回、标题、刷新。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,14 +99,8 @@ fun EcosystemMessageCard(message: EcosystemMessage?, onDismiss: () -> Unit) {
     }
 }
 
-/** umc -> MC 展示字符串，最多 6 位小数，不使用科学计数法。 */
-fun formatMcAmount(umc: Long): String {
-    if (umc == 0L) return "0"
-    val value = BigDecimal(umc).divide(BigDecimal(1_000_000), 6, RoundingMode.DOWN)
-        .stripTrailingZeros()
-        .toPlainString()
-    return value.ifBlank { "0" }
-}
+/** umc -> MC 展示字符串，统一走 shared 的精度规则。 */
+fun formatMcAmount(umc: Long): String = com.mcchain.miner.shared.util.McAmount.format(umc)
 
 /** 地址中间截断。 */
 fun shortenAddress(value: String): String =

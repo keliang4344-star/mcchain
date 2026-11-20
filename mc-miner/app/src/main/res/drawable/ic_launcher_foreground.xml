@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自适应图标前景：品牌青色的 M 与金色节点圆点，内容位于 72x72 安全区内。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00D4AA"
+        android:pathData="M30,74 L30,40 L42,40 L54,58 L66,40 L78,40 L78,74 L66,74 L66,56 L54,72 L42,56 L42,74 Z" />
+    <path
+        android:fillColor="#F5B700"
+        android:pathData="M80,30 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+</vector>

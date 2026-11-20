@@ -14,10 +14,9 @@ import com.mcchain.miner.network.IndexerClient
 import com.mcchain.miner.network.ReferralRecord
 import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.network.TokenomicsSnapshot
+import com.mcchain.miner.shared.util.McAmount
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
-import java.math.BigDecimal
-import java.math.RoundingMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -336,7 +335,7 @@ class EcosystemViewModel @Inject constructor(
     /** 试算指定池的 A→B 兑换，仅展示链上计算结果，不签名、不广播。 */
     fun estimateDexSwap(pool: DexPool, amountMc: String) {
         if (_dexQuoteBusy.value) return
-        val amountUmc = parseMcToUmc(amountMc)
+        val amountUmc = McAmount.parseToUmc(amountMc)
         if (amountUmc == null || amountUmc <= 0L) {
             _dexQuoteError.value = "请输入大于 0 的金额（最多 6 位小数）"
             return
@@ -371,15 +370,3 @@ class EcosystemViewModel @Inject constructor(
 
 /** 某个池的只读试算结果。 */
 data class DexQuoteState(val poolId: Long, val quote: DexSwapQuote)
-
-/** MC 字符串转 umc；非法或溢出返回 null（兼容 minSdk 26）。 */
-private fun parseMcToUmc(input: String): Long? {
-    val text = input.trim()
-    if (text.isEmpty()) return null
-    val value = text.toBigDecimalOrNull() ?: return null
-    if (value < BigDecimal.ZERO) return null
-    val umc = value.multiply(BigDecimal(1_000_000)).setScale(0, RoundingMode.DOWN)
-    val integer = umc.toBigInteger()
-    if (integer > java.math.BigInteger.valueOf(Long.MAX_VALUE)) return null
-    return integer.toLong()
-}

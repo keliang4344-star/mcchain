@@ -37,8 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.mcchain.miner.network.EdgeAiDispute
 import com.mcchain.miner.network.EdgeAiResult
 import com.mcchain.miner.network.EdgeAiTaskDetail
-import java.math.BigDecimal
-import java.math.RoundingMode
+import com.mcchain.miner.shared.util.McAmount
 
 /**
  * EdgeAI 任务页：发布任务（奖励托管）、查看结果与争议、发起争议。
@@ -128,10 +127,10 @@ fun EdgeAiScreen(viewModel: EcosystemViewModel, onBack: () -> Unit) {
                     )
                     Button(
                         onClick = {
-                            val rewardUmc = parseMcToUmc(rewardInput)
+                            val rewardUmc = McAmount.parseToUmc(rewardInput)
                             when {
                                 description.isBlank() -> inputError = "请填写任务描述"
-                                rewardUmc == null -> inputError = "奖励格式无效，请输入非负数字"
+                                rewardUmc == null -> inputError = "奖励格式无效（最多 6 位小数，不能为负）"
                                 else -> {
                                     viewModel.createTask(description, rewardUmc)
                                     rewardInput = ""
@@ -396,17 +395,4 @@ private fun resultStatusLabel(status: String): String = when (status) {
     "rejected" -> "已拒绝"
     "" -> "状态未知"
     else -> status
-}
-
-/** MC 字符串转 umc；非法或溢出返回 null。 */
-private fun parseMcToUmc(input: String): Long? {
-    val text = input.trim()
-    if (text.isEmpty()) return null
-    val value = text.toBigDecimalOrNull() ?: return null
-    if (value < BigDecimal.ZERO) return null
-    val umc = value.multiply(BigDecimal(1_000_000)).setScale(0, RoundingMode.DOWN)
-    val integer = umc.toBigInteger()
-    // Android 的 BigInteger.longValueExact 需要 API 31，这里用边界比较兼容 minSdk 26。
-    if (integer > java.math.BigInteger.valueOf(Long.MAX_VALUE)) return null
-    return integer.toLong()
 }
