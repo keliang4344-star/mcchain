@@ -93,6 +93,13 @@ fun SettingsScreen(
         // === 运行开关 ===
         item { SettingsSection("运行开关") }
         item {
+            NoteSettingItem(
+                "节点同步与贡献挖矿属于 Android 前台服务：系统要求始终保持一条最小常驻通知。" +
+                    "关闭「常驻通知」只隐藏详细状态，无法移除该通知；开机自启默认关闭，需要手动开启， " +
+                    "且部分厂商系统还需在系统设置中允许自启动。"
+            )
+        }
+        item {
             SwitchSettingItem(
                 icon = Icons.Filled.Hub,
                 title = "节点同步",

@@ -23,7 +23,10 @@ val releaseChainId = (project.findProperty("mcChainId") as String?)?.trim()
 
 android {
     namespace = "com.mcchain.miner"
-    compileSdk = 34
+    // compileSdk 先升到 35；targetSdk 暂留 34：
+    // Android 15 对 dataSync 前台服务有 6 小时/24 小时限制，并限制 BOOT_COMPLETED 启动，
+    // 需要先完成前台服务类型改造与 API 35 真机回归，再提升 targetSdk。
+    compileSdk = 35
 
     signingConfigs {
         if (hasReleaseKeystore) {
@@ -44,8 +47,8 @@ android {
         applicationId = "com.mcchain.miner"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
-        versionName = "3.8.0"
+        versionCode = 12
+        versionName = "3.9.0"
 
         buildConfigField("String", "CHAIN_ID", "\"$releaseChainId\"")
         buildConfigField("String", "DENOM", "\"umc\"")
@@ -95,7 +98,7 @@ android {
         buildConfig = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
+        kotlinCompilerExtensionVersion = "1.5.14"
     }
     packaging {
         resources {
@@ -107,10 +110,8 @@ android {
 dependencies {
     implementation(project(":shared"))
 
-    // Compose BOM
-    // BOM 2024.01.00 将 material3 1.1.2 与 animation-core 1.6.0 混配，keyframes 的 at()
-    // 返回类型不兼容，release 下会抛 NoSuchMethodError；2024.02.02 将 material3 对齐到 1.2.0。
-    val composeBom = platform("androidx.compose:compose-bom:2024.02.02")
+    // Compose BOM 2024.06.00：ui 1.6.8 / material3 1.2.1，与 Kotlin 1.9.24 对齐。
+    val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
