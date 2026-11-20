@@ -1,5 +1,6 @@
 package com.mcchain.miner.ui.node
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -24,6 +25,8 @@ import com.mcchain.miner.domain.node.DeviceAttestation
 import com.mcchain.miner.domain.node.HardwareCheck
 import com.mcchain.miner.domain.wallet.TransactionService
 import com.mcchain.miner.domain.wallet.TxBuilder
+import com.mcchain.miner.network.ChainAttestation
+import com.mcchain.miner.network.ChainSlash
 import com.mcchain.miner.network.RpcClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -82,6 +85,7 @@ data class AttestationCapability(
  *  - 链上状态快照：RPC `status` 实时查询，失败时回退到 Room 缓存并明确标注。
  * 所有失败路径只展示中文原因，不产生本地「伪成功」。
  */
+@SuppressLint("StaticFieldLeak")
 @HiltViewModel
 class NodeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -140,6 +144,17 @@ class NodeViewModel @Inject constructor(
     private val _isLive = MutableStateFlow(false)
     val isLive: StateFlow<Boolean> = _isLive
 
+    /** 链上设备认证记录（phonenode.Attestation 实时查询）。 */
+    private val _chainAttestation = MutableStateFlow<ChainAttestation?>(null)
+    val chainAttestation: StateFlow<ChainAttestation?> = _chainAttestation
+
+    /** 链上罚没记录（phonenode.Slashes 实时查询）。 */
+    private val _chainSlashes = MutableStateFlow<List<ChainSlash>>(emptyList())
+    val chainSlashes: StateFlow<List<ChainSlash>> = _chainSlashes
+
+    private val _chainStateError = MutableStateFlow<String?>(null)
+    val chainStateError: StateFlow<String?> = _chainStateError
+
     /** 第 ④ 步产出的硬件证明；只保存在内存，应用重启后必须重新证明。 */
     private val _pendingProof = MutableStateFlow<AttestationResult?>(null)
 
@@ -165,6 +180,28 @@ class NodeViewModel @Inject constructor(
     }
 
     /**
+     * 查询链上认证与罚没记录，与本地记录并列展示；失败只影响本卡片，不影响节点状态。
+     */
+    private suspend fun refreshChainIdentity() {
+        val address = runCatching { walletRepository.getDefaultAccount()?.address }.getOrNull()
+        if (address.isNullOrBlank()) {
+            _chainAttestation.value = null
+            _chainSlashes.value = emptyList()
+            _chainStateError.value = "尚未创建钱包，无法查询链上认证记录"
+            return
+        }
+        val attestation = runCatching { rpcClient.getAttestation(address) }.getOrNull()
+        val slashes = runCatching { rpcClient.getSlashes(address) }.getOrNull().orEmpty()
+        _chainAttestation.value = attestation
+        _chainSlashes.value = slashes
+        _chainStateError.value = if (attestation == null) {
+            "该地址在链上暂无认证记录；完成设备认证后会显示在这里"
+        } else {
+            null
+        }
+    }
+
+    /**
      * 手动刷新：查询实时链上节点状态；失败时保留 Room 缓存并给出可操作的指引。
      */
     fun refresh() {
@@ -178,6 +215,7 @@ class NodeViewModel @Inject constructor(
                     withContext(Dispatchers.IO) { nodeStatusDao.upsert(live) }
                     _nodeStatus.value = live
                     _isLive.value = true
+                    refreshChainIdentity()
                 } else {
                     _nodeStatus.value = withContext(Dispatchers.IO) { nodeStatusDao.get() }
                     _isLive.value = false

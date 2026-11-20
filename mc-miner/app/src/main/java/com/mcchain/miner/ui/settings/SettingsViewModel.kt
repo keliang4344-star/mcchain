@@ -1,5 +1,6 @@
 package com.mcchain.miner.ui.settings
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,6 +28,7 @@ import javax.inject.Inject
  *  - Wi-Fi 计量 / 功耗模式：由 MinerService.powerPolicyAllowsMeasurement() 每轮读取；
  *  - 通知 / 开机自启：仅写入偏好，由服务与 BootReceiver 侧读取（E0 接线）。
  */
+@SuppressLint("StaticFieldLeak")
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,

@@ -12,6 +12,7 @@ import com.mcchain.miner.domain.wallet.WalletManager
 import com.mcchain.miner.network.Delegation
 import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.network.TxResult
+import com.mcchain.miner.network.ValidatorInfo
 import com.mcchain.miner.shared.util.Hex
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +57,16 @@ class WalletViewModel @Inject constructor(
     /** 当前默认地址在链上的委托列表（getDelegations 实时查询）。 */
     private val _delegations = MutableStateFlow<List<Delegation>>(emptyList())
     val delegations: StateFlow<List<Delegation>> = _delegations
+
+    /** 链上已绑定验证人列表，用于委托选择。 */
+    private val _validators = MutableStateFlow<List<ValidatorInfo>>(emptyList())
+    val validators: StateFlow<List<ValidatorInfo>> = _validators
+
+    private val _validatorsLoading = MutableStateFlow(false)
+    val validatorsLoading: StateFlow<Boolean> = _validatorsLoading
+
+    private val _validatorError = MutableStateFlow<String?>(null)
+    val validatorError: StateFlow<String?> = _validatorError
 
     /** 创建钱包时待用户备份的助记词；确认前不落盘。 */
     private val _backupMnemonic = MutableStateFlow<List<String>?>(null)
@@ -201,6 +212,29 @@ class WalletViewModel @Inject constructor(
             return
         }
         persistWallet(mnemonic)
+    }
+
+    /** 加载链上验证人列表；失败时保留旧列表并给出可读原因。 */
+    fun loadValidators(force: Boolean = false) {
+        if (_validatorsLoading.value) return
+        if (!force && _validators.value.isNotEmpty()) return
+        _validatorsLoading.value = true
+        _validatorError.value = null
+        viewModelScope.launch {
+            try {
+                val list = withContext(Dispatchers.IO) { rpcClient.getValidators() }
+                    .filter { !it.jailed && it.operatorAddress.isNotBlank() }
+                    .sortedByDescending { it.tokensUmc }
+                _validators.value = list
+                if (list.isEmpty()) {
+                    _validatorError.value = "链上暂未查询到可用验证人，请检查节点地址，或手动填写验证人地址"
+                }
+            } catch (e: Exception) {
+                _validatorError.value = "验证人列表加载失败：${e.message ?: e.javaClass.simpleName}"
+            } finally {
+                _validatorsLoading.value = false
+            }
+        }
     }
 
     /** 转账表单校验；返回 null 表示可以提交，否则为中文错误原因。 */

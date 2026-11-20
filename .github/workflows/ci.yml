@@ -247,6 +247,13 @@ jobs:
           path: mc-miner/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
 
+      - name: Upload R8 mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-mapping
+          path: mc-miner/app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+
       - name: Upload lint report
         if: always()
         uses: actions/upload-artifact@v4

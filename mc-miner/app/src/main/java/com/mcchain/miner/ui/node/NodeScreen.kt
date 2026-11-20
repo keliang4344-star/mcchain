@@ -26,6 +26,8 @@ import com.mcchain.miner.data.model.NodeStatusSnapshot
 import com.mcchain.miner.data.model.PeerNode
 import com.mcchain.miner.data.model.PhoneNodeRecord
 import com.mcchain.miner.domain.node.HardwareCheck
+import com.mcchain.miner.network.ChainAttestation
+import com.mcchain.miner.network.ChainSlash
 import com.mcchain.miner.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -59,6 +61,9 @@ fun NodeScreen(
     val isRefreshing by vm.isRefreshing.collectAsState()
     val refreshError by vm.refreshError.collectAsState()
     val isLive by vm.isLive.collectAsState()
+    val chainAttestation by vm.chainAttestation.collectAsState()
+    val chainSlashes by vm.chainSlashes.collectAsState()
+    val chainStateError by vm.chainStateError.collectAsState()
 
     val now = System.currentTimeMillis()
 
@@ -92,6 +97,14 @@ fun NodeScreen(
                 record = phoneNode,
                 localInfo = localInfo,
                 now = now,
+            )
+        }
+
+        item {
+            ChainAttestationCard(
+                attestation = chainAttestation,
+                slashes = chainSlashes,
+                error = chainStateError,
             )
         }
 
@@ -782,6 +795,97 @@ private fun ChainRulesCard(record: PhoneNodeRecord?) {
             )
         }
     }
+}
+
+@Composable
+private fun ChainAttestationCard(
+    attestation: ChainAttestation?,
+    slashes: List<ChainSlash>,
+    error: String?,
+) {
+    Card(shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.VerifiedUser,
+                    contentDescription = null,
+                    tint = McHighlight,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "链上认证与罚没",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            if (attestation == null) {
+                Text(
+                    error ?: "链上暂无认证记录",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            } else {
+                RuleRow("链上状态", chainAttestationStatusLabel(attestation.status))
+                RuleRow("到期时间", formatChainTime(attestation.expirySeconds))
+                RuleRow("设备指纹", shortDeviceHash(attestation.deviceIdHash))
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "罚没记录（${slashes.size}）",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+            )
+            if (slashes.isEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "链上暂无罚没记录",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            } else {
+                slashes.take(5).forEach { slash ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        formatChainTime(slash.timeSeconds) + " · " +
+                            slashReasonLabel(slash.reason) + " · " +
+                            String.format(Locale.getDefault(), "%.1f%%", slash.penaltyBps / 100.0),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = StatusSlashed,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatChainTime(epochSeconds: Long): String =
+    if (epochSeconds <= 0) {
+        "—"
+    } else {
+        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(epochSeconds * 1000))
+    }
+
+private fun shortDeviceHash(hash: String): String {
+    if (hash.isBlank()) return "—"
+    return if (hash.length <= 20) hash else hash.take(10) + "..." + hash.takeLast(6)
+}
+
+private fun chainAttestationStatusLabel(status: String): String = when (status.lowercase()) {
+    "active", "attested" -> "已认证"
+    "pending" -> "认证中"
+    "revoked", "slashed" -> "已吊销"
+    else -> status.ifBlank { "未知" }
+}
+
+private fun slashReasonLabel(reason: String): String = when {
+    reason.contains("offline", ignoreCase = true) -> "离线"
+    reason.contains("contrib", ignoreCase = true) -> "贡献作弊"
+    reason.contains("attest", ignoreCase = true) -> "认证失败"
+    reason.contains("double", ignoreCase = true) -> "双签"
+    reason.isBlank() -> "未知原因"
+    else -> reason
 }
 
 @Composable

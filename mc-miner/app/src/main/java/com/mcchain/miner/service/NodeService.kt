@@ -71,8 +71,8 @@ class NodeService : LifecycleService() {
             "mcchain:node_sync"
         ).apply {
             setReferenceCounted(false)
-            // 服务由前台通知维持；不能在 10 分钟后自动释放，否则息屏后同步/心跳中断。
-            acquire()
+            // 服务由前台通知维持；每轮同步会重新续期，避免无限期持有唤醒锁。
+            acquire(WAKELOCK_TIMEOUT_MS)
         }
     }
 
@@ -80,6 +80,8 @@ class NodeService : LifecycleService() {
         syncJob?.cancel()
         syncJob = serviceScope.launch {
             while (isActive) {
+                // 每轮续期唤醒锁（60 分钟上限），息屏时仍能按时同步与心跳。
+                wakeLock?.acquire(WAKELOCK_TIMEOUT_MS)
                 try {
                     syncCycle()
                 } catch (e: Exception) {
@@ -239,6 +241,9 @@ class NodeService : LifecycleService() {
     companion object {
         const val NOTIFICATION_ID = 1001
         const val ALERT_NOTIFICATION_ID = 1003
+
+        /** 唤醒锁单次上限；同步循环每轮续期。 */
+        const val WAKELOCK_TIMEOUT_MS = 60 * 60 * 1000L
 
         /** 前台服务是否存活；仅供 UI 显示，重启进程后由 onCreate 重新置位。 */
         @Volatile

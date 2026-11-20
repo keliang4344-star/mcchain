@@ -93,8 +93,8 @@ class MinerService : LifecycleService() {
             "mcchain:mining"
         ).apply {
             setReferenceCounted(false)
-            // 服务由前台通知维持；不能在 10 分钟后自动释放，否则息屏后心跳中断会被链上判离线。
-            acquire()
+            // 服务由前台通知维持；每轮挖矿会重新续期，避免无限期持有唤醒锁。
+            acquire(WAKELOCK_TIMEOUT_MS)
         }
     }
 
@@ -102,6 +102,8 @@ class MinerService : LifecycleService() {
         miningJob?.cancel()
         miningJob = serviceScope.launch {
             while (isActive) {
+                // 每轮续期唤醒锁（60 分钟上限），息屏时仍能按时心跳。
+                wakeLock?.acquire(WAKELOCK_TIMEOUT_MS)
                 try {
                     miningCycle()
                 } catch (e: Exception) {
@@ -380,6 +382,9 @@ class MinerService : LifecycleService() {
 
     companion object {
         const val NOTIFICATION_ID = 1002
+
+        /** 唤醒锁单次上限；挖矿循环每轮续期。 */
+        const val WAKELOCK_TIMEOUT_MS = 60 * 60 * 1000L
 
         /** 心跳间隔：远小于链上 OfflineGraceBlocks（100 块 ≈ 400s）。 */
         const val HEARTBEAT_INTERVAL_MS = 120_000L

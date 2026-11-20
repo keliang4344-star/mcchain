@@ -1,6 +1,10 @@
 package com.mcchain.miner.ui.wallet
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.view.WindowManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,6 +37,7 @@ import com.mcchain.miner.data.model.WalletAccount
 import com.mcchain.miner.network.Delegation
 import com.mcchain.miner.ui.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -53,6 +58,9 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
     val accounts by viewModel.accounts.collectAsState()
     val transactions by viewModel.transactions.collectAsState()
     val delegations by viewModel.delegations.collectAsState()
+    val validators by viewModel.validators.collectAsState()
+    val validatorsLoading by viewModel.validatorsLoading.collectAsState()
+    val validatorError by viewModel.validatorError.collectAsState()
     val backupMnemonic by viewModel.backupMnemonic.collectAsState()
     val revealedMnemonic by viewModel.revealedMnemonic.collectAsState()
     val busy by viewModel.busy.collectAsState()
@@ -67,6 +75,9 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
     val defaultAccount = accounts.firstOrNull { it.isDefault }
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+
+    // 助记词展示期间禁止截屏/录屏，关闭弹窗后恢复。
+    SecureWindow(enabled = backupMnemonic != null || revealedMnemonic != null)
 
     var showSendDialog by remember { mutableStateOf(false) }
     var showDelegateDialog by remember { mutableStateOf(false) }
@@ -83,28 +94,72 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
         }
     }
 
-    if (backupMnemonic != null) {
+    backupMnemonic?.let { words ->
+        // 随机抽 3 个位置做抄写校验，避免「直接点我已备份」绕过。
+        val quizIndices = remember(words) { (0 until words.size).shuffled().take(3).sorted() }
+        val answers = remember(words) { mutableStateListOf("", "", "") }
+        var quizError by remember(words) { mutableStateOf<String?>(null) }
         AlertDialog(
             onDismissRequest = { viewModel.discardBackup() },
             title = { Text("备份助记词") },
             text = {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
                     Text(
                         "请抄写并离线保存以下助记词。任何人获得它都能控制钱包资产；App 不会再次展示。",
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        backupMnemonic!!.joinToString("  "),
+                        words.joinToString("  "),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                     )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "请按顺序填写第 ${quizIndices.joinToString("、") { (it + 1).toString() }} 个词，确认已正确抄写：",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    quizIndices.forEachIndexed { index, wordIndex ->
+                        OutlinedTextField(
+                            value = answers[index],
+                            onValueChange = {
+                                answers[index] = it
+                                quizError = null
+                            },
+                            label = { Text("第 ${wordIndex + 1} 个词") },
+                            singleLine = true,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                    }
+                    quizError?.let { error ->
+                        Text(
+                            error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.confirmCreateWallet() }) {
-                    Text("我已安全备份")
-                }
+                TextButton(
+                    onClick = {
+                        val correct = quizIndices.indices.all { i ->
+                            answers[i].trim().equals(words[quizIndices[i]], ignoreCase = true)
+                        }
+                        if (correct) {
+                            viewModel.confirmCreateWallet()
+                        } else {
+                            quizError = "助记词校验失败：请按顺序核对第 " +
+                                quizIndices.joinToString("、") { (it + 1).toString() } + " 个词"
+                        }
+                    }
+                ) { Text("确认已备份") }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.discardBackup() }) { Text("取消") }
@@ -165,6 +220,7 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
 
     revealedMnemonic?.let { words ->
         var mnemonicCopied by remember(words) { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
         AlertDialog(
             onDismissRequest = { viewModel.hideMnemonic() },
             title = { Text("助记词") },
@@ -183,15 +239,27 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                     )
                     if (mnemonicCopied) {
                         Spacer(Modifier.height(8.dp))
-                        Text("已复制到剪贴板", style = MaterialTheme.typography.labelSmall, color = StatusActive)
+                        Text(
+                            "已复制到剪贴板（60 秒后自动清空）",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = StatusActive,
+                        )
                     }
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        clipboardManager.setText(AnnotatedString(words.joinToString(" ")))
+                        val text = words.joinToString(" ")
+                        clipboardManager.setText(AnnotatedString(text))
                         mnemonicCopied = true
+                        // 60 秒后仅在剪贴板仍是该助记词时清空，避免误删用户后复制的内容。
+                        scope.launch {
+                            delay(60_000)
+                            if (clipboardManager.getText()?.text == text) {
+                                clipboardManager.setText(AnnotatedString(""))
+                            }
+                        }
                     }
                 ) { Text("复制助记词") }
             },
@@ -271,17 +339,28 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
         var validatorAddress by remember { mutableStateOf("") }
         var amountMc by remember { mutableStateOf("") }
         var delegateError by remember { mutableStateOf<String?>(null) }
+        var showValidatorPicker by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { if (!busy) showDelegateDialog = false },
             title = { Text("质押委托") },
             text = {
                 Column {
-                    Text(
-                        "请输入验证人地址：手机端不运行验证节点，也不展示未经链上校验的验证人列表。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    )
-                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "选择链上验证人或手动填写地址；手机端不运行验证节点。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(
+                            enabled = !busy,
+                            onClick = {
+                                viewModel.loadValidators()
+                                showValidatorPicker = true
+                            },
+                        ) { Text("从链上选择") }
+                    }
+                    Spacer(Modifier.height(4.dp))
                     OutlinedTextField(
                         value = validatorAddress,
                         onValueChange = { validatorAddress = it; delegateError = null },
@@ -337,6 +416,65 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                 TextButton(onClick = { showDelegateDialog = false }, enabled = !busy) { Text("取消") }
             },
         )
+
+        if (showValidatorPicker) {
+            AlertDialog(
+                onDismissRequest = { showValidatorPicker = false },
+                title = { Text("选择验证人") },
+                text = {
+                    when {
+                        validatorsLoading -> Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                            contentAlignment = Alignment.Center,
+                        ) { CircularProgressIndicator() }
+
+                        validators.isEmpty() -> Text(
+                            validatorError ?: "暂无可用验证人，请检查 RPC 节点后重试",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+
+                        else -> LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                            items(validators) { validator ->
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            validatorAddress = validator.operatorAddress
+                                            delegateError = null
+                                            showValidatorPicker = false
+                                        }
+                                        .padding(vertical = 8.dp),
+                                ) {
+                                    Text(
+                                        validator.moniker.ifBlank {
+                                            shortAddress(validator.operatorAddress)
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                    Text(
+                                        shortAddress(validator.operatorAddress) + " · 佣金 " +
+                                            String.format(
+                                                Locale.getDefault(),
+                                                "%.1f%%",
+                                                validator.commissionRate * 100,
+                                            ),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    )
+                                }
+                                Divider()
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showValidatorPicker = false }) { Text("关闭") }
+                },
+            )
+        }
     }
 
     undelegateTarget?.let { delegation ->
@@ -1345,3 +1483,27 @@ private fun shortHash(hash: String): String =
 
 private fun shortAddress(address: String): String =
     if (address.length <= 24) address else address.take(14) + "..." + address.takeLast(8)
+
+/** 助记词展示期间给 Activity 窗口加 FLAG_SECURE，阻止截屏/录屏。 */
+@Composable
+private fun SecureWindow(enabled: Boolean) {
+    val context = LocalContext.current
+    DisposableEffect(enabled) {
+        val window = context.findActivity()?.window
+        if (enabled) {
+            window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+    }
+}
+
+private fun Context.findActivity(): Activity? {
+    var current = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
+}

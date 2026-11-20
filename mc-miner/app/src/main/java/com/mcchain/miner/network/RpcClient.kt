@@ -140,6 +140,69 @@ class RpcClient @Inject constructor(
     }
 
     /**
+     * 拉取已绑定（BONDED）验证人列表，供委托页选择。
+     * REST: /cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED
+     */
+    suspend fun getValidators(limit: Int = 200): List<ValidatorInfo> {
+        val response = restGet(
+            "/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED&pagination.limit=$limit"
+        ) ?: return emptyList()
+        val validators = response.getAsJsonArray("validators") ?: return emptyList()
+        return validators.mapNotNull { element ->
+            val obj = element.asJsonObject
+            val address = obj.get("operator_address")?.asString ?: return@mapNotNull null
+            val moniker = obj.getAsJsonObject("description")?.get("moniker")?.asString.orEmpty()
+            val commissionRate = obj.getAsJsonObject("commission")
+                ?.getAsJsonObject("commission_rates")
+                ?.get("rate")?.asString?.toDoubleOrNull() ?: 0.0
+            val tokens = obj.get("tokens")?.asString?.toLongOrNull() ?: 0L
+            val jailed = obj.get("jailed")?.asBoolean ?: false
+            ValidatorInfo(
+                operatorAddress = address,
+                moniker = moniker,
+                commissionRate = commissionRate,
+                tokensUmc = tokens,
+                jailed = jailed,
+            )
+        }
+    }
+
+    /**
+     * 链上设备认证记录（phonenode.Attestation）。
+     * REST: /mcchain/phonenode/attestation/{address}
+     */
+    suspend fun getAttestation(address: String): ChainAttestation? {
+        val response = restGet("/mcchain/phonenode/attestation/$address") ?: return null
+        val obj = response.getAsJsonObject("attestation") ?: return null
+        return ChainAttestation(
+            rootHash = obj.stringOrEmpty("root_hash", "rootHash"),
+            nonce = obj.stringOrEmpty("nonce"),
+            deviceIdHash = obj.stringOrEmpty("device_id_hash", "deviceIdHash"),
+            expirySeconds = obj.longOrZero("expiry"),
+            status = obj.stringOrEmpty("status"),
+        )
+    }
+
+    /**
+     * 链上罚没记录（phonenode.Slashes）。
+     * REST: /mcchain/phonenode/slashes/{address}
+     */
+    suspend fun getSlashes(address: String): List<ChainSlash> {
+        val response = restGet("/mcchain/phonenode/slashes/$address") ?: return emptyList()
+        val records = response.getAsJsonArray("records") ?: return emptyList()
+        return records.mapNotNull { element ->
+            val obj = element.asJsonObject
+            ChainSlash(
+                address = obj.stringOrEmpty("address"),
+                reason = obj.stringOrEmpty("reason"),
+                penaltyBps = obj.get("penalty_bps")?.asInt
+                    ?: obj.get("penaltyBps")?.asInt ?: 0,
+                timeSeconds = obj.longOrZero("time"),
+            )
+        }
+    }
+
+    /**
      * 节点最低 gas price（umc/gas）。
      * REST: /cosmos/base/node/v1beta1/config -> minimum_gas_prices。
      * 取不到返回 null，调用方回退到内置默认值。
@@ -430,3 +493,36 @@ data class Delegation(
     val validatorAddress: String,
     val amount: Long
 )
+
+data class ValidatorInfo(
+    val operatorAddress: String,
+    val moniker: String,
+    val commissionRate: Double,
+    val tokensUmc: Long,
+    val jailed: Boolean,
+)
+
+data class ChainAttestation(
+    val rootHash: String,
+    val nonce: String,
+    val deviceIdHash: String,
+    val expirySeconds: Long,
+    val status: String,
+)
+
+data class ChainSlash(
+    val address: String,
+    val reason: String,
+    val penaltyBps: Int,
+    val timeSeconds: Long,
+)
+
+/** 兼容 gRPC-gateway 的 snake_case 与 camelCase 两种 JSON 字段名。 */
+private fun JsonObject.stringOrEmpty(vararg keys: String): String {
+    for (key in keys) {
+        get(key)?.asString?.let { return it }
+    }
+    return ""
+}
+
+private fun JsonObject.longOrZero(key: String): Long = get(key)?.asLong ?: 0L

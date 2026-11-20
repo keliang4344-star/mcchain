@@ -1,5 +1,6 @@
 package com.mcchain.miner.ui.mining
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -61,6 +62,7 @@ data class PrerequisiteItem(
     val detail: String
 )
 
+@SuppressLint("StaticFieldLeak")
 @HiltViewModel
 class MiningViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
