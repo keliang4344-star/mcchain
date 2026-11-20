@@ -1571,6 +1571,10 @@ private fun txTypeLabel(type: TxType): String = when (type) {
     TxType.ATTEST_NODE -> "节点认证"
     TxType.REPORT_CONTRIB -> "贡献上报"
     TxType.SUBMIT_TASK -> "提交任务"
+    TxType.REFERRAL -> "邀请绑定"
+    TxType.CLAIM_REFERRAL -> "领取返佣"
+    TxType.EDGEAI_TASK -> "发布 AI 任务"
+    TxType.EDGEAI_DISPUTE -> "AI 任务争议"
     TxType.UNKNOWN -> "其他"
 }
 
@@ -1583,6 +1587,9 @@ private fun txTypeIcon(type: TxType): ImageVector = when (type) {
     TxType.ATTEST_NODE -> Icons.Filled.CheckCircle
     TxType.REPORT_CONTRIB -> Icons.Filled.Upload
     TxType.SUBMIT_TASK -> Icons.Filled.Memory
+    TxType.REFERRAL, TxType.CLAIM_REFERRAL -> Icons.Filled.People
+    TxType.EDGEAI_TASK -> Icons.Filled.AutoAwesome
+    TxType.EDGEAI_DISPUTE -> Icons.Filled.Gavel
     TxType.UNKNOWN -> Icons.Filled.SwapHoriz
 }
 
@@ -1599,14 +1606,14 @@ private fun txStatusColor(status: TxStatus): Color = when (status) {
 }
 
 private fun txAmountColor(type: TxType): Color = when (type) {
-    TxType.SEND, TxType.DELEGATE -> McHighlight
-    TxType.CLAIM_REWARDS -> StatusActive
+    TxType.SEND, TxType.DELEGATE, TxType.EDGEAI_TASK -> McHighlight
+    TxType.CLAIM_REWARDS, TxType.CLAIM_REFERRAL -> StatusActive
     else -> Color.Unspecified
 }
 
 private fun formatSignedAmount(tx: TxRecord): String = when (tx.type) {
-    TxType.SEND, TxType.DELEGATE -> "-" + formatMcDisplay(tx.amount)
-    TxType.CLAIM_REWARDS -> "+" + formatMcDisplay(tx.amount)
+    TxType.SEND, TxType.DELEGATE, TxType.EDGEAI_TASK -> "-" + formatMcDisplay(tx.amount)
+    TxType.CLAIM_REWARDS, TxType.CLAIM_REFERRAL -> "+" + formatMcDisplay(tx.amount)
     TxType.UNDELEGATE -> "解除 " + formatMcDisplay(tx.amount)
     TxType.REDELEGATE -> "转委托 " + formatMcDisplay(tx.amount)
     else -> formatMcDisplay(tx.amount)

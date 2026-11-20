@@ -404,6 +404,147 @@ class RpcClient @Inject constructor(
         }
     }
 
+    /**
+     * 按邀请人查询推荐关系（referral REST 路由，snake_case 字段）。
+     * 返回 null 表示查询失败；空列表表示该地址确实没有邀请记录。
+     */
+    suspend fun getReferralsByInviter(inviter: String): List<ReferralRecord>? {
+        if (inviter.isBlank()) return null
+        val encoded = java.net.URLEncoder.encode(inviter, "UTF-8")
+        val body = restGet("/mcchain/referral/v1/referrals_by_inviter?inviter=$encoded") ?: return null
+        val array = body.getAsJsonArray("referrals") ?: return emptyList()
+        return array.mapNotNull { element ->
+            val obj = runCatching { element.asJsonObject }.getOrNull() ?: return@mapNotNull null
+            ReferralRecord(
+                referralId = obj.longOrZero("referral_id", "referralId"),
+                inviter = obj.stringOrEmpty("inviter"),
+                invitee = obj.stringOrEmpty("invitee"),
+                inviteCode = obj.stringOrEmpty("invite_code", "inviteCode"),
+                createdAtHeight = obj.longOrZero("created_at", "createdAt"),
+                status = obj.stringOrEmpty("status"),
+            )
+        }
+    }
+
+    /** 待领返佣（umc）。null 表示查询失败；0 表示没有可领取金额。 */
+    suspend fun getReferralPendingRewards(claimer: String): Long? {
+        if (claimer.isBlank()) return null
+        val encoded = java.net.URLEncoder.encode(claimer, "UTF-8")
+        val body = restGet("/mcchain/referral/v1/pending_rewards?claimer=$encoded") ?: return null
+        val node = body.get("amount") ?: return 0L
+        return if (node.isJsonPrimitive && node.asJsonPrimitive.isString) {
+            node.asString.toLongOrNull() ?: 0L
+        } else {
+            runCatching { node.asLong }.getOrDefault(0L)
+        }
+    }
+
+    /**
+     * 全量 EdgeAI 任务（含 open/done/disputed 等状态），供「我的任务」与争议入口使用。
+     * 返回 null 表示任务列表接口不可用。
+     */
+    suspend fun getEdgeAiTaskDetails(limit: Int = 50): List<EdgeAiTaskDetail>? {
+        val body = restGet("/mcchain/edgeai/tasks") ?: return null
+        val ids = body.getAsJsonArray("task_ids") ?: return emptyList()
+        return ids.take(limit).mapNotNull { element ->
+            val id = runCatching { element.asString }.getOrNull() ?: return@mapNotNull null
+            val taskBody = restGet("/mcchain/edgeai/task/$id") ?: return@mapNotNull null
+            val taskJson = taskBody.get("task_json")?.asString ?: return@mapNotNull null
+            val task = runCatching { gson.fromJson(taskJson, JsonObject::class.java).asJsonObject }
+                .getOrNull() ?: return@mapNotNull null
+            EdgeAiTaskDetail(
+                taskId = id,
+                creator = task.stringOrEmpty("creator"),
+                description = task.stringOrEmpty("description"),
+                rewardUmc = task.longOrZero("reward"),
+                status = task.stringOrEmpty("status"),
+                assignee = task.stringOrEmpty("assignee"),
+                createdAtSeconds = task.longOrZero("created_at", "createdAt"),
+                createdAtBlock = task.longOrZero("created_at_block", "createdAtBlock"),
+            )
+        }
+    }
+
+    /** 已提交的 EdgeAI 结果（仅链上已暴露的字段）。失败返回 null。 */
+    suspend fun getEdgeAiResults(): List<EdgeAiResult>? {
+        val body = restGet("/mcchain/edgeai/results") ?: return null
+        val array = body.getAsJsonArray("results_json") ?: return emptyList()
+        return array.mapNotNull { element ->
+            val raw = runCatching { element.asString }.getOrNull() ?: return@mapNotNull null
+            val obj = runCatching { gson.fromJson(raw, JsonObject::class.java).asJsonObject }
+                .getOrNull() ?: return@mapNotNull null
+            EdgeAiResult(
+                taskId = obj.stringOrEmpty("task_id", "taskId"),
+                submitter = obj.stringOrEmpty("submitter"),
+                resultHash = obj.stringOrEmpty("result_hash", "resultHash"),
+                status = obj.stringOrEmpty("status"),
+                submittedAtSeconds = obj.longOrZero("submitted_at", "submittedAt"),
+            )
+        }
+    }
+
+    /** EdgeAI 争议记录。失败返回 null。 */
+    suspend fun getEdgeAiDisputes(): List<EdgeAiDispute>? {
+        val body = restGet("/mcchain/edgeai/disputes") ?: return null
+        val array = body.getAsJsonArray("disputes_json") ?: return emptyList()
+        return array.mapNotNull { element ->
+            val raw = runCatching { element.asString }.getOrNull() ?: return@mapNotNull null
+            val obj = runCatching { gson.fromJson(raw, JsonObject::class.java).asJsonObject }
+                .getOrNull() ?: return@mapNotNull null
+            EdgeAiDispute(
+                taskId = obj.stringOrEmpty("task_id", "taskId"),
+                challenger = obj.stringOrEmpty("challenger"),
+                submitter = obj.stringOrEmpty("submitter"),
+                reason = obj.stringOrEmpty("reason"),
+                status = obj.stringOrEmpty("status"),
+                resolution = obj.stringOrEmpty("resolution"),
+                openedAtSeconds = obj.longOrZero("opened_at", "openedAt"),
+            )
+        }
+    }
+
+    /**
+     * 代币经济实时数据。
+     * supply 查询失败返回 null；分配与释放查询失败时对应部分留空，不伪造数值。
+     */
+    suspend fun getTokenomics(): TokenomicsSnapshot? {
+        val supply = restGet("/mcchain/tokenomics/supply") ?: return null
+        val allocationsBody = restGet("/mcchain/tokenomics/allocations")
+        val releaseBody = restGet("/mcchain/tokenomics/release")
+
+        val pools = allocationsBody?.getAsJsonArray("allocations")?.mapNotNull { element ->
+            val obj = runCatching { element.asJsonObject }.getOrNull() ?: return@mapNotNull null
+            TokenomicsPool(
+                name = obj.stringOrEmpty("name"),
+                percentBps = obj.longOrZero("percent_bps", "percentBps").toInt(),
+                allocatedUmc = obj.longOrZero("allocated_amount", "allocatedAmount"),
+                balanceUmc = obj.longOrZero("current_balance", "currentBalance"),
+                address = obj.stringOrEmpty("address"),
+            )
+        }.orEmpty()
+
+        val team = releaseBody?.getAsJsonObject("team")?.let { obj ->
+            TeamRelease(
+                address = obj.stringOrEmpty("address"),
+                totalLockedUmc = obj.longOrZero("total_locked", "totalLocked"),
+                vestedUmc = obj.longOrZero("vested"),
+                remainingUmc = obj.longOrZero("remaining"),
+                progressBps = obj.longOrZero("progress_bps", "progressBps").toInt(),
+                startTimeSeconds = obj.longOrZero("start_time", "startTime"),
+                cliffTimeSeconds = obj.longOrZero("cliff_time", "cliffTime"),
+                endTimeSeconds = obj.longOrZero("end_time", "endTime"),
+            )
+        }
+
+        return TokenomicsSnapshot(
+            totalCapUmc = supply.longOrZero("total_supply_cap", "totalSupplyCap"),
+            mintedUmc = supply.longOrZero("minted_supply", "mintedSupply"),
+            denom = supply.stringOrEmpty("denom"),
+            pools = pools,
+            team = team,
+        )
+    }
+
     // === 内部方法 ===
 
     private suspend fun rpcCall(
@@ -562,6 +703,73 @@ data class ChainTxRecord(
     val success: Boolean get() = code == 0
 }
 
+/** 链上推荐关系记录（mcchain.referral.Referral）。 */
+data class ReferralRecord(
+    val referralId: Long,
+    val inviter: String,
+    val invitee: String,
+    val inviteCode: String,
+    val createdAtHeight: Long,
+    val status: String,
+)
+
+/** EdgeAI 任务完整视图（含状态，来自 task_json）。 */
+data class EdgeAiTaskDetail(
+    val taskId: String,
+    val creator: String,
+    val description: String,
+    val rewardUmc: Long,
+    val status: String,
+    val assignee: String,
+    val createdAtSeconds: Long,
+    val createdAtBlock: Long,
+)
+
+data class EdgeAiResult(
+    val taskId: String,
+    val submitter: String,
+    val resultHash: String,
+    val status: String,
+    val submittedAtSeconds: Long,
+)
+
+data class EdgeAiDispute(
+    val taskId: String,
+    val challenger: String,
+    val submitter: String,
+    val reason: String,
+    val status: String,
+    val resolution: String,
+    val openedAtSeconds: Long,
+)
+
+data class TokenomicsPool(
+    val name: String,
+    val percentBps: Int,
+    val allocatedUmc: Long,
+    val balanceUmc: Long,
+    val address: String,
+)
+
+data class TeamRelease(
+    val address: String,
+    val totalLockedUmc: Long,
+    val vestedUmc: Long,
+    val remainingUmc: Long,
+    val progressBps: Int,
+    val startTimeSeconds: Long,
+    val cliffTimeSeconds: Long,
+    val endTimeSeconds: Long,
+)
+
+data class TokenomicsSnapshot(
+    val totalCapUmc: Long,
+    val mintedUmc: Long,
+    val denom: String,
+    val pools: List<TokenomicsPool>,
+    val team: TeamRelease?,
+)
+
 /** 兼容 gRPC-gateway 的 snake_case 与 camelCase 两种 JSON 字段名。 */
 private fun JsonObject.stringOrEmpty(vararg keys: String): String {
     for (key in keys) {
@@ -570,7 +778,15 @@ private fun JsonObject.stringOrEmpty(vararg keys: String): String {
     return ""
 }
 
-private fun JsonObject.longOrZero(key: String): Long = get(key)?.asLong ?: 0L
+private fun JsonObject.longOrZero(vararg keys: String): Long {
+    for (key in keys) {
+        val value = get(key) ?: continue
+        if (value.isJsonPrimitive) {
+            runCatching { return value.asLong }.getOrNull()
+        }
+    }
+    return 0L
+}
 
 /** 提取消息中的 umc 金额；amount 既可能是 Coin 对象，也可能是 Coin 数组。 */
 private fun JsonObject.coinAmount(denom: String): Long? {

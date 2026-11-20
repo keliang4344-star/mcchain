@@ -276,6 +276,88 @@ class TransactionService @Inject constructor(
         }
 
     /**
+     * 邀请关系绑定（referral.MsgCreateReferral）。
+     * 链上要求被邀请人已注册节点、未被他人邀请、不能自邀，且同一邀请人存在冷却区块。
+     */
+    suspend fun createReferral(inviteeAddress: String, inviteCode: String): SubmitResult =
+        submitLock.withLock {
+            val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
+            val target = inviteeAddress.trim()
+            if (!target.startsWith(MCParams.BECH32_PREFIX + "1") ||
+                target.startsWith(MCParams.BECH32_PREFIX + "valoper1")
+            ) {
+                return@withLock failure("被邀请人地址无效，必须是 ${MCParams.BECH32_PREFIX}1 开头的账户地址")
+            }
+            if (target == account.address) return@withLock failure("不能邀请自己")
+            if (inviteCode.length > MAX_INVITE_CODE_LENGTH) {
+                return@withLock failure("渠道码过长（最多 $MAX_INVITE_CODE_LENGTH 个字符）")
+            }
+            ensureFeeBalance(account.balance)?.let { return@withLock failure(it) }
+
+            submit(TxType.REFERRAL, account.address, target, 0, "referral-create") {
+                    accountNumber, sequence ->
+                txBuilder.buildCreateReferralTx(target, inviteCode.trim(), accountNumber, sequence)
+            }
+        }
+
+    /** 领取累计返佣（referral.MsgClaimReferralReward）。 */
+    suspend fun claimReferralRewards(): SubmitResult = submitLock.withLock {
+        val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
+        val pending = rpcClient.getReferralPendingRewards(account.address)
+            ?: return@withLock failure("无法查询待领返佣，请检查节点连接")
+        if (pending <= 0) return@withLock failure("当前没有可领取的返佣")
+        ensureFeeBalance(account.balance)?.let { return@withLock failure(it) }
+
+        submit(TxType.CLAIM_REFERRAL, account.address, "", pending, "referral-claim") {
+                accountNumber, sequence ->
+            txBuilder.buildClaimReferralTx(accountNumber, sequence)
+        }
+    }
+
+    /**
+     * 发布 EdgeAI 任务（edgeai.MsgCreateTask）：奖励由创建者托管到模块账户。
+     * 本地先校验余额是否覆盖「奖励 + 手续费」，避免发起注定失败的托管交易。
+     */
+    suspend fun createEdgeAiTask(description: String, rewardUmc: Long): SubmitResult = submitLock.withLock {
+        val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
+        val desc = description.trim()
+        if (desc.isBlank()) return@withLock failure("任务描述不能为空")
+        if (desc.length > MAX_TASK_DESCRIPTION_LENGTH) {
+            return@withLock failure("任务描述过长（最多 $MAX_TASK_DESCRIPTION_LENGTH 个字符）")
+        }
+        if (rewardUmc < 0) return@withLock failure("任务奖励不能为负数")
+        if (account.balance > 0) {
+            val fee = TxBuilder.DEFAULT_FEE_UMC.toLong()
+            if (rewardUmc > account.balance - fee || account.balance < fee) {
+                return@withLock failure("余额不足以同时托管任务奖励与支付手续费")
+            }
+        }
+
+        submit(TxType.EDGEAI_TASK, account.address, "", rewardUmc, "edgeai-create") {
+                accountNumber, sequence ->
+            txBuilder.buildCreateTaskTx(desc, rewardUmc, accountNumber, sequence)
+        }
+    }
+
+    /** 对 EdgeAI 任务结果发起争议，由链上仲裁者裁定（edgeai.MsgOpenDispute）。 */
+    suspend fun openEdgeAiDispute(taskId: String, reason: String): SubmitResult = submitLock.withLock {
+        val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
+        val id = taskId.trim()
+        val text = reason.trim()
+        if (id.isBlank()) return@withLock failure("请输入任务 ID")
+        if (text.isBlank()) return@withLock failure("请填写争议理由")
+        if (text.length > MAX_DISPUTE_REASON_LENGTH) {
+            return@withLock failure("争议理由过长（最多 $MAX_DISPUTE_REASON_LENGTH 个字符）")
+        }
+        ensureFeeBalance(account.balance)?.let { return@withLock failure(it) }
+
+        submit(TxType.EDGEAI_DISPUTE, account.address, id, 0, "edgeai-dispute") {
+                accountNumber, sequence ->
+            txBuilder.buildOpenDisputeTx(id, text, accountNumber, sequence)
+        }
+    }
+
+    /**
      * 重放离线队列中的交易。
      *
      * 幂等性来自交易字节本身：同一 sequence/账户号的同一笔交易签名结果固定，
@@ -606,6 +688,11 @@ class TransactionService @Inject constructor(
 
         /** depin keeper 对 task_id 的长度闸门（x/depin/types/keys.go）。 */
         const val MAX_TASK_ID_LENGTH = 128
+
+        /** 与链端一致的输入上限（超出会在签名前直接拒绝，避免白付手续费）。 */
+        const val MAX_INVITE_CODE_LENGTH = 32
+        const val MAX_TASK_DESCRIPTION_LENGTH = 500
+        const val MAX_DISPUTE_REASON_LENGTH = 200
 
         const val CODESPACE_SDK = "sdk"
         const val CODESPACE_DEPIN = "depin"

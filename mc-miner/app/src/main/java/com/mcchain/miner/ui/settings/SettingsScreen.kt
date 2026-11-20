@@ -2,6 +2,7 @@ package com.mcchain.miner.ui.settings
 
 import android.content.Intent
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,10 +22,16 @@ import androidx.compose.ui.unit.dp
 import com.mcchain.miner.BuildConfig
 import com.mcchain.miner.MCParams
 import com.mcchain.miner.ui.theme.*
+import com.mcchain.miner.util.CrashReporter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
+fun SettingsScreen(
+    viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    onOpenReferral: () -> Unit = {},
+    onOpenEdgeAi: () -> Unit = {},
+    onOpenTokenomics: () -> Unit = {},
+) {
     val nodeSyncEnabled by viewModel.nodeSyncEnabled.collectAsState()
     val miningEnabled by viewModel.miningEnabled.collectAsState()
     val wifiOnly by viewModel.wifiOnly.collectAsState()
@@ -178,8 +185,47 @@ fun SettingsScreen(viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.c
             )
         }
 
+        // === 生态 ===
+        item { SettingsSection("生态") }
+        item {
+            ClickableSettingItem(
+                icon = Icons.Filled.People,
+                title = "邀请返佣",
+                description = "绑定被邀请人、查看邀请记录与链上待领返佣",
+                onClick = onOpenReferral,
+            )
+        }
+        item {
+            ClickableSettingItem(
+                icon = Icons.Filled.AutoAwesome,
+                title = "AI 任务",
+                description = "发布 EdgeAI 任务、查看结果与发起争议",
+                onClick = onOpenEdgeAi,
+            )
+        }
+        item {
+            ClickableSettingItem(
+                icon = Icons.Filled.PieChart,
+                title = "代币经济",
+                description = "链上供应量、分配池与团队释放进度",
+                onClick = onOpenTokenomics,
+            )
+        }
+
         // === 本地数据 ===
         item { SettingsSection("本地数据") }
+        item {
+            ClickableSettingItem(
+                icon = Icons.Filled.BugReport,
+                title = "分享崩溃日志",
+                description = "导出最近一次崩溃堆栈（仅本地留存，需你主动分享）",
+                onClick = {
+                    if (!CrashReporter.shareLatest(context)) {
+                        Toast.makeText(context, "暂无崩溃日志", Toast.LENGTH_SHORT).show()
+                    }
+                },
+            )
+        }
         item {
             ClickableSettingItem(
                 icon = Icons.Filled.DeleteForever,
@@ -241,7 +287,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.c
 
         // === Tokenomics ===
         item { SettingsSection("代币经济") }
-        item { InfoSettingItem("总供应量", "10 亿 MC") }
+        item { InfoSettingItem("总供应量上限（白皮书）", "10 亿 MC") }
         item { InfoSettingItem("初始通胀", "${MCParams.INFLATION_RATE_PERCENT}%") }
         item { InfoSettingItem("目标质押率", "${MCParams.TARGET_STAKE_RATIO_PERCENT}%") }
         item { InfoSettingItem("社区池", "${MCParams.COMMUNITY_TAX_PERCENT}%") }

@@ -36,6 +36,10 @@ import com.mcchain.miner.service.MinerService
 import com.mcchain.miner.service.NodeService
 import com.mcchain.miner.ui.dashboard.DashboardScreen
 import com.mcchain.miner.ui.dashboard.DashboardViewModel
+import com.mcchain.miner.ui.ecosystem.EdgeAiScreen
+import com.mcchain.miner.ui.ecosystem.EcosystemViewModel
+import com.mcchain.miner.ui.ecosystem.ReferralScreen
+import com.mcchain.miner.ui.ecosystem.TokenomicsScreen
 import com.mcchain.miner.ui.mining.MiningScreen
 import com.mcchain.miner.ui.mining.MiningViewModel
 import com.mcchain.miner.ui.node.NodeScreen
@@ -48,6 +52,13 @@ import com.mcchain.miner.ui.wallet.WalletViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import javax.inject.Inject
+
+/** 非底部导航的二级页面路由。 */
+private object Route {
+    const val REFERRAL = "referral"
+    const val EDGE_AI = "edge_ai"
+    const val TOKENOMICS = "tokenomics"
+}
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
     data object Dashboard : Screen("dashboard", "仪表盘", Icons.Outlined.Dashboard, Icons.Filled.Dashboard)
@@ -69,6 +80,7 @@ class MainActivity : ComponentActivity() {
     private val miningViewModel: MiningViewModel by viewModels()
     private val nodeViewModel: NodeViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
+    private val ecosystemViewModel: EcosystemViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,7 +99,8 @@ class MainActivity : ComponentActivity() {
                     walletViewModel = walletViewModel,
                     miningViewModel = miningViewModel,
                     nodeViewModel = nodeViewModel,
-                    settingsViewModel = settingsViewModel
+                    settingsViewModel = settingsViewModel,
+                    ecosystemViewModel = ecosystemViewModel
                 )
             }
         }
@@ -109,7 +122,8 @@ fun MainApp(
     walletViewModel: WalletViewModel,
     miningViewModel: MiningViewModel,
     nodeViewModel: NodeViewModel,
-    settingsViewModel: SettingsViewModel
+    settingsViewModel: SettingsViewModel,
+    ecosystemViewModel: EcosystemViewModel
 ) {
     val navController = rememberNavController()
     val screens = listOf(
@@ -122,6 +136,9 @@ fun MainApp(
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+
+    // 二级页面（推荐/EdgeAI/代币经济）不显示底部导航，避免误触切页。
+    val showBottomBar = screens.any { it.route == currentDestination?.route }
 
     // Android 13+ 前台服务通知需要运行时授权，否则常驻通知不可见。
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -139,7 +156,7 @@ fun MainApp(
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
+            if (showBottomBar) NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
@@ -210,7 +227,23 @@ fun MainApp(
                     }
                 )
             }
-            composable(Screen.Settings.route) { SettingsScreen(viewModel = settingsViewModel) }
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    viewModel = settingsViewModel,
+                    onOpenReferral = { navController.navigate(Route.REFERRAL) { launchSingleTop = true } },
+                    onOpenEdgeAi = { navController.navigate(Route.EDGE_AI) { launchSingleTop = true } },
+                    onOpenTokenomics = { navController.navigate(Route.TOKENOMICS) { launchSingleTop = true } },
+                )
+            }
+            composable(Route.REFERRAL) {
+                ReferralScreen(viewModel = ecosystemViewModel) { navController.popBackStack() }
+            }
+            composable(Route.EDGE_AI) {
+                EdgeAiScreen(viewModel = ecosystemViewModel) { navController.popBackStack() }
+            }
+            composable(Route.TOKENOMICS) {
+                TokenomicsScreen(viewModel = ecosystemViewModel) { navController.popBackStack() }
+            }
         }
     }
 

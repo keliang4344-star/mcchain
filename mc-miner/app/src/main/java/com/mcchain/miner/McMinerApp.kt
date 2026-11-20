@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.mcchain.miner.service.AttestationReminderWorker
+import com.mcchain.miner.util.CrashReporter
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import java.io.File
@@ -29,6 +30,7 @@ class McMinerApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        CrashReporter.install(this)
         instance = this
 
         if (BuildConfig.DEBUG) {

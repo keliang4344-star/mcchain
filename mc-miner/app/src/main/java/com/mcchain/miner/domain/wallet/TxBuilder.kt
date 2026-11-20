@@ -7,6 +7,7 @@ import com.mcchain.miner.shared.protocol.CosmosMsgs
 import com.mcchain.miner.shared.protocol.DepinTx
 import com.mcchain.miner.shared.protocol.EdgeAiTx
 import com.mcchain.miner.shared.protocol.PhonenodeTx
+import com.mcchain.miner.shared.protocol.ReferralTx
 import com.mcchain.miner.shared.tx.DirectTxBuilder
 import com.mcchain.miner.shared.tx.DirectTxInput
 import javax.inject.Inject
@@ -299,6 +300,59 @@ class TxBuilder @Inject constructor(
     }
 
     /**
+     * 邀请关系绑定（referral.MsgCreateReferral）：邀请人=当前钱包，被邀请人必须是已注册节点。
+     */
+    fun buildCreateReferralTx(
+        inviteeAddress: String,
+        inviteCode: String,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "referral-create",
+        gas: Long = DEFAULT_GAS_REFERRAL,
+        feeAmount: String? = null,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = ReferralTx.createReferral(
+            inviter = wallet.address,
+            invitee = inviteeAddress,
+            inviteCode = inviteCode,
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
+    /** 领取累计返佣（referral.MsgClaimReferralReward）。 */
+    fun buildClaimReferralTx(
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "referral-claim",
+        gas: Long = DEFAULT_GAS_REFERRAL,
+        feeAmount: String? = null,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = ReferralTx.claimReward(wallet.address)
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
+    /** EdgeAI 争议（edgeai.MsgOpenDispute）：对已提交结果发起争议，由链上仲裁者裁定。 */
+    fun buildOpenDisputeTx(
+        taskId: String,
+        reason: String,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "edgeai-dispute",
+        gas: Long = DEFAULT_GAS_DISPUTE,
+        feeAmount: String? = null,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = EdgeAiTx.openDispute(
+            creator = wallet.address,
+            taskId = taskId,
+            reason = reason,
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
+    /**
      * 在线心跳（phonenode.MsgSubmitStateProof）。
      * 链上要求 root/leaf/index/proof 全部非空并做 Merkle 重建校验，
      * 这里用两叶树：leaf=自身状态、兄弟=固定 padding 哈希、index=0，
@@ -373,6 +427,8 @@ class TxBuilder @Inject constructor(
         const val DEFAULT_GAS_ATTEST = 250_000L
         const val DEFAULT_GAS_CONTRIB = 350_000L
         const val DEFAULT_GAS_EDGEAI = 300_000L
+        const val DEFAULT_GAS_REFERRAL = 250_000L
+        const val DEFAULT_GAS_DISPUTE = 250_000L
         const val DEFAULT_GAS_HEARTBEAT = 200_000L
 
         /** 心跳 Merkle 的固定兄弟叶（padding，使 proof 非空且重建确定）。 */

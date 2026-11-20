@@ -72,6 +72,17 @@
             </intent-filter>
         </receiver>
 
+        <!-- 崩溃日志分享：仅暴露 cacheDir/crashes，按次授权读权限。 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 
 </manifest>
