@@ -102,3 +102,10 @@ coverage
 # golden vector 生成脚本入库，保证 tx 字节对照可复现
 !mc-miner/tools/gen_golden_tx.ps1
 !mc-miner/tools/devnet_e2e.ps1
+
+# === Android release signing (private key / password, never commit) ===
+keystore.properties
+*.jks
+*.keystore
+keys/
+mc-miner/app/*.jks

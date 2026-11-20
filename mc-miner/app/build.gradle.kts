@@ -16,6 +16,11 @@ val keystoreProperties = Properties().apply {
     if (hasReleaseKeystore) load(FileInputStream(keystorePropertiesFile))
 }
 
+// release 链 ID：默认与当前实际运行的链一致；主网上线后用 -PmcChainId=mcchain-mainnet-1 覆盖。
+// 不允许出厂包指向一条尚不存在的链，否则所有交易都会被节点以 wrong chain-id 拒绝。
+val releaseChainId = (project.findProperty("mcChainId") as String?)?.trim()
+    ?.takeIf { it.isNotEmpty() } ?: "mcchain-dev-1"
+
 android {
     namespace = "com.mcchain.miner"
     compileSdk = 34
@@ -27,6 +32,10 @@ android {
                 storePassword = keystoreProperties.getProperty("storePassword")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
+                // minSdk 26 下 v1(JAR) 无实际作用；v2 为安装必需，v3 支持密钥轮换。
+                enableV1Signing = false
+                enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }
@@ -38,7 +47,7 @@ android {
         versionCode = 3
         versionName = "3.0.0"
 
-        buildConfigField("String", "CHAIN_ID", "\"mcchain-mainnet-1\"")
+        buildConfigField("String", "CHAIN_ID", "\"$releaseChainId\"")
         buildConfigField("String", "DENOM", "\"umc\"")
         buildConfigField("String", "DISPLAY_DENOM", "\"MC\"")
         buildConfigField("int", "DECIMALS", "6")

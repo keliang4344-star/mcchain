@@ -352,7 +352,7 @@ fun ChainParamsCard() {
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 ParamRow("离线宽限", "${MCParams.PHONENODE_OFFLINE_GRACE_SECONDS}s")
-                ParamRow("心跳间隔", "${MCParams.PHONENODE_HEARTBEAT_INTERVAL_SECONDS}s")
+                ParamRow("本机心跳", "${MCParams.PHONENODE_HEARTBEAT_INTERVAL_SECONDS}s")
             }
         }
     }

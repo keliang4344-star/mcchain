@@ -169,13 +169,21 @@ class SettingsViewModel @Inject constructor(
         _rpcTestResult.value = "连接中…"
         viewModelScope.launch {
             val startedAt = System.currentTimeMillis()
-            val ok = rpcClient.ping(target)
+            val status = rpcClient.getNodeStatus(target)
             val elapsed = System.currentTimeMillis() - startedAt
-            _rpcTestResult.value = if (ok) {
-                "连接成功，耗时 $elapsed ms"
+            if (status != null && status.currentHeight > 0L) {
+                val nodeChainId = status.chainId.ifBlank { "未知" }
+                val warning = if (status.chainId.isNotBlank() && status.chainId != MCParams.CHAIN_ID) {
+                    "。警告：节点链 ID 与 App 配置的 ${MCParams.CHAIN_ID} 不一致，交易会被节点拒绝"
+                } else {
+                    ""
+                }
+                _rpcTestResult.value =
+                    "连接成功，链 ID：$nodeChainId，高度 ${status.currentHeight}，耗时 $elapsed ms$warning"
             } else {
-                "连接失败（$elapsed ms）：未能获取区块高度，请检查地址/端口、节点是否运行、" +
-                    "是否启用 HTTPS 及网络可达性"
+                _rpcTestResult.value =
+                    "连接失败（$elapsed ms）：未能获取区块高度，请检查地址/端口、节点是否运行、" +
+                        "HTTPS 证书是否有效及网络可达性"
             }
         }
     }

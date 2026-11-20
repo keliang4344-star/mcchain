@@ -82,21 +82,21 @@ class RpcClient @Inject constructor(
     }
 
     /**
-     * 获取节点状态
+     * 获取节点状态。[target] 非空时探测该地址，不改变当前客户端端点（供设置页「测试连接」）。
      */
-    suspend fun getNodeStatus(): NodeStatusSnapshot? {
-        val response = rpcCall("status", mapOf()) ?: return null
-        val result = response.getAsJsonObject("result")
-        val syncInfo = result.getAsJsonObject("sync_info")
-        val nodeInfo = result.getAsJsonObject("node_info")
+    suspend fun getNodeStatus(target: String? = null): NodeStatusSnapshot? {
+        val response = rpcCall("status", mapOf(), target) ?: return null
+        val result = response.getAsJsonObject("result") ?: return null
+        val syncInfo = result.getAsJsonObject("sync_info") ?: return null
+        val nodeInfo = result.getAsJsonObject("node_info") ?: return null
 
         return NodeStatusSnapshot(
-            currentHeight = syncInfo.get("latest_block_height").asLong,
-            latestBlockTime = parseIsoTime(syncInfo.get("latest_block_time").asString),
-            syncedPeers = result.getAsJsonObject("sync_info")?.get("n_peers")?.asInt ?: 0,
-            chainId = nodeInfo.get("network").asString,
-            nodeVersion = nodeInfo.get("version").asString,
-            catchingUp = syncInfo.get("catching_up").asBoolean,
+            currentHeight = syncInfo.get("latest_block_height")?.asLong ?: 0L,
+            latestBlockTime = parseIsoTime(syncInfo.get("latest_block_time")?.asString ?: ""),
+            syncedPeers = syncInfo.get("n_peers")?.asInt ?: 0,
+            chainId = nodeInfo.get("network")?.asString ?: "",
+            nodeVersion = nodeInfo.get("version")?.asString ?: "",
+            catchingUp = syncInfo.get("catching_up")?.asBoolean ?: false,
             totalStorageBytes = 0,
             bandwidthUpBps = 0,
             bandwidthDownBps = 0,
@@ -110,12 +110,10 @@ class RpcClient @Inject constructor(
     suspend fun getAccount(address: String): Triple<Long, Long, List<RpcCoin>>? {
         val path = "/cosmos/auth/v1beta1/accounts/$address"
         val response = restGet(path) ?: return null
-        val account = response.getAsJsonObject("account")
-            ?: response.getAsJsonObject("account")
-            ?: return null
+        val account = response.getAsJsonObject("account") ?: return null
         val baseAccount = account.getAsJsonObject("base_account") ?: account
-        val accountNumber = baseAccount.get("account_number").asLong
-        val sequence = baseAccount.get("sequence").asLong
+        val accountNumber = baseAccount.get("account_number")?.asLong ?: return null
+        val sequence = baseAccount.get("sequence")?.asLong ?: return null
         return Triple(accountNumber, sequence, emptyList())
     }
 
@@ -125,11 +123,11 @@ class RpcClient @Inject constructor(
     suspend fun getBalance(address: String, denom: String = MCParams.DENOM): Long {
         val path = "/cosmos/bank/v1beta1/balances/$address"
         val response = restGet(path) ?: return 0
-        val balances = response.getAsJsonArray("balances")
+        val balances = response.getAsJsonArray("balances") ?: return 0
         for (b in balances) {
             val obj = b.asJsonObject
-            if (obj.get("denom").asString == denom) {
-                return obj.get("amount").asLong
+            if (obj.get("denom")?.asString == denom) {
+                return obj.get("amount")?.asLong ?: 0L
             }
         }
         return 0
@@ -293,7 +291,11 @@ class RpcClient @Inject constructor(
 
     // === 内部方法 ===
 
-    private suspend fun rpcCall(method: String, params: Map<String, Any>): JsonObject? =
+    private suspend fun rpcCall(
+        method: String,
+        params: Map<String, Any>,
+        target: String? = null,
+    ): JsonObject? =
         withContext(Dispatchers.IO) {
             val requestObj = mapOf(
                 "jsonrpc" to "2.0",
@@ -302,14 +304,17 @@ class RpcClient @Inject constructor(
                 "params" to params
             )
             val body = gson.toJson(requestObj).toRequestBody(JSON)
+            val url = target?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() } ?: endpoint
             val request = Request.Builder()
-                .url(endpoint)
+                .url(url)
                 .post(body)
                 .build()
 
             try {
-                val response = client.newCall(request).await()
-                response.body?.string()?.let { gson.fromJson(it, JsonObject::class.java) }
+                client.newCall(request).await().use { response ->
+                    if (!response.isSuccessful) return@withContext null
+                    response.body?.string()?.let { gson.fromJson(it, JsonObject::class.java) }
+                }
             } catch (e: Exception) {
                 null
             }
@@ -318,8 +323,10 @@ class RpcClient @Inject constructor(
     private suspend fun restGet(path: String): JsonObject? = withContext(Dispatchers.IO) {
         val request = Request.Builder().url("${restBaseUrl()}$path").get().build()
         try {
-            val response = client.newCall(request).await()
-            response.body?.string()?.let { gson.fromJson(it, JsonObject::class.java) }
+            client.newCall(request).await().use { response ->
+                if (!response.isSuccessful) return@withContext null
+                response.body?.string()?.let { gson.fromJson(it, JsonObject::class.java) }
+            }
         } catch (e: Exception) {
             null
         }
@@ -331,8 +338,10 @@ class RpcClient @Inject constructor(
             .post(jsonBody.toRequestBody(JSON))
             .build()
         try {
-            val response = client.newCall(request).await()
-            response.body?.string()?.let { gson.fromJson(it, JsonObject::class.java) }
+            client.newCall(request).await().use { response ->
+                if (!response.isSuccessful) return@withContext null
+                response.body?.string()?.let { gson.fromJson(it, JsonObject::class.java) }
+            }
         } catch (e: Exception) {
             null
         }

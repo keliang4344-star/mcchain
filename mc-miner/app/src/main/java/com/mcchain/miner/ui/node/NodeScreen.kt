@@ -714,7 +714,7 @@ private fun ChainRulesCard(record: PhoneNodeRecord?) {
 
             RuleRow("认证有效期", "${MCParams.PHONENODE_ATTESTATION_VALIDITY_DAYS} 天")
             RuleRow(
-                "心跳间隔",
+                "本机心跳",
                 "${MCParams.PHONENODE_HEARTBEAT_INTERVAL_SECONDS} 秒"
             )
             RuleRow(

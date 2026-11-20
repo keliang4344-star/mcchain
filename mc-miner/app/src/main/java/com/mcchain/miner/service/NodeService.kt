@@ -148,7 +148,8 @@ class NodeService : LifecycleService() {
     }
 
     /**
-     * 心跳机制：每 25 秒（5 个区块）向链上发送心跳
+     * 本机心跳巡检：每 20 秒更新本地在线状态并检查罚没条件。
+     * 链上心跳由 MinerService 单独提交（120 秒一次，远小于 400 秒离线宽限）。
      */
     private fun startHeartbeat() {
         heartbeatJob?.cancel()

@@ -222,15 +222,22 @@ fun SettingsScreen(viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.c
         item {
             InfoSettingItem(
                 "最小自抵押",
-                String.format("%.0f MC", MCParams.MIN_SELF_DELEGATE_UMC / 1_000_000.0)
+                String.format("%,.0f MC", MCParams.MIN_SELF_DELEGATE_UMC / 1_000_000.0)
             )
         }
 
         // === 罚没规则 ===
         item { SettingsSection("罚没规则") }
         item { InfoSettingItem("双签罚没", "${MCParams.DOUBLE_SIGN_SLASH_PERCENT}%") }
-        item { InfoSettingItem("离线罚没", "${MCParams.DOWNTIME_SLASH_PERCENT}%") }
-        item { InfoSettingItem("离线宽限", "${MCParams.DOWNTIME_SLASH_WINDOW_BLOCKS} 块") }
+        item { InfoSettingItem("缺块罚没", "${MCParams.DOWNTIME_SLASH_PERCENT}%") }
+        item { InfoSettingItem("缺块统计窗口", "${MCParams.DOWNTIME_SLASH_WINDOW_BLOCKS} 块") }
+        item { InfoSettingItem("设备离线罚没", "${MCParams.PHONENODE_OFFLINE_SLASH_PERCENT}%") }
+        item {
+            InfoSettingItem(
+                "设备离线宽限",
+                "${MCParams.PHONENODE_OFFLINE_GRACE_BLOCKS} 块 / ${MCParams.PHONENODE_OFFLINE_GRACE_SECONDS} 秒"
+            )
+        }
 
         // === Tokenomics ===
         item { SettingsSection("代币经济") }
@@ -243,12 +250,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.c
         item { SettingsSection("DePIN 奖励池") }
         item {
             val poolMc = MCParams.DEPIN_INITIAL_POOL_UMC / 1_000_000.0
-            InfoSettingItem("初始奖池", String.format("%.0f MC", poolMc))
+            InfoSettingItem("初始奖池", String.format("%,.0f MC", poolMc))
         }
         item {
             InfoSettingItem(
-                "奖励分配",
-                "${MCParams.CONTRIBUTOR_SHARE}% (贡献者) / ${MCParams.SECURITY_POOL_SHARE}% (安全池) / ${MCParams.BURN_SHARE}% (销毁)"
+                "贡献赏金",
+                "${MCParams.CONTRIBUTOR_SHARE}% 归贡献节点（链上不抽成、不销毁）"
             )
         }
 
@@ -269,7 +276,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = androidx.lifecycle.viewmodel.c
         }
         item { InfoSettingItem("Cosmos SDK", "v0.47") }
         item { InfoSettingItem("CometBFT", "v0.37") }
-        item { InfoSettingItem("IBC", "v7.1.0") }
+        item { InfoSettingItem("IBC", "v7.3.0") }
         item {
             NoteSettingItem(
                 "隐私说明：钱包助记词与私钥仅保存在本机 Keystore 加密存储中，不会上传；" +
