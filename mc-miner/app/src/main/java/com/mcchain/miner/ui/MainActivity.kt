@@ -36,6 +36,7 @@ import com.mcchain.miner.service.MinerService
 import com.mcchain.miner.service.NodeService
 import com.mcchain.miner.ui.dashboard.DashboardScreen
 import com.mcchain.miner.ui.dashboard.DashboardViewModel
+import com.mcchain.miner.ui.ecosystem.ContributionHistoryScreen
 import com.mcchain.miner.ui.ecosystem.EdgeAiScreen
 import com.mcchain.miner.ui.ecosystem.EcosystemViewModel
 import com.mcchain.miner.ui.ecosystem.ReferralScreen
@@ -58,6 +59,7 @@ private object Route {
     const val REFERRAL = "referral"
     const val EDGE_AI = "edge_ai"
     const val TOKENOMICS = "tokenomics"
+    const val CONTRIBUTIONS = "contributions"
 }
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
@@ -233,6 +235,7 @@ fun MainApp(
                     onOpenReferral = { navController.navigate(Route.REFERRAL) { launchSingleTop = true } },
                     onOpenEdgeAi = { navController.navigate(Route.EDGE_AI) { launchSingleTop = true } },
                     onOpenTokenomics = { navController.navigate(Route.TOKENOMICS) { launchSingleTop = true } },
+                    onOpenContributions = { navController.navigate(Route.CONTRIBUTIONS) { launchSingleTop = true } },
                 )
             }
             composable(Route.REFERRAL) {
@@ -243,6 +246,15 @@ fun MainApp(
             }
             composable(Route.TOKENOMICS) {
                 TokenomicsScreen(viewModel = ecosystemViewModel) { navController.popBackStack() }
+            }
+            composable(Route.CONTRIBUTIONS) {
+                ContributionHistoryScreen(
+                    viewModel = ecosystemViewModel,
+                    onBack = { navController.popBackStack() },
+                    onOpenSettings = {
+                        navController.popBackStack(Screen.Settings.route, inclusive = false)
+                    },
+                )
             }
         }
     }

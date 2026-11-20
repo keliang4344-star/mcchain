@@ -31,6 +31,7 @@ fun SettingsScreen(
     onOpenReferral: () -> Unit = {},
     onOpenEdgeAi: () -> Unit = {},
     onOpenTokenomics: () -> Unit = {},
+    onOpenContributions: () -> Unit = {},
 ) {
     val nodeSyncEnabled by viewModel.nodeSyncEnabled.collectAsState()
     val miningEnabled by viewModel.miningEnabled.collectAsState()
@@ -39,6 +40,8 @@ fun SettingsScreen(
     val notificationEnabled by viewModel.notificationEnabled.collectAsState()
     val autoStartEnabled by viewModel.autoStartEnabled.collectAsState()
     val rpcEndpoint by viewModel.rpcEndpoint.collectAsState()
+    val indexerEndpoint by viewModel.indexerEndpoint.collectAsState()
+    val indexerTestResult by viewModel.indexerTestResult.collectAsState()
     val oracleEndpoint by viewModel.oracleEndpoint.collectAsState()
     val oracleToken by viewModel.oracleToken.collectAsState()
     val rpcTestResult by viewModel.rpcTestResult.collectAsState()
@@ -47,6 +50,7 @@ fun SettingsScreen(
     val context = LocalContext.current
 
     var showEndpointDialog by remember { mutableStateOf(false) }
+    var showIndexerDialog by remember { mutableStateOf(false) }
     var showOracleDialog by remember { mutableStateOf(false) }
     var showBatteryDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
@@ -184,6 +188,17 @@ fun SettingsScreen(
                 onClick = { showOracleDialog = true }
             )
         }
+        item {
+            ClickableSettingItem(
+                icon = Icons.Filled.Storage,
+                title = "索引器地址",
+                description = indexerEndpoint.ifBlank { "未配置（贡献历史不可用）" },
+                onClick = {
+                    viewModel.resetIndexerTestResult()
+                    showIndexerDialog = true
+                },
+            )
+        }
 
         // === 生态 ===
         item { SettingsSection("生态") }
@@ -209,6 +224,14 @@ fun SettingsScreen(
                 title = "代币经济",
                 description = "链上供应量、分配池与团队释放进度",
                 onClick = onOpenTokenomics,
+            )
+        }
+        item {
+            ClickableSettingItem(
+                icon = Icons.Filled.History,
+                title = "贡献历史",
+                description = "从本地索引器读取贡献奖励与防御拒绝事件",
+                onClick = onOpenContributions,
             )
         }
 
@@ -388,6 +411,59 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showEndpointDialog = false }) { Text("取消") }
+            }
+        )
+    }
+
+    // === 索引器地址对话框 ===
+    if (showIndexerDialog) {
+        var endpoint by remember { mutableStateOf(indexerEndpoint) }
+        AlertDialog(
+            onDismissRequest = { showIndexerDialog = false },
+            title = { Text("索引器地址") },
+            text = {
+                Column {
+                    Text(
+                        "用于「贡献历史」：只读查询 mcchain-indexer serve 的 /v1/contributions。" +
+                            "留空表示关闭该功能。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = endpoint,
+                        onValueChange = { endpoint = it },
+                        label = { Text("索引器地址") },
+                        placeholder = { Text("http://<索引器IP>:8090") },
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { viewModel.testIndexerConnection(endpoint) }) {
+                            Text("测试连接")
+                        }
+                        val result = indexerTestResult
+                        Text(
+                            text = result ?: "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = when {
+                                result == null -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                result?.startsWith("连接成功") == true -> StatusActive
+                                result?.startsWith("连接中") == true -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.error
+                            }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.updateIndexerEndpoint(endpoint)
+                    showIndexerDialog = false
+                }) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showIndexerDialog = false }) { Text("取消") }
             }
         )
     }

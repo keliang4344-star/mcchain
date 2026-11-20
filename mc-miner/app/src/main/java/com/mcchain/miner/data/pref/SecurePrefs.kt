@@ -66,6 +66,11 @@ class SecurePrefs @Inject constructor(
         get() = requirePrefs().getString(KEY_RPC_ENDPOINT, "") ?: ""
         set(value) = requirePrefs().edit().putString(KEY_RPC_ENDPOINT, value).apply()
 
+    /** 只读索引器 HTTP 地址（mcchain-indexer serve）。留空表示未配置，贡献历史不可用。 */
+    var indexerEndpoint: String
+        get() = requirePrefs().getString(KEY_INDEXER_ENDPOINT, "") ?: ""
+        set(value) = requirePrefs().edit().putString(KEY_INDEXER_ENDPOINT, value).apply()
+
     /** 认证预言机地址（internal/oraclesvc 的 /sign）。留空表示未配置。 */
     var oracleEndpoint: String
         get() = requirePrefs().getString(KEY_ORACLE_ENDPOINT, "") ?: ""
@@ -156,6 +161,7 @@ class SecurePrefs @Inject constructor(
         private const val KEY_PRIVATE_KEY = "encrypted_private_key"
         private const val KEY_SEED_NODES = "seed_nodes"
         private const val KEY_RPC_ENDPOINT = "rpc_endpoint"
+        private const val KEY_INDEXER_ENDPOINT = "indexer_endpoint"
         private const val KEY_ORACLE_ENDPOINT = "oracle_endpoint"
         private const val KEY_ORACLE_TOKEN = "oracle_token"
         private const val KEY_MINING_ENABLED = "mining_enabled"

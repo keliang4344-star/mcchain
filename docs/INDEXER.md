@@ -42,6 +42,38 @@ go build -o build/indexer ./cmd/indexer
 
 返回 JSON 行数组。
 
+### 2.3 只读 HTTP（serve）
+
+Android 客户端通过只读 HTTP 查询贡献历史，不直接读索引文件：
+
+```bash
+# JSONL 后端 + 只读 HTTP（默认 127.0.0.1:8090）
+./build/indexer serve \
+    --out /var/lib/mcchain/indexer \
+    --addr 127.0.0.1:8090
+```
+
+接口（仅 GET，参数 `limit` 默认 20、上限 200）：
+
+| 路径 | 说明 |
+| --- | --- |
+| `/health` | 返回 `{"status":"ok","cursor":<高度>}` |
+| `/v1/events?type=&address=&limit=&offset=` | 按事件类型子串与任一属性值过滤，按高度倒序 |
+| `/v1/contributions?address=&limit=&offset=` | 仅 `depin.RewardPaid` / `depin.DefenseBlocked`，按 `device` 过滤 |
+| `/v1/blocks?limit=&offset=` | 区块摘要，按高度倒序 |
+
+示例：
+
+```bash
+curl 'http://127.0.0.1:8090/v1/contributions?address=mc1abc...&limit=20&offset=0'
+```
+
+返回 `events / total / limit / offset`。服务只读取已落盘 JSONL，不写索引、不触发重扫；
+App 设置页需填写同一地址（默认端口 8090），未配置时贡献历史入口会明确提示。
+
+> 提示：若使用 `adb reverse` 在模拟器中联调，服务需同时监听 IPv6，
+> 建议使用 `--addr :8090`；绑定 `0.0.0.0:8090` 时部分 adb 版本会走 `::1` 导致连接被拒绝。
+
 ## 3. 存储 schema（v1）
 
 ### 默认后端：JSONL（append-only）

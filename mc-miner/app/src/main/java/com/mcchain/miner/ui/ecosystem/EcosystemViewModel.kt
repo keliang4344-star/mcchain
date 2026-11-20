@@ -7,6 +7,7 @@ import com.mcchain.miner.domain.wallet.TransactionService
 import com.mcchain.miner.network.EdgeAiDispute
 import com.mcchain.miner.network.EdgeAiResult
 import com.mcchain.miner.network.EdgeAiTaskDetail
+import com.mcchain.miner.network.IndexerClient
 import com.mcchain.miner.network.ReferralRecord
 import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.network.TokenomicsSnapshot
@@ -31,6 +32,7 @@ class EcosystemViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
     private val transactionService: TransactionService,
     private val rpcClient: RpcClient,
+    private val indexerClient: IndexerClient,
 ) : ViewModel() {
 
     private val _accountAddress = MutableStateFlow<String?>(null)
@@ -223,7 +225,66 @@ class EcosystemViewModel @Inject constructor(
         }
     }
 
+    // === 贡献历史（索引器） ===
+    private val _contributions = MutableStateFlow<List<IndexerClient.IndexerEvent>>(emptyList())
+    val contributions: StateFlow<List<IndexerClient.IndexerEvent>> = _contributions
+
+    private val _contributionTotal = MutableStateFlow(0)
+    val contributionTotal: StateFlow<Int> = _contributionTotal
+
+    private val _contributionLoading = MutableStateFlow(false)
+    val contributionLoading: StateFlow<Boolean> = _contributionLoading
+
+    private val _contributionError = MutableStateFlow<String?>(null)
+    val contributionError: StateFlow<String?> = _contributionError
+
+    private val _contributionNotConfigured = MutableStateFlow(false)
+    val contributionNotConfigured: StateFlow<Boolean> = _contributionNotConfigured
+
+    /**
+     * 从本地索引器按地址分页读取贡献事件。
+     * 索引器未配置/不可达时保留空列表并给出明确状态，不回落成本地推测数据。
+     */
+    fun loadContributions(loadMore: Boolean = false) {
+        if (_contributionLoading.value) return
+        viewModelScope.launch {
+            _contributionLoading.value = true
+            if (!loadMore) {
+                _contributionError.value = null
+                _contributionNotConfigured.value = false
+            }
+            val account = walletRepository.getDefaultAccount()
+            _accountAddress.value = account?.address
+            if (account == null) {
+                _contributionError.value = "请先在「钱包」创建或导入账户"
+                _contributionLoading.value = false
+                return@launch
+            }
+            val offset = if (loadMore) _contributions.value.size else 0
+            when (val result = indexerClient.getContributions(account.address, CONTRIBUTION_PAGE_SIZE, offset)) {
+                is IndexerClient.ContributionsResult.NotConfigured -> {
+                    _contributionNotConfigured.value = true
+                    if (!loadMore) _contributions.value = emptyList()
+                }
+                is IndexerClient.ContributionsResult.Failure -> {
+                    _contributionError.value = result.message
+                }
+                is IndexerClient.ContributionsResult.Success -> {
+                    _contributionNotConfigured.value = false
+                    _contributions.value = if (loadMore) {
+                        _contributions.value + result.events
+                    } else {
+                        result.events
+                    }
+                    _contributionTotal.value = result.total
+                }
+            }
+            _contributionLoading.value = false
+        }
+    }
+
     private companion object {
         const val EDGEAI_TASK_LIMIT = 50
+        const val CONTRIBUTION_PAGE_SIZE = 20
     }
 }

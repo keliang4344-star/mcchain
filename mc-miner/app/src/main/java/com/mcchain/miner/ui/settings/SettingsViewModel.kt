@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.mcchain.miner.MCParams
 import com.mcchain.miner.data.db.McChainDatabase
 import com.mcchain.miner.data.pref.SecurePrefs
+import com.mcchain.miner.network.IndexerClient
 import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.service.MinerService
 import com.mcchain.miner.service.NodeService
@@ -34,6 +35,7 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     val securePrefs: SecurePrefs,
     private val rpcClient: RpcClient,
+    private val indexerClient: IndexerClient,
     private val database: McChainDatabase,
 ) : ViewModel() {
 
@@ -44,6 +46,13 @@ class SettingsViewModel @Inject constructor(
 
     private val _rpcEndpoint = MutableStateFlow(defaultRpc)
     val rpcEndpoint: StateFlow<String> = _rpcEndpoint
+
+    /** 只读索引器地址（贡献历史）；空字符串表示未配置。 */
+    private val _indexerEndpoint = MutableStateFlow("")
+    val indexerEndpoint: StateFlow<String> = _indexerEndpoint
+
+    private val _indexerTestResult = MutableStateFlow<String?>(null)
+    val indexerTestResult: StateFlow<String?> = _indexerTestResult
 
     private val _oracleEndpoint = MutableStateFlow("")
     val oracleEndpoint: StateFlow<String> = _oracleEndpoint
@@ -85,6 +94,7 @@ class SettingsViewModel @Inject constructor(
             val savedRpc = securePrefs.rpcEndpoint.ifBlank { defaultRpc }
             _rpcEndpoint.value = savedRpc
             rpcClient.setEndpoint(savedRpc)
+            _indexerEndpoint.value = securePrefs.indexerEndpoint
             _oracleEndpoint.value = securePrefs.oracleEndpoint
             _oracleToken.value = securePrefs.oracleToken
             _nodeSyncEnabled.value = securePrefs.nodeSyncEnabled
@@ -154,6 +164,43 @@ class SettingsViewModel @Inject constructor(
 
     fun resetRpcTestResult() {
         _rpcTestResult.value = null
+    }
+
+    /** 索引器地址；留空表示不启用贡献历史。 */
+    fun updateIndexerEndpoint(endpoint: String) {
+        val normalized = endpoint.trim().trimEnd('/')
+        _indexerEndpoint.value = normalized
+        persist { securePrefs.indexerEndpoint = normalized }
+        _indexerTestResult.value = null
+    }
+
+    fun resetIndexerTestResult() {
+        _indexerTestResult.value = null
+    }
+
+    /** 用当前输入做一次 /health 探测，只验证地址可达，不读取业务数据。 */
+    fun testIndexerConnection(endpoint: String? = null) {
+        val target = (endpoint ?: _indexerEndpoint.value).trim().trimEnd('/')
+        if (target.isBlank()) {
+            _indexerTestResult.value = "请填写索引器地址"
+            return
+        }
+        if (!target.startsWith("http://") && !target.startsWith("https://")) {
+            _indexerTestResult.value = "失败：地址必须以 http:// 或 https:// 开头"
+            return
+        }
+        _indexerTestResult.value = "连接中…"
+        viewModelScope.launch {
+            val startedAt = System.currentTimeMillis()
+            // 只探测输入框中的地址，不写入偏好；是否保存由用户点击「保存」决定。
+            val probe = runCatching { indexerClient.ping(target) }.getOrDefault(false)
+            val elapsed = System.currentTimeMillis() - startedAt
+            _indexerTestResult.value = if (probe) {
+                "连接成功，耗时 $elapsed ms"
+            } else {
+                "连接失败（$elapsed ms）：请确认索引器已启动，且地址/端口可访问"
+            }
+        }
     }
 
     /** 用当前（或对话框中输入的）端点做一次真实连通性探测，并给出耗时。 */
@@ -249,6 +296,8 @@ class SettingsViewModel @Inject constructor(
     private fun applyDefaultsAfterClear() {
         _rpcEndpoint.value = defaultRpc
         rpcClient.setEndpoint(defaultRpc)
+        _indexerEndpoint.value = ""
+        _indexerTestResult.value = null
         _oracleEndpoint.value = ""
         _oracleToken.value = ""
         _nodeSyncEnabled.value = true

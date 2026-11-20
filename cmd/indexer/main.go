@@ -363,6 +363,8 @@ func main() {
 		runCmd(os.Args[2:])
 	case "query":
 		queryCmd(os.Args[2:])
+	case "serve":
+		serveCmd(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 	default:
@@ -375,8 +377,9 @@ func usage() {
 	fmt.Fprintln(os.Stderr, `mcchain-indexer — chain event indexer (docs/INDEXER.md)
 
 Commands:
-  run   [flags]    index new blocks continuously
-  query [flags]    read from a local index
+  run    [flags]   index new blocks continuously
+  query  [flags]   read from a local index
+  serve  [flags]   expose a read-only HTTP API over a local index
 
 run flags:
   --node         URL of CometBFT RPC (default http://127.0.0.1:26657)
@@ -386,7 +389,17 @@ run flags:
 query flags:
   --out          indexer dir (default ./indexer-data)
   --type         event type filter (substring, e.g. 'transfer')
-  --limit        max events to print (default 20)`)
+  --limit        max events to print (default 20)
+
+serve flags:
+  --out          indexer dir (default ./indexer-data)
+  --addr         listen address (default 127.0.0.1:8090)
+
+serve endpoints (GET only):
+  /health
+  /v1/events?type=&address=&limit=&offset=
+  /v1/contributions?address=&limit=&offset=
+  /v1/blocks?limit=&offset=`)
 }
 
 type runFlags struct {
