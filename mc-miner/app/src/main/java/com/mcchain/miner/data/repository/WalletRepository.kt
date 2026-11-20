@@ -1,7 +1,9 @@
 package com.mcchain.miner.data.repository
 
 import com.mcchain.miner.data.db.AccountDao
+import com.mcchain.miner.data.db.AddressBookDao
 import com.mcchain.miner.data.db.TxDao
+import com.mcchain.miner.data.model.AddressBookEntry
 import com.mcchain.miner.data.model.TxRecord
 import com.mcchain.miner.data.model.TxStatus
 import com.mcchain.miner.data.model.WalletAccount
@@ -12,7 +14,26 @@ import javax.inject.Singleton
 class WalletRepository @Inject constructor(
     private val accountDao: AccountDao,
     private val txDao: TxDao,
+    private val addressBookDao: AddressBookDao,
 ) {
+    suspend fun getAddressBook(): List<AddressBookEntry> = addressBookDao.getAll()
+
+    /** 同一地址重复保存时更新备注与时间，保留原 id。 */
+    suspend fun saveAddressBookEntry(address: String, label: String): Long {
+        val normalized = address.trim()
+        val existing = addressBookDao.findByAddress(normalized)
+        return addressBookDao.upsert(
+            AddressBookEntry(
+                id = existing?.id ?: 0,
+                address = normalized,
+                label = label.trim(),
+                createdAt = existing?.createdAt ?: System.currentTimeMillis(),
+            )
+        )
+    }
+
+    suspend fun deleteAddressBookEntry(id: Long) = addressBookDao.deleteById(id)
+
     suspend fun getAllAccounts(): List<WalletAccount> =
         accountDao.getAllAccounts()
 

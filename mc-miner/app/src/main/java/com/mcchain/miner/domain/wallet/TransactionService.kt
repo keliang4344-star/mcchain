@@ -585,7 +585,9 @@ class TransactionService @Inject constructor(
         !address.startsWith(MCParams.BECH32_PREFIX + "valoper1") ->
             "验证人地址必须以 ${MCParams.BECH32_PREFIX}valoper1 开头"
         address.length !in 48..62 -> "验证人地址长度异常，请检查是否粘贴完整"
-        address.any { it !in BECH32_CHARSET } -> "验证人地址包含非法字符"
+        !com.mcchain.miner.shared.util.Bech32Address.hasValidDataPart(
+            address, MCParams.BECH32_PREFIX + "valoper"
+        ) -> "验证人地址包含非法字符"
         else -> null
     }
 
@@ -680,9 +682,6 @@ class TransactionService @Inject constructor(
     private fun failure(message: String) = SubmitResult(success = false, message = message)
 
     private companion object {
-        /** bech32 数据字符集（不含分隔符 1）。 */
-        const val BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
-
         /** 离线队列保留时长：超过仍未上链视为签名时的 sequence 已过期。 */
         const val PENDING_TTL_MS = 10 * 60 * 1000L
 

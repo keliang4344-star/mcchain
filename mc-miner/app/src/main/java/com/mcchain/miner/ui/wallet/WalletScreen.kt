@@ -31,6 +31,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mcchain.miner.MCParams
+import com.mcchain.miner.data.model.AddressBookEntry
 import com.mcchain.miner.data.model.TxRecord
 import com.mcchain.miner.data.model.TxStatus
 import com.mcchain.miner.data.model.TxType
@@ -75,6 +76,8 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
     val message by viewModel.message.collectAsState()
     val outcome by viewModel.outcome.collectAsState()
     val txDetail by viewModel.txDetail.collectAsState()
+    val addressBook by viewModel.addressBook.collectAsState()
+    val addressBookMessage by viewModel.addressBookMessage.collectAsState()
 
     val defaultAccount = accounts.firstOrNull { it.isDefault }
     val context = LocalContext.current
@@ -84,6 +87,8 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
     SecureWindow(enabled = backupMnemonic != null || revealedMnemonic != null)
 
     var showSendDialog by remember { mutableStateOf(false) }
+    var showAddressBookDialog by remember { mutableStateOf(false) }
+    var prefilledSendAddress by remember { mutableStateOf("") }
     var showDelegateDialog by remember { mutableStateOf(false) }
     var undelegateTarget by remember { mutableStateOf<Delegation?>(null) }
     var redelegateTarget by remember { mutableStateOf<Delegation?>(null) }
@@ -274,9 +279,10 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
     }
 
     if (showSendDialog) {
-        var toAddress by remember { mutableStateOf("") }
+        var toAddress by remember { mutableStateOf(prefilledSendAddress) }
         var amountMc by remember { mutableStateOf("") }
         var sendError by remember { mutableStateOf<String?>(null) }
+        var showSendPicker by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { if (!busy) showSendDialog = false },
             title = { Text("转账 MC") },
@@ -289,6 +295,12 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                         singleLine = true,
                         enabled = !busy,
                     )
+                    if (addressBook.isNotEmpty()) {
+                        TextButton(
+                            onClick = { showSendPicker = true },
+                            enabled = !busy,
+                        ) { Text("从地址簿选择") }
+                    }
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = amountMc,
@@ -335,6 +347,109 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
             },
             dismissButton = {
                 TextButton(onClick = { showSendDialog = false }, enabled = !busy) { Text("取消") }
+            },
+        )
+
+        if (showSendPicker) {
+            AlertDialog(
+                onDismissRequest = { showSendPicker = false },
+                title = { Text("选择收款地址") },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 320.dp)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        addressBook.forEach { entry ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        toAddress = entry.address
+                                        sendError = null
+                                        showSendPicker = false
+                                    }
+                                    .padding(vertical = 8.dp),
+                            ) {
+                                Text(
+                                    entry.label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    shortAddress(entry.address),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                )
+                            }
+                            Divider()
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showSendPicker = false }) { Text("取消") }
+                },
+            )
+        }
+    }
+
+    if (showAddressBookDialog) {
+        var entryAddress by remember { mutableStateOf("") }
+        var entryLabel by remember { mutableStateOf("") }
+        var localError by remember { mutableStateOf<String?>(null) }
+        AlertDialog(
+            onDismissRequest = { showAddressBookDialog = false },
+            title = { Text("添加地址") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = entryLabel,
+                        onValueChange = {
+                            if (it.length <= 24) entryLabel = it
+                            localError = null
+                        },
+                        label = { Text("备注（最多 24 字符）") },
+                        singleLine = true,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = entryAddress,
+                        onValueChange = {
+                            entryAddress = it.trim()
+                            localError = null
+                        },
+                        label = { Text("地址（mc1...）") },
+                        singleLine = true,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "仅保存在本机，不会上传；同一地址重复保存会更新备注。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    localError?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val error = viewModel.validateAddressBookInput(entryAddress, entryLabel)
+                    if (error != null) {
+                        localError = error
+                    } else {
+                        viewModel.saveAddressBookEntry(entryAddress, entryLabel)
+                        showAddressBookDialog = false
+                    }
+                }) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddressBookDialog = false }) { Text("取消") }
             },
         )
     }
@@ -682,7 +797,10 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     FilledTonalButton(
-                        onClick = { showSendDialog = true },
+                        onClick = {
+                            prefilledSendAddress = ""
+                            showSendDialog = true
+                        },
                         enabled = !busy && !refreshing,
                         modifier = Modifier.weight(1f),
                     ) {
@@ -720,6 +838,20 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                         }
                         context.startActivity(Intent.createChooser(intent, "分享收款地址"))
                     },
+                )
+            }
+
+            item {
+                AddressBookCard(
+                    entries = addressBook,
+                    message = addressBookMessage,
+                    onAdd = { showAddressBookDialog = true },
+                    onDismissMessage = { viewModel.clearAddressBookMessage() },
+                    onSend = { entry ->
+                        prefilledSendAddress = entry.address
+                        showSendDialog = true
+                    },
+                    onDelete = { entry -> viewModel.deleteAddressBookEntry(entry.id) },
                 )
             }
 
@@ -1067,6 +1199,87 @@ private fun ReceiveCard(
                     Icon(Icons.Filled.Share, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("分享")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddressBookCard(
+    entries: List<AddressBookEntry>,
+    message: String?,
+    onAdd: () -> Unit,
+    onDismissMessage: () -> Unit,
+    onSend: (AddressBookEntry) -> Unit,
+    onDelete: (AddressBookEntry) -> Unit,
+) {
+    Card(shape = RoundedCornerShape(12.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "地址簿",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        "常用收款地址，仅保存在本机",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    )
+                }
+                TextButton(onClick = onAdd) { Text("添加") }
+            }
+
+            message?.let {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onDismissMessage) { Text("关闭") }
+                }
+            }
+
+            if (entries.isEmpty()) {
+                Text(
+                    "暂无地址。添加后可在转账时一键填入，减少抄错地址的风险。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            } else {
+                entries.forEachIndexed { index, entry ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                entry.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                shortAddress(entry.address),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                            )
+                        }
+                        TextButton(onClick = { onSend(entry) }) { Text("转账") }
+                        IconButton(onClick = { onDelete(entry) }) {
+                            Icon(
+                                Icons.Filled.DeleteOutline,
+                                contentDescription = "删除 ${entry.label}",
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                    if (index != entries.lastIndex) Divider()
                 }
             }
         }

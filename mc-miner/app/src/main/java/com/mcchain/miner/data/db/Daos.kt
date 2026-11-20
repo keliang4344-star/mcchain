@@ -189,3 +189,18 @@ interface NodeStatusDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(status: NodeStatusSnapshot)
 }
+
+@Dao
+interface AddressBookDao {
+    @Query("SELECT * FROM address_book ORDER BY createdAt DESC")
+    suspend fun getAll(): List<AddressBookEntry>
+
+    @Query("SELECT * FROM address_book WHERE address = :address LIMIT 1")
+    suspend fun findByAddress(address: String): AddressBookEntry?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entry: AddressBookEntry): Long
+
+    @Query("DELETE FROM address_book WHERE id = :id")
+    suspend fun deleteById(id: Long)
+}

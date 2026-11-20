@@ -1,6 +1,7 @@
 package com.mcchain.miner.data.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
@@ -46,6 +47,19 @@ data class TxRecord(
 
 enum class TxType { SEND, DELEGATE, UNDELEGATE, REDELEGATE, CLAIM_REWARDS, REGISTER_DEVICE, ATTEST_NODE, REPORT_CONTRIB, SUBMIT_TASK, REFERRAL, CLAIM_REFERRAL, EDGEAI_TASK, EDGEAI_DISPUTE, UNKNOWN }
 enum class TxStatus { PENDING, SUCCESS, FAILED }
+
+/**
+ * 本地地址簿条目（仅本机存储，不上传）。
+ * address 唯一：重复保存同一地址时更新备注，不产生重复行。
+ */
+@Entity(tableName = "address_book", indices = [Index(value = ["address"], unique = true)])
+data class AddressBookEntry(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val address: String,
+    val label: String,
+    val createdAt: Long,
+)
 
 /**
  * 对等节点

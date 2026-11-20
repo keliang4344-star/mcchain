@@ -29,7 +29,7 @@ object AppModule {
             McChainDatabase::class.java,
             "mcchain_db"
         )
-            .fallbackToDestructiveMigration()
+            .addMigrations(McChainDatabase.MIGRATION_1_2)
             .addCallback(object : androidx.room.RoomDatabase.Callback() {
                 override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                     super.onCreate(db)
@@ -70,6 +70,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideNodeStatusDao(db: McChainDatabase) = db.nodeStatusDao()
+
+    @Provides
+    @Singleton
+    fun provideAddressBookDao(db: McChainDatabase) = db.addressBookDao()
 
     @Provides
     @Singleton

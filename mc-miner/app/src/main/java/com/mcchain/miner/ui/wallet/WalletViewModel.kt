@@ -3,6 +3,7 @@ package com.mcchain.miner.ui.wallet
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mcchain.miner.MCParams
+import com.mcchain.miner.data.model.AddressBookEntry
 import com.mcchain.miner.data.model.TxRecord
 import com.mcchain.miner.data.model.WalletAccount
 import com.mcchain.miner.data.repository.WalletRepository
@@ -14,6 +15,7 @@ import com.mcchain.miner.network.Delegation
 import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.network.TxResult
 import com.mcchain.miner.network.ValidatorInfo
+import com.mcchain.miner.shared.util.Bech32Address
 import com.mcchain.miner.shared.util.Hex
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -51,6 +53,13 @@ class WalletViewModel @Inject constructor(
 
     private val _accounts = MutableStateFlow<List<WalletAccount>>(emptyList())
     val accounts: StateFlow<List<WalletAccount>> = _accounts
+
+    /** 本地地址簿（仅本机，不上传）。 */
+    private val _addressBook = MutableStateFlow<List<AddressBookEntry>>(emptyList())
+    val addressBook: StateFlow<List<AddressBookEntry>> = _addressBook
+
+    private val _addressBookMessage = MutableStateFlow<String?>(null)
+    val addressBookMessage: StateFlow<String?> = _addressBookMessage
 
     private val _transactions = MutableStateFlow<List<TxRecord>>(emptyList())
     val transactions: StateFlow<List<TxRecord>> = _transactions
@@ -121,6 +130,8 @@ class WalletViewModel @Inject constructor(
             _refreshError.value = null
             try {
                 _accounts.value = walletRepository.getAllAccounts()
+                _addressBook.value = runCatching { walletRepository.getAddressBook() }
+                    .getOrDefault(emptyList())
                 val default = _accounts.value.firstOrNull { it.isDefault }
                 if (default == null) {
                     _transactions.value = emptyList()
@@ -473,7 +484,9 @@ class WalletViewModel @Inject constructor(
             return "验证人地址必须以 ${MCParams.BECH32_PREFIX}valoper1 开头"
         }
         if (validator.length !in 48..62) return "验证人地址长度异常，请检查是否粘贴完整"
-        if (validator.any { it !in BECH32_CHARSET }) return "验证人地址包含非法字符"
+        if (!Bech32Address.hasValidDataPart(validator, MCParams.BECH32_PREFIX + "valoper")) {
+            return "验证人地址包含非法字符"
+        }
         return null
     }
 
@@ -482,8 +495,62 @@ class WalletViewModel @Inject constructor(
         val prefix = MCParams.BECH32_PREFIX + "1"
         if (!address.startsWith(prefix)) return "收款地址必须以 $prefix 开头"
         if (address.length !in 39..59) return "收款地址长度异常，请检查是否粘贴完整"
-        if (address.any { it !in BECH32_CHARSET }) return "收款地址包含非法字符，请检查是否复制正确"
+        if (!Bech32Address.hasValidDataPart(address, MCParams.BECH32_PREFIX)) {
+            return "收款地址包含非法字符，请检查是否复制正确"
+        }
         return null
+    }
+
+    /** 地址簿输入校验（对话框保存前调用，避免关闭后才看到错误）。 */
+    fun validateAddressBookInput(address: String, label: String): String? {
+        validateUserAddress(address.trim())?.let { return it }
+        if (address.trim() == "") return "请输入地址"
+        if (label.trim().length > MAX_ADDRESS_LABEL_LENGTH) {
+            return "备注过长（最多 $MAX_ADDRESS_LABEL_LENGTH 个字符）"
+        }
+        return null
+    }
+
+    /** 保存地址簿条目；同一地址仅更新备注，不重复插入。 */
+    fun saveAddressBookEntry(address: String, label: String) {
+        val trimmedAddress = address.trim()
+        validateUserAddress(trimmedAddress)?.let {
+            _addressBookMessage.value = it
+            return
+        }
+        val name = label.trim().ifBlank { "未命名" }
+        if (name.length > MAX_ADDRESS_LABEL_LENGTH) {
+            _addressBookMessage.value = "备注过长（最多 $MAX_ADDRESS_LABEL_LENGTH 个字符）"
+            return
+        }
+        viewModelScope.launch {
+            val existed = _addressBook.value.any { it.address == trimmedAddress }
+            runCatching { walletRepository.saveAddressBookEntry(trimmedAddress, name) }
+                .onSuccess {
+                    _addressBook.value = walletRepository.getAddressBook()
+                    _addressBookMessage.value = if (existed) "已更新该地址的备注" else "已添加到地址簿"
+                }
+                .onFailure {
+                    _addressBookMessage.value = "保存失败：${it.message ?: it.javaClass.simpleName}"
+                }
+        }
+    }
+
+    fun deleteAddressBookEntry(id: Long) {
+        viewModelScope.launch {
+            runCatching { walletRepository.deleteAddressBookEntry(id) }
+                .onSuccess {
+                    _addressBook.value = walletRepository.getAddressBook()
+                    _addressBookMessage.value = "已从地址簿删除"
+                }
+                .onFailure {
+                    _addressBookMessage.value = "删除失败：${it.message ?: it.javaClass.simpleName}"
+                }
+        }
+    }
+
+    fun clearAddressBookMessage() {
+        _addressBookMessage.value = null
     }
 
     private fun parseAmountMc(input: String): Long? {
@@ -509,8 +576,8 @@ class WalletViewModel @Inject constructor(
         /** 链上交易历史一次最多展示的条数。 */
         const val CHAIN_TX_LIMIT = 20
 
-        /** bech32 数据字符集（不含分隔符 1）。 */
-        const val BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+        /** 地址簿备注长度上限。 */
+        const val MAX_ADDRESS_LABEL_LENGTH = 24
 
         /** 只接受普通十进制、最多 6 位小数，拒绝科学计数法与负号。 */
         val AMOUNT_PATTERN = Regex("^\\d{1,18}(\\.\\d{1,6})?$")
