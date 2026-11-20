@@ -123,7 +123,7 @@ func BenchmarkSimulation(b *testing.B) {
 	simcli.FlagEnabledValue = true
 
 	config := simcli.NewConfigFromFlags()
-	config.ChainID = "mars-simapp"
+	config.ChainID = "mcchain-sim-1"
 	db, dir, logger, _, err := simtestutil.SetupSimulation(
 		config,
 		"leveldb-bApp-sim",
@@ -214,7 +214,9 @@ func TestAppStateDeterminism(t *testing.T) {
 			} else {
 				logger = log.NewNopLogger()
 			}
-			chainID := fmt.Sprintf("chain-id-%d-%d", i, j)
+			// 必须使用 chainprofile 已登记的 development chain-id：
+			// 仿真同样经过 InitChainer 的生产/测试闸门，任意字符串会被拒绝。
+			chainID := "mcchain-sim-1"
 			config.ChainID = chainID
 
 			db := dbm.NewMemDB()
@@ -273,7 +275,7 @@ func TestAppStateDeterminism(t *testing.T) {
 
 func TestAppImportExport(t *testing.T) {
 	config := simcli.NewConfigFromFlags()
-	config.ChainID = "mars-simapp-import"
+	config.ChainID = "mcchain-sim-1"
 
 	db, dir, logger, skip, err := simtestutil.SetupSimulation(
 		config,
@@ -427,7 +429,7 @@ func TestAppImportExport(t *testing.T) {
 
 func TestAppSimulationAfterImport(t *testing.T) {
 	config := simcli.NewConfigFromFlags()
-	config.ChainID = "mars-simapp-after-import"
+	config.ChainID = "mcchain-sim-1"
 
 	db, dir, logger, skip, err := simtestutil.SetupSimulation(
 		config,

@@ -20,7 +20,7 @@
 // go.mod 依赖（需在 mcchain 根 go.mod 中）：
 //
 //	require (
-//	    github.com/cosmos/cosmos-sdk v0.47.3
+//	    github.com/cosmos/cosmos-sdk v0.47.14
 //	    github.com/spf13/cobra v1.6.1
 //	)
 //

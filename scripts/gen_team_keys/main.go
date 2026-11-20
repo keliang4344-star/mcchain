@@ -180,7 +180,7 @@ func writeVault(out []KeyOut, teamAddr string) {
 	v += "MC 公链 · 团队 3-of-5 多签密钥密码本（绝密 · 仅本地保管）\n"
 	v += "================================================================\n"
 	v += fmt.Sprintf("生成时间: %s\n", nowStr())
-	v += "生成工具: scripts/gen_team_keys（cosmos-sdk v0.47.3 标准 bip39 + hd 路径 m/44'/118'/0'/0/0）\n"
+	v += "生成工具: scripts/gen_team_keys（cosmos-sdk v0.47.14 标准 bip39 + hd 路径 m/44'/118'/0'/0/0）\n"
 	v += "用途:     这 5 个公钥已写入 x/tokenomics/types/team_pubkeys_gen.go 的 teamPubKeyStrings，\n"
 	v += "          构成主网团队池（1.5e14 umc = 1.5e8 MC）的 3-of-5 多签 vesting 账户。\n"
 	v += "          任意 3 个助记词即可动用团队资金，务必分散保管！\n"
