@@ -20,12 +20,15 @@ import javax.inject.Singleton
  */
 @Singleton
 class TxBuilder @Inject constructor(
-    private val walletManager: WalletManager
+    private val walletManager: WalletManager,
+    private val feeProvider: DynamicFeeProvider,
 ) {
     data class BuiltTx(
         val txRaw: ByteArray,
         val txHashHex: String,
         val fromAddress: String,
+        /** 实际写入交易的 fee（umc），供本地记账与展示使用。 */
+        val feeUmc: Long,
     )
 
     fun buildSendTx(
@@ -35,7 +38,7 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String = "",
         gas: Long = DEFAULT_GAS_SEND,
-        feeAmount: String = DEFAULT_FEE_UMC,
+        feeAmount: String? = null,
     ): BuiltTx {
         val wallet = requireWallet()
         val message = CosmosMsgs.send(
@@ -53,12 +56,58 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String = "",
         gas: Long = DEFAULT_GAS_DELEGATE,
-        feeAmount: String = DEFAULT_FEE_UMC,
+        feeAmount: String? = null,
     ): BuiltTx {
         val wallet = requireWallet()
         val message = CosmosMsgs.delegate(
             delegatorAddress = wallet.address,
             validatorAddress = validatorAddress,
+            amount = Coin(MCParams.DENOM, amountUmc.toString()),
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
+    /**
+     * 解除委托（cosmos.staking.v1beta1.MsgUndelegate）。
+     * 链上解除后进入 21 天解绑期，期间不再产生奖励，仍受罚没规则约束。
+     */
+    fun buildUndelegateTx(
+        validatorAddress: String,
+        amountUmc: Long,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "undelegate",
+        gas: Long = DEFAULT_GAS_UNDELEGATE,
+        feeAmount: String? = null,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = CosmosMsgs.undelegate(
+            delegatorAddress = wallet.address,
+            validatorAddress = validatorAddress,
+            amount = Coin(MCParams.DENOM, amountUmc.toString()),
+        )
+        return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
+    }
+
+    /**
+     * 转委托（cosmos.staking.v1beta1.MsgBeginRedelegate）。
+     * 一次性完成「从源验证人解绑 + 绑定目标验证人」，但 21 天内仍受两者罚没影响。
+     */
+    fun buildRedelegateTx(
+        sourceValidatorAddress: String,
+        destinationValidatorAddress: String,
+        amountUmc: Long,
+        accountNumber: Long,
+        sequence: Long,
+        memo: String = "redelegate",
+        gas: Long = DEFAULT_GAS_REDELEGATE,
+        feeAmount: String? = null,
+    ): BuiltTx {
+        val wallet = requireWallet()
+        val message = CosmosMsgs.beginRedelegate(
+            delegatorAddress = wallet.address,
+            sourceValidatorAddress = sourceValidatorAddress,
+            destinationValidatorAddress = destinationValidatorAddress,
             amount = Coin(MCParams.DENOM, amountUmc.toString()),
         )
         return build(wallet, listOf(message), accountNumber, sequence, memo, gas, feeAmount)
@@ -71,7 +120,7 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String = "",
         gas: Long = DEFAULT_GAS_CLAIM,
-        feeAmount: String = DEFAULT_FEE_UMC,
+        feeAmount: String? = null,
     ): BuiltTx {
         require(validatorAddresses.isNotEmpty()) { "至少需要一个验证人地址" }
         val wallet = requireWallet()
@@ -92,7 +141,7 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String = "register-device",
         gas: Long = DEFAULT_GAS_REGISTER,
-        feeAmount: String = DEFAULT_FEE_UMC,
+        feeAmount: String? = null,
     ): BuiltTx {
         val wallet = requireWallet()
         val message = DepinTx.registerDevice(
@@ -116,7 +165,7 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String = "attest-device",
         gas: Long = DEFAULT_GAS_ATTEST,
-        feeAmount: String = DEFAULT_FEE_UMC,
+        feeAmount: String? = null,
     ): BuiltTx {
         val wallet = requireWallet()
         val message = DepinTx.attestDevice(
@@ -141,7 +190,7 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String = "",
         gas: Long = DEFAULT_GAS_CONTRIB,
-        feeAmount: String = DEFAULT_FEE_UMC,
+        feeAmount: String? = null,
     ): BuiltTx {
         val wallet = requireWallet()
         val message = DepinTx.submitContribution(
@@ -165,7 +214,7 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String = "register-node",
         gas: Long = DEFAULT_GAS_REGISTER,
-        feeAmount: String = DEFAULT_FEE_UMC,
+        feeAmount: String? = null,
     ): BuiltTx {
         val wallet = requireWallet()
         val message = PhonenodeTx.registerNode(
@@ -192,7 +241,7 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String = "attest-node",
         gas: Long = DEFAULT_GAS_ATTEST,
-        feeAmount: String = DEFAULT_FEE_UMC,
+        feeAmount: String? = null,
     ): BuiltTx {
         val wallet = requireWallet()
         val message = PhonenodeTx.submitAttestation(
@@ -218,7 +267,7 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String = "edgeai-result",
         gas: Long = DEFAULT_GAS_EDGEAI,
-        feeAmount: String = DEFAULT_FEE_UMC,
+        feeAmount: String? = null,
     ): BuiltTx {
         val wallet = requireWallet()
         val message = EdgeAiTx.submitResult(
@@ -238,7 +287,7 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String = "edgeai-create",
         gas: Long = DEFAULT_GAS_EDGEAI,
-        feeAmount: String = DEFAULT_FEE_UMC,
+        feeAmount: String? = null,
     ): BuiltTx {
         val wallet = requireWallet()
         val message = EdgeAiTx.createTask(
@@ -262,7 +311,7 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String = "",
         gas: Long = DEFAULT_GAS_HEARTBEAT,
-        feeAmount: String = DEFAULT_FEE_UMC,
+        feeAmount: String? = null,
     ): BuiltTx {
         val wallet = requireWallet()
         val leafHash = com.mcchain.miner.shared.util.Sha256.digest(leaf.toByteArray(Charsets.UTF_8))
@@ -290,15 +339,16 @@ class TxBuilder @Inject constructor(
         sequence: Long,
         memo: String,
         gas: Long,
-        feeAmount: String,
+        feeAmount: String?,
     ): BuiltTx {
+        val fee = feeAmount ?: feeProvider.feeFor(gas).toString()
         val signed = DirectTxBuilder.build(
             input = DirectTxInput(
                 messages = messages,
                 chainId = MCParams.CHAIN_ID,
                 accountNumber = accountNumber,
                 sequence = sequence,
-                fee = listOf(Coin(MCParams.DENOM, feeAmount)),
+                fee = listOf(Coin(MCParams.DENOM, fee)),
                 gasLimit = gas,
                 memo = memo,
             ),
@@ -308,6 +358,7 @@ class TxBuilder @Inject constructor(
             txRaw = signed.txRawBytes,
             txHashHex = signed.txHashHex,
             fromAddress = wallet.address,
+            feeUmc = fee.toLongOrNull() ?: 0L,
         )
     }
 
@@ -315,6 +366,8 @@ class TxBuilder @Inject constructor(
         const val DEFAULT_FEE_UMC = "5000"
         const val DEFAULT_GAS_SEND = 200_000L
         const val DEFAULT_GAS_DELEGATE = 250_000L
+        const val DEFAULT_GAS_UNDELEGATE = 300_000L
+        const val DEFAULT_GAS_REDELEGATE = 350_000L
         const val DEFAULT_GAS_CLAIM = 300_000L
         const val DEFAULT_GAS_REGISTER = 200_000L
         const val DEFAULT_GAS_ATTEST = 250_000L

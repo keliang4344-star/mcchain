@@ -221,16 +221,48 @@ class WalletViewModel @Inject constructor(
         val validator = validatorAddress.trim()
         val account = _accounts.value.firstOrNull { it.isDefault }
             ?: return "钱包未初始化，请先创建或导入助记词"
-        if (validator.isEmpty()) return "请输入验证人地址"
-        if (!validator.startsWith(MCParams.BECH32_PREFIX + "valoper1")) {
-            return "验证人地址必须以 ${MCParams.BECH32_PREFIX}valoper1 开头"
-        }
-        if (validator.length !in 48..62) return "验证人地址长度异常，请检查是否粘贴完整"
-        if (validator.any { it !in BECH32_CHARSET }) return "验证人地址包含非法字符"
+        validatorFormatError(validator)?.let { return it }
         val amount = parseAmountMc(amountMc)
             ?: return "金额格式无效：请输入大于 0、最多 6 位小数的 MC 数量"
         if (amount <= 0) return "委托金额必须大于 0"
         return checkBalance(account, amount)
+    }
+
+    /** 解除委托表单校验；金额不得超过该验证人的链上委托数量。 */
+    fun validateUndelegate(validatorAddress: String, amountMc: String): String? {
+        val account = _accounts.value.firstOrNull { it.isDefault }
+            ?: return "钱包未初始化，请先创建或导入助记词"
+        val validator = validatorAddress.trim()
+        validatorFormatError(validator)?.let { return it }
+        val amount = parseAmountMc(amountMc)
+            ?: return "金额格式无效：请输入大于 0、最多 6 位小数的 MC 数量"
+        if (amount <= 0) return "解除金额必须大于 0"
+        val delegation = _delegations.value.firstOrNull { it.validatorAddress == validator }
+            ?: return "当前没有向该验证人的委托，请刷新后重试"
+        if (amount > delegation.amount) {
+            return "解除金额超过该验证人的委托数量（${formatMc(delegation.amount)}）"
+        }
+        return checkFeeBalance(account)
+    }
+
+    /** 转委托表单校验；源与目标不能相同，金额不得超过源委托数量。 */
+    fun validateRedelegate(source: String, destination: String, amountMc: String): String? {
+        val account = _accounts.value.firstOrNull { it.isDefault }
+            ?: return "钱包未初始化，请先创建或导入助记词"
+        val src = source.trim()
+        val dst = destination.trim()
+        validatorFormatError(src)?.let { return "源验证人地址无效：$it" }
+        validatorFormatError(dst)?.let { return "目标验证人地址无效：$it" }
+        if (src == dst) return "转委托的源与目标验证人不能相同"
+        val amount = parseAmountMc(amountMc)
+            ?: return "金额格式无效：请输入大于 0、最多 6 位小数的 MC 数量"
+        if (amount <= 0) return "转委托金额必须大于 0"
+        val delegation = _delegations.value.firstOrNull { it.validatorAddress == src }
+            ?: return "当前没有向源验证人的委托，请刷新后重试"
+        if (amount > delegation.amount) {
+            return "转委托金额超过源验证人的委托数量（${formatMc(delegation.amount)}）"
+        }
+        return checkFeeBalance(account)
     }
 
     fun send(toAddress: String, amountMc: String) {
@@ -249,6 +281,26 @@ class WalletViewModel @Inject constructor(
         }
         val amount = parseAmountMc(amountMc) ?: return
         submit("质押委托") { transactionService.delegate(validatorAddress.trim(), amount) }
+    }
+
+    fun undelegate(validatorAddress: String, amountMc: String) {
+        validateUndelegate(validatorAddress, amountMc)?.let { reason ->
+            _outcome.value = TxOutcome("解除委托失败", success = false, message = reason)
+            return
+        }
+        val amount = parseAmountMc(amountMc) ?: return
+        submit("解除委托") { transactionService.undelegate(validatorAddress.trim(), amount) }
+    }
+
+    fun redelegate(source: String, destination: String, amountMc: String) {
+        validateRedelegate(source, destination, amountMc)?.let { reason ->
+            _outcome.value = TxOutcome("转委托失败", success = false, message = reason)
+            return
+        }
+        val amount = parseAmountMc(amountMc) ?: return
+        submit("转委托") {
+            transactionService.redelegate(source.trim(), destination.trim(), amount)
+        }
     }
 
     fun claimRewards() {
@@ -351,6 +403,25 @@ class WalletViewModel @Inject constructor(
         if (amountUmc > account.balance - fee) {
             return "余额不足：金额加网络手续费 ${formatMc(fee)} 超过可用余额 ${formatMc(account.balance)}"
         }
+        return null
+    }
+
+    /** 只校验手续费是否够付（解除/转委托不占用可用余额，只扣手续费）。 */
+    private fun checkFeeBalance(account: WalletAccount): String? {
+        val fee = TxBuilder.DEFAULT_FEE_UMC.toLong()
+        if (account.balance < fee) {
+            return "可用余额不足以支付网络手续费 ${formatMc(fee)}，请先充值"
+        }
+        return null
+    }
+
+    private fun validatorFormatError(validator: String): String? {
+        if (validator.isEmpty()) return "请输入验证人地址"
+        if (!validator.startsWith(MCParams.BECH32_PREFIX + "valoper1")) {
+            return "验证人地址必须以 ${MCParams.BECH32_PREFIX}valoper1 开头"
+        }
+        if (validator.length !in 48..62) return "验证人地址长度异常，请检查是否粘贴完整"
+        if (validator.any { it !in BECH32_CHARSET }) return "验证人地址包含非法字符"
         return null
     }
 

@@ -24,6 +24,7 @@ import javax.inject.Singleton
 class TransactionService @Inject constructor(
     private val rpcClient: RpcClient,
     private val txBuilder: TxBuilder,
+    private val feeProvider: DynamicFeeProvider,
     private val walletRepository: WalletRepository,
     private val securePrefs: SecurePrefs,
 ) {
@@ -75,16 +76,49 @@ class TransactionService @Inject constructor(
     suspend fun delegate(validatorAddress: String, amountUmc: Long): SubmitResult = submitLock.withLock {
         val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
         val validator = validatorAddress.trim()
-        if (!validator.startsWith(MCParams.BECH32_PREFIX + "valoper1") &&
-            !validator.startsWith(MCParams.BECH32_PREFIX + "1")
-        ) {
-            return@withLock failure("验证人地址格式无效")
-        }
+        validateValidator(validator)?.let { return@withLock failure(it) }
         if (amountUmc <= 0) return@withLock failure("金额必须大于 0")
         if (account.balance > 0 && amountUmc > account.balance) return@withLock failure("余额不足")
 
         submit(TxType.DELEGATE, account.address, validator, amountUmc, "") { accountNumber, sequence ->
             txBuilder.buildDelegateTx(validator, amountUmc, accountNumber, sequence)
+        }
+    }
+
+    /** 解除委托（MsgUndelegate）：金额进入 21 天解绑期，期间不再产生奖励。 */
+    suspend fun undelegate(validatorAddress: String, amountUmc: Long): SubmitResult = submitLock.withLock {
+        val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
+        val validator = validatorAddress.trim()
+        validateValidator(validator)?.let { return@withLock failure(it) }
+        if (amountUmc <= 0) return@withLock failure("解除金额必须大于 0")
+        ensureDelegationAmount(account.address, validator, amountUmc)?.let { return@withLock failure(it) }
+        ensureFeeBalance(account.balance)?.let { return@withLock failure(it) }
+
+        submit(TxType.UNDELEGATE, account.address, validator, amountUmc, "undelegate") {
+                accountNumber, sequence ->
+            txBuilder.buildUndelegateTx(validator, amountUmc, accountNumber, sequence)
+        }
+    }
+
+    /** 转委托（MsgBeginRedelegate）：源与目标验证人不能相同，金额不得超过源委托数量。 */
+    suspend fun redelegate(
+        sourceValidator: String,
+        destinationValidator: String,
+        amountUmc: Long,
+    ): SubmitResult = submitLock.withLock {
+        val account = defaultAccount() ?: return@withLock failure("钱包未初始化，请先创建或导入助记词")
+        val source = sourceValidator.trim()
+        val destination = destinationValidator.trim()
+        validateValidator(source)?.let { return@withLock failure("源验证人地址无效：$it") }
+        validateValidator(destination)?.let { return@withLock failure("目标验证人地址无效：$it") }
+        if (source == destination) return@withLock failure("转委托的源与目标验证人不能相同")
+        if (amountUmc <= 0) return@withLock failure("转委托金额必须大于 0")
+        ensureDelegationAmount(account.address, source, amountUmc)?.let { return@withLock failure(it) }
+        ensureFeeBalance(account.balance)?.let { return@withLock failure(it) }
+
+        submit(TxType.REDELEGATE, account.address, "$source -> $destination", amountUmc, "redelegate") {
+                accountNumber, sequence ->
+            txBuilder.buildRedelegateTx(source, destination, amountUmc, accountNumber, sequence)
         }
     }
 
@@ -312,11 +346,20 @@ class TransactionService @Inject constructor(
         build: suspend (accountNumber: Long, sequence: Long) -> TxBuilder.BuiltTx,
     ): SubmitResult {
         var lastLog = ""
+        // 签名前强校验链 ID：节点与 App 配置不一致时直接拒绝，避免签出一笔注定被拒的交易。
+        ensureChainMatchesNode()?.let { return failure(it) }
+        feeProvider.refresh()
         repeat(maxAttempts) { attempt ->
             val info = rpcClient.getAccount(from)
                 ?: return failure("无法获取链上账户信息，请检查网络或节点地址")
             val built = runCatching { build(info.first, info.second) }
                 .getOrElse { return failure(it.message ?: "交易构造失败") }
+
+            // 动态手续费可能高于界面展示的最低值；广播前用链上余额做一次硬校验。
+            val liquid = rpcClient.getBalanceOrNull(from)
+            if (liquid != null && liquid < built.feeUmc) {
+                return failure("可用余额不足以支付网络手续费（需 ${built.feeUmc} umc），请先充值")
+            }
 
             val broadcast = runCatching { rpcClient.broadcastTxRaw(built.txRaw) }.getOrNull()
             val networkDown = broadcast == null || (broadcast.code < 0 && broadcast.hash.isBlank())
@@ -402,7 +445,7 @@ class TransactionService @Inject constructor(
         toAddress = to,
         amount = amount,
         denom = MCParams.DENOM,
-        fee = TxBuilder.DEFAULT_FEE_UMC.toLong(),
+        fee = built.feeUmc,
         memo = memo,
         type = type,
         status = status,
@@ -440,6 +483,55 @@ class TransactionService @Inject constructor(
             log.contains("signature verification failed", ignoreCase = true)
 
     private suspend fun defaultAccount() = walletRepository.getDefaultAccount()
+
+    /**
+     * 节点链 ID 必须与安装包配置一致；节点不可达时返回 null，交由后续账户查询/广播判定，
+     * 以保留「先签名、网络恢复后重放」的离线队列行为。
+     */
+    private suspend fun ensureChainMatchesNode(): String? {
+        val status = rpcClient.getNodeStatus() ?: return null
+        if (status.chainId.isBlank()) return null
+        if (status.chainId != MCParams.CHAIN_ID) {
+            return "节点链 ID 为 ${status.chainId}，与 App 配置的 ${MCParams.CHAIN_ID} 不一致，" +
+                "已拒绝签名。请切换正确节点，或安装对应网络的安装包"
+        }
+        return null
+    }
+
+    private fun validateValidator(address: String): String? = when {
+        address.isEmpty() -> "请输入验证人地址"
+        !address.startsWith(MCParams.BECH32_PREFIX + "valoper1") ->
+            "验证人地址必须以 ${MCParams.BECH32_PREFIX}valoper1 开头"
+        address.length !in 48..62 -> "验证人地址长度异常，请检查是否粘贴完整"
+        address.any { it !in BECH32_CHARSET } -> "验证人地址包含非法字符"
+        else -> null
+    }
+
+    /**
+     * 校验解除/转委托金额不超过该验证人的链上委托数量。
+     * 委托列表为空时可能是节点不可达，交由链上最终裁决，避免误伤离线场景。
+     */
+    private suspend fun ensureDelegationAmount(
+        address: String,
+        validatorAddress: String,
+        amountUmc: Long,
+    ): String? {
+        val delegations = rpcClient.getDelegations(address)
+        if (delegations.isEmpty()) return null
+        val delegation = delegations.firstOrNull { it.validatorAddress == validatorAddress }
+            ?: return "当前没有向该验证人的委托"
+        if (amountUmc > delegation.amount) {
+            return "金额超过该验证人的委托数量，请先刷新后重试"
+        }
+        return null
+    }
+
+    private fun ensureFeeBalance(balance: Long): String? =
+        if (balance < TxBuilder.DEFAULT_FEE_UMC.toLong()) {
+            "可用余额不足以支付网络手续费，请先充值"
+        } else {
+            null
+        }
 
     /**
      * 把链上错误翻译成用户能理解的提示。
@@ -506,6 +598,9 @@ class TransactionService @Inject constructor(
     private fun failure(message: String) = SubmitResult(success = false, message = message)
 
     private companion object {
+        /** bech32 数据字符集（不含分隔符 1）。 */
+        const val BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+
         /** 离线队列保留时长：超过仍未上链视为签名时的 sequence 已过期。 */
         const val PENDING_TTL_MS = 10 * 60 * 1000L
 

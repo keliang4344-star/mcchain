@@ -255,7 +255,7 @@ class NodeViewModel @Inject constructor(
         if (!rpcReachable()) return
         if (account.balance <= TxBuilder.DEFAULT_FEE_UMC.toLong()) {
             setMessage(
-                "钱包余额不足，无法支付注册手续费（最低需 ${TxBuilder.DEFAULT_FEE_UMC} umc），请先充值",
+                "钱包余额不足，无法支付注册手续费（最低需 ${TxBuilder.DEFAULT_FEE_UMC} umc，按节点 gas price 动态计算），请先充值",
                 true,
             )
             return
@@ -297,7 +297,7 @@ class NodeViewModel @Inject constructor(
         if (!rpcReachable()) return
         if (account.balance <= TxBuilder.DEFAULT_FEE_UMC.toLong()) {
             setMessage(
-                "钱包余额不足，无法支付注册手续费（最低需 ${TxBuilder.DEFAULT_FEE_UMC} umc），请先充值",
+                "钱包余额不足，无法支付注册手续费（最低需 ${TxBuilder.DEFAULT_FEE_UMC} umc，按节点 gas price 动态计算），请先充值",
                 true,
             )
             return

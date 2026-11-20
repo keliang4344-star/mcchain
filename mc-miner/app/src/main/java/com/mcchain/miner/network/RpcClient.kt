@@ -118,24 +118,44 @@ class RpcClient @Inject constructor(
     }
 
     /**
-     * 获取余额
+     * 获取余额；查询失败返回 0（用于展示）。
      */
-    suspend fun getBalance(address: String, denom: String = MCParams.DENOM): Long {
+    suspend fun getBalance(address: String, denom: String = MCParams.DENOM): Long =
+        getBalanceOrNull(address, denom) ?: 0L
+
+    /**
+     * 获取余额；查询失败返回 null（用于交易前预检，避免把「查询失败」误判为「余额为 0」）。
+     */
+    suspend fun getBalanceOrNull(address: String, denom: String = MCParams.DENOM): Long? {
         val path = "/cosmos/bank/v1beta1/balances/$address"
-        val response = restGet(path) ?: return 0
-        val balances = response.getAsJsonArray("balances") ?: return 0
+        val response = restGet(path) ?: return null
+        val balances = response.getAsJsonArray("balances") ?: return null
         for (b in balances) {
             val obj = b.asJsonObject
             if (obj.get("denom")?.asString == denom) {
                 return obj.get("amount")?.asLong ?: 0L
             }
         }
-        return 0
+        return 0L
     }
 
     /**
-     * 获取质押信息
+     * 节点最低 gas price（umc/gas）。
+     * REST: /cosmos/base/node/v1beta1/config -> minimum_gas_prices。
+     * 取不到返回 null，调用方回退到内置默认值。
      */
+    suspend fun getMinGasPrice(): Double? {
+        val response = restGet("/cosmos/base/node/v1beta1/config") ?: return null
+        val prices = response.getAsJsonArray("minimum_gas_prices") ?: return null
+        for (element in prices) {
+            val obj = element.asJsonObject
+            if (obj.get("denom")?.asString == MCParams.DENOM) {
+                return obj.get("amount")?.asString?.toDoubleOrNull()
+            }
+        }
+        return null
+    }
+
     suspend fun getStakingInfo(address: String): Long {
         val path = "/cosmos/staking/v1beta1/delegations/$address"
         val response = restGet(path) ?: return 0

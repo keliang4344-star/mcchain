@@ -12,6 +12,8 @@ package com.mcchain.miner.shared.protocol
 object CosmosMsgs {
     const val TYPE_MSG_SEND = "/cosmos.bank.v1beta1.MsgSend"
     const val TYPE_MSG_DELEGATE = "/cosmos.staking.v1beta1.MsgDelegate"
+    const val TYPE_MSG_UNDELEGATE = "/cosmos.staking.v1beta1.MsgUndelegate"
+    const val TYPE_MSG_BEGIN_REDELEGATE = "/cosmos.staking.v1beta1.MsgBeginRedelegate"
     const val TYPE_MSG_WITHDRAW_DELEGATOR_REWARD =
         "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward"
 
@@ -39,5 +41,31 @@ object CosmosMsgs {
             writeStringField(2, validatorAddress)
         }.toByteArray()
         return CosmosTxEncoder.encodeAny(TYPE_MSG_WITHDRAW_DELEGATOR_REWARD, value)
+    }
+
+    /** 解除委托（cosmos.staking.v1beta1.MsgUndelegate）。 */
+    fun undelegate(delegatorAddress: String, validatorAddress: String, amount: Coin): ByteArray {
+        val value = ProtoWriter().apply {
+            writeStringField(1, delegatorAddress)
+            writeStringField(2, validatorAddress)
+            writeMessageField(3, CosmosTxEncoder.encodeCoin(amount))
+        }.toByteArray()
+        return CosmosTxEncoder.encodeAny(TYPE_MSG_UNDELEGATE, value)
+    }
+
+    /** 转委托（cosmos.staking.v1beta1.MsgBeginRedelegate）。 */
+    fun beginRedelegate(
+        delegatorAddress: String,
+        sourceValidatorAddress: String,
+        destinationValidatorAddress: String,
+        amount: Coin,
+    ): ByteArray {
+        val value = ProtoWriter().apply {
+            writeStringField(1, delegatorAddress)
+            writeStringField(2, sourceValidatorAddress)
+            writeStringField(3, destinationValidatorAddress)
+            writeMessageField(4, CosmosTxEncoder.encodeCoin(amount))
+        }.toByteArray()
+        return CosmosTxEncoder.encodeAny(TYPE_MSG_BEGIN_REDELEGATE, value)
     }
 }

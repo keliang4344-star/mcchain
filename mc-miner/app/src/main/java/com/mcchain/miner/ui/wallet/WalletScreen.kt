@@ -25,11 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.mcchain.miner.MCParams
 import com.mcchain.miner.data.model.TxRecord
 import com.mcchain.miner.data.model.TxStatus
 import com.mcchain.miner.data.model.TxType
 import com.mcchain.miner.data.model.WalletAccount
-import com.mcchain.miner.domain.wallet.TxBuilder
 import com.mcchain.miner.network.Delegation
 import com.mcchain.miner.ui.theme.*
 import kotlinx.coroutines.delay
@@ -38,9 +38,6 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-/** 链上固定网络手续费（5000 umc），仅用于展示，实际由 TxBuilder 签名时写入。 */
-private val walletFeeUmc: Long = TxBuilder.DEFAULT_FEE_UMC.toLong()
 
 private fun formatMcDisplay(umc: Long): String =
     DecimalFormat("#,##0.######").format(BigDecimal.valueOf(umc, 6)) + " MC"
@@ -73,6 +70,8 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
 
     var showSendDialog by remember { mutableStateOf(false) }
     var showDelegateDialog by remember { mutableStateOf(false) }
+    var undelegateTarget by remember { mutableStateOf<Delegation?>(null) }
+    var redelegateTarget by remember { mutableStateOf<Delegation?>(null) }
     var showImportDialog by remember { mutableStateOf(false) }
     var showMnemonicConfirm by remember { mutableStateOf(false) }
     var addressCopied by remember { mutableStateOf(false) }
@@ -229,7 +228,7 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "网络手续费：${formatMcDisplay(walletFeeUmc)}，从可用余额中扣除",
+                        "网络手续费按节点最低 gas price 动态计算，从可用余额中扣除",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
@@ -301,7 +300,7 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "网络手续费：${formatMcDisplay(walletFeeUmc)}，从可用余额中扣除",
+                        "网络手续费按节点最低 gas price 动态计算，从可用余额中扣除",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
@@ -336,6 +335,153 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
             },
             dismissButton = {
                 TextButton(onClick = { showDelegateDialog = false }, enabled = !busy) { Text("取消") }
+            },
+        )
+    }
+
+    undelegateTarget?.let { delegation ->
+        var amountMc by remember(delegation.validatorAddress) { mutableStateOf("") }
+        var undelegateError by remember(delegation.validatorAddress) { mutableStateOf<String?>(null) }
+        AlertDialog(
+            onDismissRequest = { if (!busy) undelegateTarget = null },
+            title = { Text("解除委托") },
+            text = {
+                Column {
+                    Text(
+                        "验证人：${delegation.validatorAddress}",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "可解除数量：${formatMcDisplay(delegation.amount)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = amountMc,
+                        onValueChange = { amountMc = it; undelegateError = null },
+                        label = { Text("解除金额（MC，最多 6 位小数）") },
+                        singleLine = true,
+                        enabled = !busy,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "解除后进入 ${MCParams.UNBONDING_DAYS} 天解绑期，期间不再产生奖励，" +
+                            "仍受罚没规则约束。手续费从可用余额扣除。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    undelegateError?.let { error ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = {
+                        val error = viewModel.validateUndelegate(delegation.validatorAddress, amountMc)
+                        if (error != null) {
+                            undelegateError = error
+                        } else {
+                            undelegateTarget = null
+                            viewModel.undelegate(delegation.validatorAddress, amountMc)
+                        }
+                    }
+                ) { Text(if (busy) "提交中..." else "确认解除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { undelegateTarget = null }, enabled = !busy) { Text("取消") }
+            },
+        )
+    }
+
+    redelegateTarget?.let { delegation ->
+        var sourceAddress by remember(delegation.validatorAddress) {
+            mutableStateOf(delegation.validatorAddress)
+        }
+        var destinationAddress by remember(delegation.validatorAddress) { mutableStateOf("") }
+        var amountMc by remember(delegation.validatorAddress) { mutableStateOf("") }
+        var redelegateError by remember(delegation.validatorAddress) { mutableStateOf<String?>(null) }
+        AlertDialog(
+            onDismissRequest = { if (!busy) redelegateTarget = null },
+            title = { Text("转委托") },
+            text = {
+                Column {
+                    Text(
+                        "源验证人可转数量：${formatMcDisplay(delegation.amount)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = sourceAddress,
+                        onValueChange = { sourceAddress = it; redelegateError = null },
+                        label = { Text("源验证人（mcvaloper1...）") },
+                        singleLine = true,
+                        enabled = !busy,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = destinationAddress,
+                        onValueChange = { destinationAddress = it; redelegateError = null },
+                        label = { Text("目标验证人（mcvaloper1...）") },
+                        singleLine = true,
+                        enabled = !busy,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = amountMc,
+                        onValueChange = { amountMc = it; redelegateError = null },
+                        label = { Text("转委托金额（MC，最多 6 位小数）") },
+                        singleLine = true,
+                        enabled = !busy,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "转委托立即生效，无 21 天解绑期；但 21 天内源、目标验证人的罚没仍可能影响该笔委托。" +
+                            "手续费从可用余额扣除。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    redelegateError?.let { error ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = {
+                        val error = viewModel.validateRedelegate(
+                            sourceAddress,
+                            destinationAddress,
+                            amountMc,
+                        )
+                        if (error != null) {
+                            redelegateError = error
+                        } else {
+                            redelegateTarget = null
+                            viewModel.redelegate(sourceAddress, destinationAddress, amountMc)
+                        }
+                    }
+                ) { Text(if (busy) "提交中..." else "确认转委托") }
+            },
+            dismissButton = {
+                TextButton(onClick = { redelegateTarget = null }, enabled = !busy) { Text("取消") }
             },
         )
     }
@@ -441,6 +587,8 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                     rewardUmc = defaultAccount.rewardBalance,
                     busy = busy,
                     onDelegateClick = { showDelegateDialog = true },
+                    onUndelegateClick = { undelegateTarget = it },
+                    onRedelegateClick = { redelegateTarget = it },
                     onClaim = { viewModel.claimRewards() },
                 )
             }
@@ -758,6 +906,8 @@ private fun StakingCard(
     rewardUmc: Long,
     busy: Boolean,
     onDelegateClick: () -> Unit,
+    onUndelegateClick: (Delegation) -> Unit,
+    onRedelegateClick: (Delegation) -> Unit,
     onClaim: () -> Unit,
 ) {
     Card(shape = RoundedCornerShape(16.dp)) {
@@ -790,28 +940,45 @@ private fun StakingCard(
                 )
             } else {
                 delegations.forEach { delegation ->
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "验证人",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                )
+                                Text(
+                                    shortAddress(delegation.validatorAddress),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
                             Text(
-                                "验证人",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            )
-                            Text(
-                                shortAddress(delegation.validatorAddress),
+                                formatMcDisplay(delegation.amount),
                                 style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
                             )
                         }
-                        Text(
-                            formatMcDisplay(delegation.amount),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            TextButton(
+                                onClick = { onRedelegateClick(delegation) },
+                                enabled = !busy,
+                            ) { Text("转委托") }
+                            TextButton(
+                                onClick = { onUndelegateClick(delegation) },
+                                enabled = !busy,
+                            ) { Text("解除") }
+                        }
                     }
                 }
             }
@@ -1161,13 +1328,15 @@ private fun txStatusColor(status: TxStatus): Color = when (status) {
 
 private fun txAmountColor(type: TxType): Color = when (type) {
     TxType.SEND, TxType.DELEGATE -> McHighlight
-    TxType.UNDELEGATE, TxType.CLAIM_REWARDS -> StatusActive
+    TxType.CLAIM_REWARDS -> StatusActive
     else -> Color.Unspecified
 }
 
 private fun formatSignedAmount(tx: TxRecord): String = when (tx.type) {
     TxType.SEND, TxType.DELEGATE -> "-" + formatMcDisplay(tx.amount)
-    TxType.UNDELEGATE, TxType.CLAIM_REWARDS -> "+" + formatMcDisplay(tx.amount)
+    TxType.CLAIM_REWARDS -> "+" + formatMcDisplay(tx.amount)
+    TxType.UNDELEGATE -> "解除 " + formatMcDisplay(tx.amount)
+    TxType.REDELEGATE -> "转委托 " + formatMcDisplay(tx.amount)
     else -> formatMcDisplay(tx.amount)
 }
 
