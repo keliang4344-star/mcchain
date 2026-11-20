@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mcchain.miner.data.repository.WalletRepository
 import com.mcchain.miner.domain.wallet.TransactionService
+import com.mcchain.miner.network.DexPool
+import com.mcchain.miner.network.DexPrice
+import com.mcchain.miner.network.DexSwapQuote
 import com.mcchain.miner.network.EdgeAiDispute
 import com.mcchain.miner.network.EdgeAiResult
 import com.mcchain.miner.network.EdgeAiTaskDetail
@@ -13,6 +16,8 @@ import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.network.TokenomicsSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import java.math.BigDecimal
+import java.math.RoundingMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -283,8 +288,98 @@ class EcosystemViewModel @Inject constructor(
         }
     }
 
+    // === DEX 只读行情 ===
+    private val _dexPools = MutableStateFlow<List<DexPool>>(emptyList())
+    val dexPools: StateFlow<List<DexPool>> = _dexPools
+
+    private val _dexPrices = MutableStateFlow<Map<Long, DexPrice>>(emptyMap())
+    val dexPrices: StateFlow<Map<Long, DexPrice>> = _dexPrices
+
+    private val _dexLoading = MutableStateFlow(false)
+    val dexLoading: StateFlow<Boolean> = _dexLoading
+
+    private val _dexError = MutableStateFlow<String?>(null)
+    val dexError: StateFlow<String?> = _dexError
+
+    private val _dexQuote = MutableStateFlow<DexQuoteState?>(null)
+    val dexQuote: StateFlow<DexQuoteState?> = _dexQuote
+
+    private val _dexQuoteBusy = MutableStateFlow(false)
+    val dexQuoteBusy: StateFlow<Boolean> = _dexQuoteBusy
+
+    private val _dexQuoteError = MutableStateFlow<String?>(null)
+    val dexQuoteError: StateFlow<String?> = _dexQuoteError
+
+    /** 只读加载池列表与各池价格；不提供任何兑换交易入口。 */
+    fun loadDex() {
+        if (_dexLoading.value) return
+        viewModelScope.launch {
+            _dexLoading.value = true
+            _dexError.value = null
+            val pools = withContext(Dispatchers.IO) { rpcClient.getDexPools() }
+            if (pools == null) {
+                _dexError.value = "无法读取 DEX 池：节点不可达或节点版本不支持该查询"
+                _dexLoading.value = false
+                return@launch
+            }
+            _dexPools.value = pools.sortedBy { it.id }
+            val prices = withContext(Dispatchers.IO) {
+                pools.take(DEX_POOL_LIMIT).mapNotNull { pool ->
+                    rpcClient.getDexPrice(pool.id, pool.denomA)?.let { pool.id to it }
+                }.toMap()
+            }
+            _dexPrices.value = prices
+            _dexLoading.value = false
+        }
+    }
+
+    /** 试算指定池的 A→B 兑换，仅展示链上计算结果，不签名、不广播。 */
+    fun estimateDexSwap(pool: DexPool, amountMc: String) {
+        if (_dexQuoteBusy.value) return
+        val amountUmc = parseMcToUmc(amountMc)
+        if (amountUmc == null || amountUmc <= 0L) {
+            _dexQuoteError.value = "请输入大于 0 的金额（最多 6 位小数）"
+            return
+        }
+        viewModelScope.launch {
+            _dexQuoteBusy.value = true
+            _dexQuoteError.value = null
+            _dexQuote.value = null
+            val quote = withContext(Dispatchers.IO) {
+                rpcClient.estimateDexSwap(pool.id, pool.denomA, amountUmc, pool.denomB)
+            }
+            if (quote == null) {
+                _dexQuoteError.value = "试算失败：请检查金额、币种与池状态"
+            } else {
+                _dexQuote.value = DexQuoteState(pool.id, quote)
+            }
+            _dexQuoteBusy.value = false
+        }
+    }
+
+    fun clearDexQuote() {
+        _dexQuote.value = null
+        _dexQuoteError.value = null
+    }
+
     private companion object {
         const val EDGEAI_TASK_LIMIT = 50
         const val CONTRIBUTION_PAGE_SIZE = 20
+        const val DEX_POOL_LIMIT = 20
     }
+}
+
+/** 某个池的只读试算结果。 */
+data class DexQuoteState(val poolId: Long, val quote: DexSwapQuote)
+
+/** MC 字符串转 umc；非法或溢出返回 null（兼容 minSdk 26）。 */
+private fun parseMcToUmc(input: String): Long? {
+    val text = input.trim()
+    if (text.isEmpty()) return null
+    val value = text.toBigDecimalOrNull() ?: return null
+    if (value < BigDecimal.ZERO) return null
+    val umc = value.multiply(BigDecimal(1_000_000)).setScale(0, RoundingMode.DOWN)
+    val integer = umc.toBigInteger()
+    if (integer > java.math.BigInteger.valueOf(Long.MAX_VALUE)) return null
+    return integer.toLong()
 }

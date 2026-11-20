@@ -44,8 +44,8 @@ android {
         applicationId = "com.mcchain.miner"
         minSdk = 26
         targetSdk = 34
-        versionCode = 9
-        versionName = "3.6.0"
+        versionCode = 10
+        versionName = "3.7.0"
 
         buildConfigField("String", "CHAIN_ID", "\"$releaseChainId\"")
         buildConfigField("String", "DENOM", "\"umc\"")

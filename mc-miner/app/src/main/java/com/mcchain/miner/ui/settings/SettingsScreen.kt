@@ -32,6 +32,7 @@ fun SettingsScreen(
     onOpenEdgeAi: () -> Unit = {},
     onOpenTokenomics: () -> Unit = {},
     onOpenContributions: () -> Unit = {},
+    onOpenDex: () -> Unit = {},
 ) {
     val nodeSyncEnabled by viewModel.nodeSyncEnabled.collectAsState()
     val miningEnabled by viewModel.miningEnabled.collectAsState()
@@ -232,6 +233,14 @@ fun SettingsScreen(
                 title = "贡献历史",
                 description = "从本地索引器读取贡献奖励与防御拒绝事件",
                 onClick = onOpenContributions,
+            )
+        }
+        item {
+            ClickableSettingItem(
+                icon = Icons.Filled.CandlestickChart,
+                title = "DEX 行情",
+                description = "只读池状态、价格与兑换试算（不提供兑换）",
+                onClick = onOpenDex,
             )
         }
 

@@ -37,6 +37,7 @@ import com.mcchain.miner.service.NodeService
 import com.mcchain.miner.ui.dashboard.DashboardScreen
 import com.mcchain.miner.ui.dashboard.DashboardViewModel
 import com.mcchain.miner.ui.ecosystem.ContributionHistoryScreen
+import com.mcchain.miner.ui.ecosystem.DexScreen
 import com.mcchain.miner.ui.ecosystem.EdgeAiScreen
 import com.mcchain.miner.ui.ecosystem.EcosystemViewModel
 import com.mcchain.miner.ui.ecosystem.ReferralScreen
@@ -60,6 +61,7 @@ private object Route {
     const val EDGE_AI = "edge_ai"
     const val TOKENOMICS = "tokenomics"
     const val CONTRIBUTIONS = "contributions"
+    const val DEX = "dex"
 }
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
@@ -236,6 +238,7 @@ fun MainApp(
                     onOpenEdgeAi = { navController.navigate(Route.EDGE_AI) { launchSingleTop = true } },
                     onOpenTokenomics = { navController.navigate(Route.TOKENOMICS) { launchSingleTop = true } },
                     onOpenContributions = { navController.navigate(Route.CONTRIBUTIONS) { launchSingleTop = true } },
+                    onOpenDex = { navController.navigate(Route.DEX) { launchSingleTop = true } },
                 )
             }
             composable(Route.REFERRAL) {
@@ -255,6 +258,9 @@ fun MainApp(
                         navController.popBackStack(Screen.Settings.route, inclusive = false)
                     },
                 )
+            }
+            composable(Route.DEX) {
+                DexScreen(viewModel = ecosystemViewModel) { navController.popBackStack() }
             }
         }
     }

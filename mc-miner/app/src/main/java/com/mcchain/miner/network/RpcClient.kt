@@ -545,6 +545,57 @@ class RpcClient @Inject constructor(
         )
     }
 
+    /**
+     * DEX 池列表（只读）。失败返回 null。
+     * REST: /mcchain/dex/v1/pools -> pools[]（snake_case）。
+     */
+    suspend fun getDexPools(): List<DexPool>? {
+        val body = restGet("/mcchain/dex/v1/pools") ?: return null
+        val array = body.getAsJsonArray("pools") ?: return emptyList()
+        return array.mapNotNull { element ->
+            val obj = runCatching { element.asJsonObject }.getOrNull() ?: return@mapNotNull null
+            DexPool(
+                id = obj.longOrZero("id"),
+                denomA = obj.stringOrEmpty("denom_a", "denomA"),
+                denomB = obj.stringOrEmpty("denom_b", "denomB"),
+                reserveA = obj.longOrZero("reserve_a", "reserveA"),
+                reserveB = obj.longOrZero("reserve_b", "reserveB"),
+                totalLp = obj.longOrZero("total_lp", "totalLp"),
+                feeRateBps = obj.longOrZero("fee_rate_bps", "feeRateBps").toInt(),
+                owner = obj.stringOrEmpty("owner"),
+            )
+        }
+    }
+
+    /** DEX 价格（denom 相对另一币种，已乘 1e6 定点）。失败返回 null。 */
+    suspend fun getDexPrice(poolId: Long, denom: String): DexPrice? {
+        val encoded = java.net.URLEncoder.encode(denom, "UTF-8")
+        val body = restGet("/mcchain/dex/v1/price?pool_id=$poolId&denom=$encoded") ?: return null
+        return DexPrice(
+            price = body.stringOrEmpty("price"),
+            priceDenom = body.stringOrEmpty("price_denom", "priceDenom"),
+        )
+    }
+
+    /** 只读兑换试算（不广播交易）。失败返回 null。 */
+    suspend fun estimateDexSwap(
+        poolId: Long,
+        denomIn: String,
+        amountInUmc: Long,
+        denomOut: String,
+    ): DexSwapQuote? {
+        val encodedIn = java.net.URLEncoder.encode(denomIn, "UTF-8")
+        val encodedOut = java.net.URLEncoder.encode(denomOut, "UTF-8")
+        val body = restGet(
+            "/mcchain/dex/v1/estimate_swap?pool_id=$poolId&denom_in=$encodedIn" +
+                "&denom_out=$encodedOut&amount_in=$amountInUmc"
+        ) ?: return null
+        return DexSwapQuote(
+            amountOutUmc = body.longOrZero("amount_out", "amountOut"),
+            priceImpactBps = body.longOrZero("price_impact_bps", "priceImpactBps").toInt(),
+        )
+    }
+
     // === 内部方法 ===
 
     private suspend fun rpcCall(
@@ -769,6 +820,22 @@ data class TokenomicsSnapshot(
     val pools: List<TokenomicsPool>,
     val team: TeamRelease?,
 )
+
+/** DEX 池（只读视图）。reserve/totalLp 单位为最小币种单位。 */
+data class DexPool(
+    val id: Long,
+    val denomA: String,
+    val denomB: String,
+    val reserveA: Long,
+    val reserveB: Long,
+    val totalLp: Long,
+    val feeRateBps: Int,
+    val owner: String,
+)
+
+data class DexPrice(val price: String, val priceDenom: String)
+
+data class DexSwapQuote(val amountOutUmc: Long, val priceImpactBps: Int)
 
 /** 兼容 gRPC-gateway 的 snake_case 与 camelCase 两种 JSON 字段名。 */
 private fun JsonObject.stringOrEmpty(vararg keys: String): String {
