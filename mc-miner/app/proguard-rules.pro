@@ -50,6 +50,11 @@
 # Timber
 -dontwarn org.jetbrains.annotations.**
 
+# Compose animation-core
+# R8 会抹掉 KeyframesSpecBaseConfig 上被继承的 at()/atFraction()，导致 release 包在不定
+# 进度条等 keyframes 动画路径上抛 NoSuchMethodError（debug 包不受影响）。
+-keep class androidx.compose.animation.core.** { *; }
+
 # Generic
 -keepattributes InnerClasses
 -keepattributes EnclosingMethod

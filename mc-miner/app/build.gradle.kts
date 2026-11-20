@@ -44,8 +44,8 @@ android {
         applicationId = "com.mcchain.miner"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "3.2.0"
+        versionCode = 6
+        versionName = "3.3.0"
 
         buildConfigField("String", "CHAIN_ID", "\"$releaseChainId\"")
         buildConfigField("String", "DENOM", "\"umc\"")
@@ -108,7 +108,9 @@ dependencies {
     implementation(project(":shared"))
 
     // Compose BOM
-    val composeBom = platform("androidx.compose:compose-bom:2024.01.00")
+    // BOM 2024.01.00 将 material3 1.1.2 与 animation-core 1.6.0 混配，keyframes 的 at()
+    // 返回类型不兼容，release 下会抛 NoSuchMethodError；2024.02.02 将 material3 对齐到 1.2.0。
+    val composeBom = platform("androidx.compose:compose-bom:2024.02.02")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")

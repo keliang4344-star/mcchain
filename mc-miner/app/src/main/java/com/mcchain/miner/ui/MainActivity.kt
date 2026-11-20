@@ -19,8 +19,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -28,6 +30,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.mcchain.miner.MCParams
 import com.mcchain.miner.data.pref.SecurePrefs
 import com.mcchain.miner.service.MinerService
 import com.mcchain.miner.service.NodeService
@@ -210,4 +213,109 @@ fun MainApp(
             composable(Screen.Settings.route) { SettingsScreen(viewModel = settingsViewModel) }
         }
     }
+
+    // 首次启动引导：RPC 端点决定 App 能否读取链上数据，先让用户确认或填写。
+    val prefs = settingsViewModel.securePrefs
+    var showRpcGuide by remember {
+        mutableStateOf(
+            runCatching { prefs.isFirstLaunch && prefs.rpcEndpoint.isBlank() }.getOrDefault(false)
+        )
+    }
+    if (showRpcGuide) {
+        FirstLaunchRpcGuide(
+            viewModel = settingsViewModel,
+            onDone = {
+                runCatching { prefs.isFirstLaunch = false }
+                showRpcGuide = false
+            },
+        )
+    }
+}
+
+/**
+ * 首次启动的 RPC 引导。
+ * 只做手动填写与连通性测试：官方公共 RPC 尚未发布，因此暂不提供固定二维码。
+ */
+@Composable
+private fun FirstLaunchRpcGuide(viewModel: SettingsViewModel, onDone: () -> Unit) {
+    val savedEndpoint by viewModel.rpcEndpoint.collectAsState()
+    val testResult by viewModel.rpcTestResult.collectAsState()
+    var endpoint by remember { mutableStateOf(savedEndpoint) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val clipboard = LocalClipboardManager.current
+
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text("先连接 MC 网络") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "App 只做链上查询与贡献计量，不运行全节点、不参与 PoW 出块。" +
+                        "请填写可访问的 RPC 节点地址（默认端口 ${MCParams.DEFAULT_RPC_PORT}）。",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                OutlinedTextField(
+                    value = endpoint,
+                    onValueChange = {
+                        endpoint = it
+                        error = null
+                    },
+                    label = { Text("RPC 端点") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        val text = runCatching { clipboard.getText()?.text }
+                            .getOrNull()?.trim().orEmpty()
+                        if (text.startsWith("http://") || text.startsWith("https://")) {
+                            endpoint = text
+                            error = null
+                        } else {
+                            error = "剪贴板中没有有效的 http(s) 地址"
+                        }
+                    }) { Text("粘贴") }
+                    TextButton(onClick = { viewModel.testRpcConnection(endpoint) }) {
+                        Text("测试连接")
+                    }
+                }
+                testResult?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                    )
+                }
+                error?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                Text(
+                    text = "官方公共 RPC 尚未发布，当前请使用自建或受信任节点；公共节点上线后会提供二维码导入。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val value = endpoint.trim().trimEnd('/')
+                when {
+                    value.isBlank() -> error = "请输入 RPC 端点"
+                    !value.startsWith("http://") && !value.startsWith("https://") ->
+                        error = "端点必须以 http:// 或 https:// 开头"
+                    else -> {
+                        viewModel.updateRpcEndpoint(value)
+                        onDone()
+                    }
+                }
+            }) { Text("保存并开始") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDone) { Text("稍后设置") }
+        },
+    )
 }

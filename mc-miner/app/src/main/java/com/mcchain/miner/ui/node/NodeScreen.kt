@@ -64,6 +64,13 @@ fun NodeScreen(
     val chainAttestation by vm.chainAttestation.collectAsState()
     val chainSlashes by vm.chainSlashes.collectAsState()
     val chainStateError by vm.chainStateError.collectAsState()
+    val renewing by vm.renewing.collectAsState()
+
+    // 每次进入节点页都重读本地状态，保证钱包/注册信息与其它页面一致。
+    LaunchedEffect(Unit) {
+        vm.load()
+        vm.refresh()
+    }
 
     val now = System.currentTimeMillis()
 
@@ -97,6 +104,8 @@ fun NodeScreen(
                 record = phoneNode,
                 localInfo = localInfo,
                 now = now,
+                renewing = renewing,
+                onRenew = { vm.renewAttestation() },
             )
         }
 
@@ -342,6 +351,8 @@ private fun AttestationDetailCard(
     record: PhoneNodeRecord?,
     localInfo: NodeLocalInfo,
     now: Long,
+    renewing: Boolean,
+    onRenew: () -> Unit,
 ) {
     val expiry = if (localInfo.attestationExpiry > 0) {
         localInfo.attestationExpiry
@@ -394,6 +405,13 @@ private fun AttestationDetailCard(
                     else -> StatusActive
                 }
             )
+            if (expiry > 0 && expiry - now <= RENEW_REMIND_MS) {
+                RenewalBanner(
+                    expired = expiry <= now,
+                    renewing = renewing,
+                    onRenew = onRenew,
+                )
+            }
             DetailLine(
                 label = "最近心跳",
                 value = relativeTime(heartbeat, now) +
@@ -416,6 +434,55 @@ private fun AttestationDetailCard(
                 label = "节点地址",
                 value = nodeAddress.orEmpty(),
                 placeholder = "尚未注册节点",
+            )
+        }
+    }
+}
+
+@Composable
+private fun RenewalBanner(expired: Boolean, renewing: Boolean, onRenew: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = if (expired) {
+            MaterialTheme.colorScheme.errorContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Text(
+                text = if (expired) {
+                    "认证已过期：节点将无法接单与计奖，请立即续期。"
+                } else {
+                    "认证即将到期：剩余不足 7 天，建议现在续期，避免进入宽限期或离线罚没。"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (expired) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            )
+            Spacer(Modifier.height(6.dp))
+            Button(onClick = onRenew, enabled = !renewing) {
+                if (renewing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(if (renewing) "续期中…" else "一键续期")
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "续期会重新生成硬件证明并提交上链，需已配置认证预言机且网络可用。",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
         }
     }
@@ -1116,3 +1183,6 @@ private fun shortenMiddle(value: String): String {
     if (value.length <= 18) return value
     return value.take(10) + "…" + value.takeLast(8)
 }
+
+/** 有效期不足 7 天时展示续期提示与一键续期入口。 */
+private const val RENEW_REMIND_MS = 7L * 24 * 60 * 60 * 1000

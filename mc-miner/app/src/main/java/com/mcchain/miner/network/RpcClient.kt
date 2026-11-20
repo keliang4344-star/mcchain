@@ -219,6 +219,38 @@ class RpcClient @Inject constructor(
         return null
     }
 
+    /**
+     * 链上交易历史（LCD /cosmos/tx/v1beta1/txs，按 message.sender 过滤）。
+     *
+     * 返回 null 表示查询失败（节点未开启交易索引、接口不可达或参数不被支持）；
+     * 返回空列表表示查询成功但该地址确实没有记录。两种情况的 UI 文案不同。
+     */
+    suspend fun getTxHistoryOrNull(address: String, limit: Int = 20): List<ChainTxRecord>? {
+        if (address.isBlank()) return null
+        val query = java.net.URLEncoder.encode("message.sender='$address'", "UTF-8")
+        val response = restGet(
+            "/cosmos/tx/v1beta1/txs?query=$query&pagination.limit=$limit&order_by=ORDER_BY_DESC"
+        ) ?: return null
+        val responses = response.getAsJsonArray("tx_responses") ?: return emptyList()
+        return responses.mapNotNull { element ->
+            val obj = runCatching { element.asJsonObject }.getOrNull() ?: return@mapNotNull null
+            val hash = obj.get("txhash")?.asString ?: return@mapNotNull null
+            val messages = obj.getAsJsonObject("tx")
+                ?.getAsJsonObject("body")
+                ?.getAsJsonArray("messages")
+            val firstMessage = messages?.firstOrNull()?.asJsonObject
+            ChainTxRecord(
+                hash = hash,
+                height = obj.get("height")?.asString?.toLongOrNull() ?: 0L,
+                timestampMs = parseRfc3339(obj.get("timestamp")?.asString.orEmpty()),
+                code = obj.get("code")?.asInt ?: 0,
+                typeUrl = firstMessage?.get("@type")?.asString.orEmpty(),
+                amountUmc = firstMessage?.coinAmount(MCParams.DENOM),
+                counterparty = firstMessage?.counterparty().orEmpty(),
+            )
+        }
+    }
+
     suspend fun getStakingInfo(address: String): Long {
         val path = "/cosmos/staking/v1beta1/delegations/$address"
         val response = restGet(path) ?: return 0
@@ -517,6 +549,19 @@ data class ChainSlash(
     val timeSeconds: Long,
 )
 
+/** 一条已上链的交易记录（只包含 LCD 直接返回的字段）。 */
+data class ChainTxRecord(
+    val hash: String,
+    val height: Long,
+    val timestampMs: Long,
+    val code: Int,
+    val typeUrl: String,
+    val amountUmc: Long?,
+    val counterparty: String,
+) {
+    val success: Boolean get() = code == 0
+}
+
 /** 兼容 gRPC-gateway 的 snake_case 与 camelCase 两种 JSON 字段名。 */
 private fun JsonObject.stringOrEmpty(vararg keys: String): String {
     for (key in keys) {
@@ -526,3 +571,28 @@ private fun JsonObject.stringOrEmpty(vararg keys: String): String {
 }
 
 private fun JsonObject.longOrZero(key: String): Long = get(key)?.asLong ?: 0L
+
+/** 提取消息中的 umc 金额；amount 既可能是 Coin 对象，也可能是 Coin 数组。 */
+private fun JsonObject.coinAmount(denom: String): Long? {
+    val node = get("amount") ?: return null
+    val coin = when {
+        node.isJsonArray -> node.asJsonArray.firstOrNull { it.isJsonObject }?.asJsonObject
+        node.isJsonObject -> node.asJsonObject
+        else -> null
+    } ?: return null
+    if (coin.get("denom")?.asString != denom) return null
+    return coin.get("amount")?.asString?.toLongOrNull() ?: coin.get("amount")?.asLong
+}
+
+/** 交易对手：转账取收款地址，质押类消息取验证人地址。 */
+private fun JsonObject.counterparty(): String {
+    for (key in listOf("to_address", "validator_address", "destination_validator_address")) {
+        get(key)?.asString?.takeIf { it.isNotBlank() }?.let { return it }
+    }
+    return ""
+}
+
+/** 解析 LCD 返回的 RFC3339 时间；解析失败返回 0，UI 显示「—」。 */
+private fun parseRfc3339(value: String): Long = runCatching {
+    java.time.Instant.parse(value).toEpochMilli()
+}.getOrDefault(0L)

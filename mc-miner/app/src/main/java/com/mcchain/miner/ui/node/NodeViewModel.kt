@@ -28,6 +28,7 @@ import com.mcchain.miner.domain.wallet.TxBuilder
 import com.mcchain.miner.network.ChainAttestation
 import com.mcchain.miner.network.ChainSlash
 import com.mcchain.miner.network.RpcClient
+import com.mcchain.miner.service.AttestationReminderWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -155,6 +156,10 @@ class NodeViewModel @Inject constructor(
     private val _chainStateError = MutableStateFlow<String?>(null)
     val chainStateError: StateFlow<String?> = _chainStateError
 
+    /** 一键续期是否进行中（重新做硬件证明 + 提交上链）。 */
+    private val _renewing = MutableStateFlow(false)
+    val renewing: StateFlow<Boolean> = _renewing
+
     /** 第 ④ 步产出的硬件证明；只保存在内存，应用重启后必须重新证明。 */
     private val _pendingProof = MutableStateFlow<AttestationResult?>(null)
 
@@ -210,6 +215,8 @@ class NodeViewModel @Inject constructor(
         viewModelScope.launch {
             _refreshError.value = null
             try {
+                // 钱包可能在上一次加载后才创建，先重读本地状态，避免流程停留在旧快照。
+                reloadLocal()
                 val live = withContext(Dispatchers.IO) { rpcClient.getNodeStatus() }
                 if (live != null) {
                     withContext(Dispatchers.IO) { nodeStatusDao.upsert(live) }
@@ -228,6 +235,37 @@ class NodeViewModel @Inject constructor(
             } finally {
                 reloadLocal()
                 _isRefreshing.value = false
+            }
+        }
+    }
+
+    /**
+     * 一键续期：重新执行第 ④ 步硬件证明，成功后立即提交第 ⑤ 步认证。
+     * 任一步失败即停止，失败原因由现有 message 通道展示，不写入任何虚假有效期。
+     */
+    fun renewAttestation() {
+        if (_renewing.value || _busyStep.value != null) return
+        val local = _localInfo.value
+        if (local.walletAddress.isNullOrBlank() || local.registeredNodeAddress != local.walletAddress) {
+            setMessage("请先完成第 ① 至 ③ 步（钱包、设备与节点注册），再进行认证续期", true)
+            return
+        }
+        viewModelScope.launch {
+            _renewing.value = true
+            _busyStep.value = AuthStepId.PROOF
+            setMessage(null)
+            try {
+                proveHardware()
+                if (_pendingProof.value != null) {
+                    submitAttestation()
+                }
+            } catch (e: Exception) {
+                setMessage("续期失败：${e.message ?: e.javaClass.simpleName}", true)
+            } finally {
+                _busyStep.value = null
+                _renewing.value = false
+                reloadLocal()
+                refreshChainIdentity()
             }
         }
     }
@@ -447,6 +485,15 @@ class NodeViewModel @Inject constructor(
             )
         )
         _pendingProof.value = null
+        if (!pending) {
+            // 只有链上已确认才把到期时间写入安全存储，供每日到期提醒使用。
+            runCatching {
+                securePrefs.attestationToken = proof.token
+                securePrefs.attestationExpiry =
+                    now + MCParams.PHONENODE_ATTESTATION_VALIDITY_SECONDS * 1000
+            }
+            AttestationReminderWorker.schedule(context)
+        }
         setMessage(
             if (pending) {
                 "认证交易已广播，等待链上确认（当前状态：认证中）"

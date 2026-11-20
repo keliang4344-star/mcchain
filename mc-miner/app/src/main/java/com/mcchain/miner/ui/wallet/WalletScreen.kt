@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,6 +35,7 @@ import com.mcchain.miner.data.model.TxRecord
 import com.mcchain.miner.data.model.TxStatus
 import com.mcchain.miner.data.model.TxType
 import com.mcchain.miner.data.model.WalletAccount
+import com.mcchain.miner.network.ChainTxRecord
 import com.mcchain.miner.network.Delegation
 import com.mcchain.miner.ui.theme.*
 import kotlinx.coroutines.delay
@@ -57,6 +59,8 @@ private fun formatDateTime(timestamp: Long): String =
 fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
     val accounts by viewModel.accounts.collectAsState()
     val transactions by viewModel.transactions.collectAsState()
+    val chainTxs by viewModel.chainTxs.collectAsState()
+    val chainTxError by viewModel.chainTxError.collectAsState()
     val delegations by viewModel.delegations.collectAsState()
     val validators by viewModel.validators.collectAsState()
     val validatorsLoading by viewModel.validatorsLoading.collectAsState()
@@ -763,6 +767,37 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                     TransactionItem(tx = tx, onClick = { viewModel.openTxDetail(tx) })
                 }
             }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "链上交易历史",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (chainTxs.isNotEmpty()) {
+                        Text(
+                            "最近 ${chainTxs.size} 笔",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        )
+                    }
+                }
+            }
+
+            when {
+                chainTxError != null -> item { ChainHistoryMessage(chainTxError.orEmpty()) }
+                chainTxs.isEmpty() -> item {
+                    ChainHistoryMessage("链上暂未查询到该地址的交易记录。")
+                }
+                else -> items(chainTxs, key = { "chain-${it.hash}" }) { tx ->
+                    ChainTxItem(tx)
+                }
+            }
         }
     }
 }
@@ -1173,6 +1208,105 @@ private fun EmptyTransactionsCard() {
 }
 
 @Composable
+private fun ChainHistoryMessage(text: String) {
+    Card(shape = RoundedCornerShape(12.dp)) {
+        Text(
+            text = text,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        )
+    }
+}
+
+@Composable
+private fun ChainTxItem(tx: ChainTxRecord) {
+    val timeText = remember(tx.timestampMs) {
+        if (tx.timestampMs <= 0L) {
+            "—"
+        } else {
+            SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(tx.timestampMs))
+        }
+    }
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = chainTxTypeLabel(tx.typeUrl),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = "区块 #${tx.height} · $timeText",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                )
+                if (tx.counterparty.isNotBlank()) {
+                    Text(
+                        text = shortAddress(tx.counterparty),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                tx.amountUmc?.let { amount ->
+                    Text(
+                        text = signedChainAmount(amount, tx.typeUrl),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+                Text(
+                    text = if (tx.success) "已上链" else "失败（code ${tx.code}）",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (tx.success) StatusActive else MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+private fun signedChainAmount(umc: Long, typeUrl: String): String {
+    val prefix = when {
+        typeUrl.endsWith("MsgUndelegate") -> "+"
+        typeUrl.endsWith("MsgSend") || typeUrl.endsWith("MsgDelegate") -> "-"
+        else -> ""
+    }
+    return prefix + formatMcDisplay(umc)
+}
+
+private fun chainTxTypeLabel(typeUrl: String): String = when {
+    typeUrl.endsWith("MsgSend") -> "转账"
+    typeUrl.endsWith("MsgDelegate") -> "委托"
+    typeUrl.endsWith("MsgUndelegate") -> "解除委托"
+    typeUrl.endsWith("MsgBeginRedelegate") -> "转委托"
+    typeUrl.endsWith("MsgWithdrawDelegatorReward") -> "领取奖励"
+    typeUrl.endsWith("MsgCreateValidator") -> "创建验证人"
+    typeUrl.endsWith("MsgAttestDevice") -> "设备认证"
+    typeUrl.endsWith("MsgRegisterNode") -> "节点注册"
+    typeUrl.endsWith("MsgRegisterDevice") -> "设备注册"
+    typeUrl.isBlank() -> "交易"
+    else -> typeUrl.substringAfterLast('.').removePrefix("Msg").ifBlank { "交易" }
+}
+
+@Composable
 fun TransactionItem(tx: TxRecord, onClick: () -> Unit = {}) {
     val timeText = remember(tx.timestamp) {
         SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(tx.timestamp))
@@ -1414,7 +1548,7 @@ private fun DetailRow(label: String, value: String, onCopy: (() -> Unit)? = null
                 modifier = Modifier.weight(1f),
             )
             if (onCopy != null) {
-                IconButton(onClick = onCopy, modifier = Modifier.size(24.dp)) {
+                IconButton(onClick = onCopy) {
                     Icon(
                         Icons.Filled.ContentCopy,
                         contentDescription = "复制$label",

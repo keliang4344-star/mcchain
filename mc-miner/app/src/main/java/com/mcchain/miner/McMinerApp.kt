@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.os.Build
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.mcchain.miner.service.AttestationReminderWorker
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import java.io.File
@@ -35,6 +36,9 @@ class McMinerApp : Application(), Configuration.Provider {
         }
 
         createNotificationChannels()
+
+        // 每日检查一次认证到期时间；未完成认证时 Worker 直接返回，不产生通知。
+        AttestationReminderWorker.schedule(this)
     }
 
     private fun createNotificationChannels() {

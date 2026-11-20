@@ -11,17 +11,19 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = McAccent,
+    // 深色背景上使用浅蓝主色，保证图标与按钮文字达到可读对比度（原 McAccent 在深色背景上对比不足）。
+    primary = Color(0xFF8AB4F8),
     secondary = McHighlight,
     tertiary = McGold,
     background = McBackgroundDark,
     surface = McSurfaceDark,
-    onPrimary = Color.White,
+    onPrimary = Color(0xFF0B1B2B),
     onSecondary = Color.White,
     onTertiary = Color.Black,
     onBackground = McOnBackgroundDark,
     onSurface = McOnSurfaceDark,
     surfaceVariant = McCardDark,
+    onSurfaceVariant = Color(0xFFC9D1D9),
     outline = McDividerDark
 )
 

@@ -9,6 +9,7 @@ import com.mcchain.miner.data.repository.WalletRepository
 import com.mcchain.miner.domain.wallet.TransactionService
 import com.mcchain.miner.domain.wallet.TxBuilder
 import com.mcchain.miner.domain.wallet.WalletManager
+import com.mcchain.miner.network.ChainTxRecord
 import com.mcchain.miner.network.Delegation
 import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.network.TxResult
@@ -53,6 +54,14 @@ class WalletViewModel @Inject constructor(
 
     private val _transactions = MutableStateFlow<List<TxRecord>>(emptyList())
     val transactions: StateFlow<List<TxRecord>> = _transactions
+
+    /** 链上交易历史（LCD 查询，权威来源；与本地记录并列展示）。 */
+    private val _chainTxs = MutableStateFlow<List<ChainTxRecord>>(emptyList())
+    val chainTxs: StateFlow<List<ChainTxRecord>> = _chainTxs
+
+    /** 链上交易历史查询失败原因；null 表示成功或尚未查询。 */
+    private val _chainTxError = MutableStateFlow<String?>(null)
+    val chainTxError: StateFlow<String?> = _chainTxError
 
     /** 当前默认地址在链上的委托列表（getDelegations 实时查询）。 */
     private val _delegations = MutableStateFlow<List<Delegation>>(emptyList())
@@ -115,6 +124,8 @@ class WalletViewModel @Inject constructor(
                 val default = _accounts.value.firstOrNull { it.isDefault }
                 if (default == null) {
                     _transactions.value = emptyList()
+                    _chainTxs.value = emptyList()
+                    _chainTxError.value = null
                     _delegations.value = emptyList()
                     _chainHint.value = null
                     return@launch
@@ -126,8 +137,9 @@ class WalletViewModel @Inject constructor(
                     val accountFound = transactionService.refreshAccount(default.address)
                     val online = rpcClient.ping()
                     val delegations = if (online) rpcClient.getDelegations(default.address) else emptyList()
+                    val chainTxs = if (online) rpcClient.getTxHistoryOrNull(default.address, CHAIN_TX_LIMIT) else null
                     ensureDeviceRegistered()
-                    RefreshSnapshot(accountFound, online, delegations)
+                    RefreshSnapshot(accountFound, online, delegations, chainTxs)
                 }
 
                 _accounts.value = walletRepository.getAllAccounts()
@@ -135,6 +147,12 @@ class WalletViewModel @Inject constructor(
                     .getTransactionsForAddress(default.address, 50)
                     .sortedByDescending { it.timestamp }
                 _delegations.value = snapshot.delegations
+                _chainTxs.value = snapshot.chainTxs.orEmpty()
+                _chainTxError.value = when {
+                    !snapshot.online -> "无法连接节点，链上交易历史暂不可用"
+                    snapshot.chainTxs == null -> "节点未返回交易历史：REST 交易索引可能未开启，或该接口暂不支持按发送方过滤"
+                    else -> null
+                }
 
                 if (!snapshot.online) {
                     _refreshError.value = "无法连接链上节点：请检查网络连接或设置中的 RPC 节点地址后重试"
@@ -484,9 +502,13 @@ class WalletViewModel @Inject constructor(
         val accountFound: Boolean,
         val online: Boolean,
         val delegations: List<Delegation>,
+        val chainTxs: List<ChainTxRecord>?,
     )
 
     private companion object {
+        /** 链上交易历史一次最多展示的条数。 */
+        const val CHAIN_TX_LIMIT = 20
+
         /** bech32 数据字符集（不含分隔符 1）。 */
         const val BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
