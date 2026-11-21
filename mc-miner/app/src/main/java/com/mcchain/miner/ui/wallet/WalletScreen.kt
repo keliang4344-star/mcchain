@@ -793,6 +793,8 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                     busy = busy,
                     onSwitch = { viewModel.switchAccount(it) },
                     onCreate = { viewModel.createAccount() },
+                    onRename = { address, label -> viewModel.renameAccount(address, label) },
+                    onAddByIndex = { viewModel.addAccountByIndex(it) },
                 )
             }
 
@@ -1881,8 +1883,15 @@ private fun AccountSwitcherCard(
     busy: Boolean,
     onSwitch: (String) -> Unit,
     onCreate: () -> Unit,
+    onRename: (String, String) -> Unit,
+    onAddByIndex: (Int) -> Unit,
 ) {
     var showDialog by remember { mutableStateOf(false) }
+    var renameTarget by remember { mutableStateOf<WalletAccount?>(null) }
+    var renameName by remember { mutableStateOf("") }
+    var showAddByIndex by remember { mutableStateOf(false) }
+    var addIndexText by remember { mutableStateOf("") }
+    var addError by remember { mutableStateOf<String?>(null) }
 
     Card(shape = RoundedCornerShape(12.dp)) {
         Row(
@@ -1905,7 +1914,14 @@ private fun AccountSwitcherCard(
                     fontWeight = FontWeight.Medium,
                 )
             }
-            TextButton(onClick = { showDialog = true }, enabled = !busy) {
+            TextButton(
+                onClick = {
+                    renameTarget = null
+                    showAddByIndex = false
+                    showDialog = true
+                },
+                enabled = !busy,
+            ) {
                 Text("切换")
             }
         }
@@ -1914,13 +1930,62 @@ private fun AccountSwitcherCard(
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            title = { Text("切换账户") },
+            title = {
+                Text(
+                    when {
+                        renameTarget != null -> "重命名账户"
+                        showAddByIndex -> "按索引添加账户"
+                        else -> "切换账户"
+                    }
+                )
+            },
             text = {
+                val rename = renameTarget
                 Column(
                     modifier = Modifier
                         .heightIn(max = 380.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
+                    if (rename != null) {
+                        Text(
+                            "仅修改本机显示名称，不影响地址与密钥；留空恢复「账户 ${rename.accountIndex + 1}」。",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = renameName,
+                            onValueChange = {
+                                if (it.length <= WalletViewModel.MAX_ADDRESS_LABEL_LENGTH) renameName = it
+                            },
+                            label = { Text("账户名称") },
+                            singleLine = true,
+                        )
+                    } else if (showAddByIndex) {
+                        Text(
+                            "同一助记词按 m/44'/118'/0'/0/索引 派生，可用于恢复本机误删或与其他设备对齐的账户。",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = addIndexText,
+                            onValueChange = {
+                                addIndexText = it.filter { c -> c.isDigit() }.take(2)
+                                addError = null
+                            },
+                            label = { Text("派生索引（0–${WalletManager.MAX_ACCOUNT_INDEX}）") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                        )
+                        addError?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    } else {
                     accounts.forEach { account ->
                         Row(
                             modifier = Modifier
@@ -1952,6 +2017,19 @@ private fun AccountSwitcherCard(
                                 formatMcDisplay(account.balance),
                                 style = MaterialTheme.typography.labelMedium,
                             )
+                            IconButton(
+                                onClick = {
+                                    renameTarget = account
+                                    renameName = account.label
+                                },
+                                enabled = !busy,
+                            ) {
+                                Icon(
+                                    Icons.Filled.Edit,
+                                    contentDescription = "重命名账户",
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
                         }
                     }
                     Text(
@@ -1960,22 +2038,57 @@ private fun AccountSwitcherCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                     )
+                    TextButton(
+                        onClick = {
+                            showAddByIndex = true
+                            addIndexText = ""
+                            addError = null
+                        },
+                        enabled = !busy,
+                    ) { Text("按索引添加账户") }
+                    }
                 }
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDialog = false
-                        onCreate()
-                    },
-                    enabled = !busy && accounts.size <= WalletManager.MAX_ACCOUNT_INDEX,
-                ) { Text("新建账户") }
+                val rename = renameTarget
+                when {
+                    rename != null -> TextButton(onClick = {
+                        onRename(rename.address, renameName)
+                        renameTarget = null
+                    }) { Text("保存") }
+
+                    showAddByIndex -> TextButton(onClick = {
+                        val index = addIndexText.toIntOrNull()
+                        when {
+                            index == null -> addError = "请输入 0–${WalletManager.MAX_ACCOUNT_INDEX} 的整数"
+                            index !in 0..WalletManager.MAX_ACCOUNT_INDEX ->
+                                addError = "索引必须在 0–${WalletManager.MAX_ACCOUNT_INDEX} 之间"
+                            else -> {
+                                onAddByIndex(index)
+                                showAddByIndex = false
+                            }
+                        }
+                    }) { Text("添加") }
+
+                    else -> TextButton(
+                        onClick = {
+                            showDialog = false
+                            onCreate()
+                        },
+                        enabled = !busy && accounts.size <= WalletManager.MAX_ACCOUNT_INDEX,
+                    ) { Text("新建账户") }
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) { Text("关闭") }
+                when {
+                    renameTarget != null -> TextButton(onClick = { renameTarget = null }) { Text("取消") }
+                    showAddByIndex -> TextButton(onClick = { showAddByIndex = false }) { Text("取消") }
+                    else -> TextButton(onClick = { showDialog = false }) { Text("关闭") }
+                }
             },
         )
     }
+
 }
 
 private fun accountLabel(account: WalletAccount): String =

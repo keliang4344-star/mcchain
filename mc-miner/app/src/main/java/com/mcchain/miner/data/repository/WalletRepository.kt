@@ -61,6 +61,9 @@ class WalletRepository @Inject constructor(
     suspend fun deleteAllAccounts() =
         accountDao.deleteAllAccounts()
 
+    suspend fun renameAccount(address: String, label: String) =
+        accountDao.updateLabel(address, label)
+
     suspend fun getTransactions(from: Long, to: Long): List<TxRecord> =
         txDao.getTransactions(from, to)
 

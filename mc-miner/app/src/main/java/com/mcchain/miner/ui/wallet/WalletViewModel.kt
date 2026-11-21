@@ -522,6 +522,77 @@ class WalletViewModel @Inject constructor(
         }
     }
 
+    /** 重命名账户（仅本地标签）；留空恢复「账户 N」。 */
+    fun renameAccount(address: String, label: String) {
+        if (_busy.value) return
+        val trimmed = label.trim()
+        if (trimmed.length > MAX_ADDRESS_LABEL_LENGTH) {
+            _message.value = "账户名称过长（最多 $MAX_ADDRESS_LABEL_LENGTH 个字符）"
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val account = walletRepository.getAccount(address) ?: run {
+                    _message.value = "账户不存在，请刷新后重试"
+                    return@launch
+                }
+                walletRepository.renameAccount(address, trimmed)
+                _accounts.value = walletRepository.getAllAccounts()
+                _message.value = if (trimmed.isEmpty()) {
+                    "已恢复默认名称：账户 ${account.accountIndex + 1}"
+                } else {
+                    "已重命名为 $trimmed"
+                }
+            } catch (e: Exception) {
+                _message.value = "重命名失败：${e.message ?: e.javaClass.simpleName}"
+            }
+        }
+    }
+
+    /**
+     * 按派生索引添加账户（0..19）。
+     * 同一助记词可按索引重新派生，用于恢复本机误删或从其他设备对齐的账户。
+     */
+    fun addAccountByIndex(index: Int) {
+        if (!walletManager.isSecureStorageAvailable) {
+            _message.value = "安全存储不可用（Keystore 初始化失败），无法添加账户"
+            return
+        }
+        if (_busy.value) return
+        if (index !in 0..WalletManager.MAX_ACCOUNT_INDEX) {
+            _message.value = "账户索引必须在 0..${WalletManager.MAX_ACCOUNT_INDEX} 之间"
+            return
+        }
+        viewModelScope.launch {
+            _busy.value = true
+            try {
+                val existing = walletRepository.getAllAccounts()
+                val derived = withContext(Dispatchers.IO) {
+                    walletManager.deriveWallet(index = index)
+                }
+                if (existing.any { it.address == derived.address }) {
+                    _message.value = "索引 $index 对应的账户已在列表中"
+                    return@launch
+                }
+                walletRepository.insertAccount(
+                    WalletAccount(
+                        address = derived.address,
+                        accountIndex = index,
+                        publicKeyHex = Hex.encode(derived.publicKey),
+                        label = "账户 ${index + 1}",
+                        isDefault = false,
+                    )
+                )
+                _accounts.value = walletRepository.getAllAccounts()
+                _message.value = "已添加账户 ${index + 1}（索引 $index），可在切换列表中选择"
+            } catch (e: Exception) {
+                _message.value = "添加账户失败：${e.message ?: e.javaClass.simpleName}"
+            } finally {
+                _busy.value = false
+            }
+        }
+    }
+
     private fun persistWallet(mnemonic: List<String>) {
         viewModelScope.launch {
             _busy.value = true
@@ -648,7 +719,7 @@ class WalletViewModel @Inject constructor(
         val chainTxs: List<ChainTxRecord>?,
     )
 
-    private companion object {
+    companion object {
         /** 链上交易历史一次最多展示的条数。 */
         const val CHAIN_TX_LIMIT = 20
 

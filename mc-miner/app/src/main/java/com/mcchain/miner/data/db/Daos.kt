@@ -105,6 +105,10 @@ interface AccountDao {
     /** 换绑助记词时清空账户体系；交易记录保留。 */
     @Query("DELETE FROM accounts")
     suspend fun deleteAllAccounts()
+
+    /** 仅修改本地显示名称，不影响地址与密钥。 */
+    @Query("UPDATE accounts SET label = :label WHERE address = :address")
+    suspend fun updateLabel(address: String, label: String)
 }
 
 @Dao
