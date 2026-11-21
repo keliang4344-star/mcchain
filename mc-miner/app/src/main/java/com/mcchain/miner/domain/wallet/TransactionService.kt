@@ -7,6 +7,7 @@ import com.mcchain.miner.data.model.TxType
 import com.mcchain.miner.data.pref.SecurePrefs
 import com.mcchain.miner.data.repository.WalletRepository
 import com.mcchain.miner.network.RpcClient
+import com.mcchain.miner.shared.util.AddressRules
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -559,16 +560,8 @@ class TransactionService @Inject constructor(
         return null
     }
 
-    private fun validateValidator(address: String): String? = when {
-        address.isEmpty() -> "请输入验证人地址"
-        !address.startsWith(MCParams.BECH32_PREFIX + "valoper1") ->
-            "验证人地址必须以 ${MCParams.BECH32_PREFIX}valoper1 开头"
-        address.length !in 48..62 -> "验证人地址长度异常，请检查是否粘贴完整"
-        !com.mcchain.miner.shared.util.Bech32Address.hasValidDataPart(
-            address, MCParams.BECH32_PREFIX + "valoper"
-        ) -> "验证人地址包含非法字符"
-        else -> null
-    }
+    private fun validateValidator(address: String): String? =
+        AddressRules.validatorError(address, MCParams.BECH32_PREFIX)
 
     /**
      * 校验解除/转委托金额不超过该验证人的链上委托数量。

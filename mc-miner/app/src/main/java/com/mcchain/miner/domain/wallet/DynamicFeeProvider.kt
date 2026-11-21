@@ -1,9 +1,9 @@
 package com.mcchain.miner.domain.wallet
 
 import com.mcchain.miner.network.RpcClient
+import com.mcchain.miner.shared.util.FeeRules
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.ceil
 
 /**
  * 动态手续费：按节点最低 gas price × gas limit 计算，避免链上调整费率后固定 5000umc 被拒。
@@ -33,10 +33,8 @@ class DynamicFeeProvider @Inject constructor(
     }
 
     /** 指定 gas limit 下应付的最低手续费（umc）。 */
-    fun feeFor(gasLimit: Long): Long {
-        val price = gasPrice ?: DEFAULT_GAS_PRICE_UMC
-        return maxOf(MIN_FEE_UMC, ceil(gasLimit * price).toLong())
-    }
+    fun feeFor(gasLimit: Long): Long =
+        FeeRules.minFee(gasLimit, gasPrice ?: DEFAULT_GAS_PRICE_UMC, MIN_FEE_UMC)
 
     companion object {
         /** Cosmos SDK 默认 minimum-gas-prices = 0.025umc。 */

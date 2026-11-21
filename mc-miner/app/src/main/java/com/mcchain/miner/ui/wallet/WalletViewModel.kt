@@ -15,7 +15,7 @@ import com.mcchain.miner.network.Delegation
 import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.network.TxResult
 import com.mcchain.miner.network.ValidatorInfo
-import com.mcchain.miner.shared.util.Bech32Address
+import com.mcchain.miner.shared.util.AddressRules
 import com.mcchain.miner.shared.util.Hex
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -571,28 +571,11 @@ class WalletViewModel @Inject constructor(
         return null
     }
 
-    private fun validatorFormatError(validator: String): String? {
-        if (validator.isEmpty()) return "请输入验证人地址"
-        if (!validator.startsWith(MCParams.BECH32_PREFIX + "valoper1")) {
-            return "验证人地址必须以 ${MCParams.BECH32_PREFIX}valoper1 开头"
-        }
-        if (validator.length !in 48..62) return "验证人地址长度异常，请检查是否粘贴完整"
-        if (!Bech32Address.hasValidDataPart(validator, MCParams.BECH32_PREFIX + "valoper")) {
-            return "验证人地址包含非法字符"
-        }
-        return null
-    }
+    private fun validatorFormatError(validator: String): String? =
+        AddressRules.validatorError(validator, MCParams.BECH32_PREFIX)
 
-    private fun validateUserAddress(address: String): String? {
-        if (address.isEmpty()) return "请输入收款地址"
-        val prefix = MCParams.BECH32_PREFIX + "1"
-        if (!address.startsWith(prefix)) return "收款地址必须以 $prefix 开头"
-        if (address.length !in 39..59) return "收款地址长度异常，请检查是否粘贴完整"
-        if (!Bech32Address.hasValidDataPart(address, MCParams.BECH32_PREFIX)) {
-            return "收款地址包含非法字符，请检查是否复制正确"
-        }
-        return null
-    }
+    private fun validateUserAddress(address: String): String? =
+        AddressRules.accountError(address, MCParams.BECH32_PREFIX)
 
     /** 地址簿输入校验（对话框保存前调用，避免关闭后才看到错误）。 */
     fun validateAddressBookInput(address: String, label: String): String? {
