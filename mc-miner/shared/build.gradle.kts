@@ -1,5 +1,6 @@
 plugins {
     kotlin("multiplatform")
+    jacoco
 }
 
 kotlin {
@@ -60,4 +61,35 @@ kotlin {
             }
         }
     }
+}
+
+// 覆盖率仅针对 JVM 目标：共享协议/金额/地址逻辑是可被纯 JVM 测试覆盖的核心域。
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    extensions.configure<org.gradle.testing.jacoco.plugins.JacocoTaskExtension> {
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
+}
+
+tasks.register<org.gradle.testing.jacoco.tasks.JacocoReport>("jvmCoverageReport") {
+    dependsOn("jvmTest")
+    group = "verification"
+    description = "Generates JaCoCo coverage report for shared JVM tests."
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+
+    classDirectories.setFrom(
+        fileTree(layout.buildDirectory.dir("classes/kotlin/jvm/main"))
+    )
+    sourceDirectories.setFrom(
+        files("src/commonMain/kotlin", "src/jvmMain/kotlin")
+    )
+    executionData.setFrom(layout.buildDirectory.file("jacoco/jvmTest.exec"))
 }
