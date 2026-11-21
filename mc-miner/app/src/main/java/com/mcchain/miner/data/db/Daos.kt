@@ -106,6 +106,10 @@ interface AccountDao {
     @Query("DELETE FROM accounts")
     suspend fun deleteAllAccounts()
 
+    /** 仅从本机移除账户；链上资产与地址不受影响，可再按索引恢复。 */
+    @Query("DELETE FROM accounts WHERE address = :address")
+    suspend fun deleteAccount(address: String)
+
     /** 仅修改本地显示名称，不影响地址与密钥。 */
     @Query("UPDATE accounts SET label = :label WHERE address = :address")
     suspend fun updateLabel(address: String, label: String)

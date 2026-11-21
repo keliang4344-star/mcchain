@@ -795,6 +795,7 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                     onCreate = { viewModel.createAccount() },
                     onRename = { address, label -> viewModel.renameAccount(address, label) },
                     onAddByIndex = { viewModel.addAccountByIndex(it) },
+                    onDelete = { viewModel.deleteAccount(it) },
                 )
             }
 
@@ -1885,6 +1886,7 @@ private fun AccountSwitcherCard(
     onCreate: () -> Unit,
     onRename: (String, String) -> Unit,
     onAddByIndex: (Int) -> Unit,
+    onDelete: (String) -> Unit,
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<WalletAccount?>(null) }
@@ -1892,6 +1894,7 @@ private fun AccountSwitcherCard(
     var showAddByIndex by remember { mutableStateOf(false) }
     var addIndexText by remember { mutableStateOf("") }
     var addError by remember { mutableStateOf<String?>(null) }
+    var deleteTarget by remember { mutableStateOf<WalletAccount?>(null) }
 
     Card(shape = RoundedCornerShape(12.dp)) {
         Row(
@@ -1918,6 +1921,7 @@ private fun AccountSwitcherCard(
                 onClick = {
                     renameTarget = null
                     showAddByIndex = false
+                    deleteTarget = null
                     showDialog = true
                 },
                 enabled = !busy,
@@ -1935,6 +1939,7 @@ private fun AccountSwitcherCard(
                     when {
                         renameTarget != null -> "重命名账户"
                         showAddByIndex -> "按索引添加账户"
+                        deleteTarget != null -> "删除账户"
                         else -> "切换账户"
                     }
                 )
@@ -1986,66 +1991,108 @@ private fun AccountSwitcherCard(
                             )
                         }
                     } else {
-                    accounts.forEach { account ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(enabled = !busy) {
-                                    showDialog = false
-                                    if (!account.isDefault) onSwitch(account.address)
-                                }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = account.isDefault,
-                                onClick = {
-                                    showDialog = false
-                                    if (!account.isDefault) onSwitch(account.address)
-                                },
-                                enabled = !busy,
+                        val deleting = deleteTarget
+                        if (deleting != null) {
+                            Text(
+                                "仅从本机移除该账户的显示与缓存，不会销毁链上资产。",
+                                style = MaterialTheme.typography.bodyMedium,
                             )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(accountLabel(account), style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    shortAddress(account.address),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "${accountLabel(deleting)} · ${shortAddress(deleting.address)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "账户由同一助记词按索引 ${deleting.accountIndex} 派生，删除后可随时用" +
+                                    "「按索引添加账户」恢复。若该账户仍有余额、质押、待领奖励或未确认交易，" +
+                                    "删除会被拒绝，请先转出并等待交易确认。",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                            )
+                        } else {
+                            accounts.forEach { account ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(enabled = !busy) {
+                                            showDialog = false
+                                            if (!account.isDefault) onSwitch(account.address)
+                                        }
+                                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = account.isDefault,
+                                        onClick = {
+                                            showDialog = false
+                                            if (!account.isDefault) onSwitch(account.address)
+                                        },
+                                        enabled = !busy,
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            accountLabel(account),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                        Text(
+                                            shortAddress(account.address),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                        )
+                                    }
+                                    Text(
+                                        formatMcDisplay(account.balance),
+                                        style = MaterialTheme.typography.labelMedium,
+                                    )
+                                    IconButton(
+                                        onClick = {
+                                            renameTarget = account
+                                            renameName = account.label
+                                        },
+                                        enabled = !busy,
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.Edit,
+                                            contentDescription = "重命名账户",
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                    if (accounts.size > 1) {
+                                        IconButton(
+                                            onClick = {
+                                                deleteTarget = account
+                                                renameTarget = null
+                                                showAddByIndex = false
+                                            },
+                                            enabled = !busy,
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.Delete,
+                                                contentDescription = "删除账户",
+                                                modifier = Modifier.size(18.dp),
+                                                tint = MaterialTheme.colorScheme.error,
+                                            )
+                                        }
+                                    }
+                                }
                             }
                             Text(
-                                formatMcDisplay(account.balance),
-                                style = MaterialTheme.typography.labelMedium,
+                                "账户由同一助记词派生（m/44'/118'/0'/0/索引），无需额外备份；" +
+                                    "节点注册与贡献心跳使用当前账户。",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                             )
-                            IconButton(
+                            TextButton(
                                 onClick = {
-                                    renameTarget = account
-                                    renameName = account.label
+                                    showAddByIndex = true
+                                    addIndexText = ""
+                                    addError = null
                                 },
                                 enabled = !busy,
-                            ) {
-                                Icon(
-                                    Icons.Filled.Edit,
-                                    contentDescription = "重命名账户",
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
+                            ) { Text("按索引添加账户") }
                         }
-                    }
-                    Text(
-                        "账户由同一助记词派生（m/44'/118'/0'/0/索引），无需额外备份；" +
-                            "节点注册与贡献心跳使用当前账户。",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
-                    )
-                    TextButton(
-                        onClick = {
-                            showAddByIndex = true
-                            addIndexText = ""
-                            addError = null
-                        },
-                        enabled = !busy,
-                    ) { Text("按索引添加账户") }
                     }
                 }
             },
@@ -2070,6 +2117,12 @@ private fun AccountSwitcherCard(
                         }
                     }) { Text("添加") }
 
+                    deleteTarget != null -> TextButton(onClick = {
+                        val target = deleteTarget
+                        if (target != null) onDelete(target.address)
+                        deleteTarget = null
+                    }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+
                     else -> TextButton(
                         onClick = {
                             showDialog = false
@@ -2083,6 +2136,7 @@ private fun AccountSwitcherCard(
                 when {
                     renameTarget != null -> TextButton(onClick = { renameTarget = null }) { Text("取消") }
                     showAddByIndex -> TextButton(onClick = { showAddByIndex = false }) { Text("取消") }
+                    deleteTarget != null -> TextButton(onClick = { deleteTarget = null }) { Text("取消") }
                     else -> TextButton(onClick = { showDialog = false }) { Text("关闭") }
                 }
             },

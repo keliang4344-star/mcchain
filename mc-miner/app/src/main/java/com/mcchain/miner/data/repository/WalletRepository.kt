@@ -61,6 +61,10 @@ class WalletRepository @Inject constructor(
     suspend fun deleteAllAccounts() =
         accountDao.deleteAllAccounts()
 
+    /** 仅移除本机账户记录；链上地址与资产不变，可再按派生索引恢复。 */
+    suspend fun deleteAccount(address: String) =
+        accountDao.deleteAccount(address)
+
     suspend fun renameAccount(address: String, label: String) =
         accountDao.updateLabel(address, label)
 

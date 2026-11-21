@@ -16,6 +16,8 @@ import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.network.TxResult
 import com.mcchain.miner.network.ValidatorInfo
 import com.mcchain.miner.shared.util.AddressRules
+import com.mcchain.miner.shared.util.AccountDeletionIssue
+import com.mcchain.miner.shared.util.AccountDeletionPolicy
 import com.mcchain.miner.shared.util.BalanceIssue
 import com.mcchain.miner.shared.util.BalanceRules
 import com.mcchain.miner.shared.util.Hex
@@ -592,6 +594,81 @@ class WalletViewModel @Inject constructor(
             } finally {
                 _busy.value = false
             }
+        }
+    }
+
+    /**
+     * 删除本机账户（不触碰链上资产）。
+     *
+     * 安全闸门：
+     *  - 至少保留一个账户；
+     *  - 有余额 / 质押 / 待领奖励或有未确认交易时拒绝；
+     *  - 删除当前账户时自动切换到索引最小的剩余账户；
+     *  - 地址由助记词按索引派生，删除后可用「按索引添加账户」恢复。
+     */
+    fun deleteAccount(address: String) {
+        if (_busy.value) return
+        viewModelScope.launch {
+            _busy.value = true
+            try {
+                val existing = walletRepository.getAllAccounts()
+                val target = existing.firstOrNull { it.address == address } ?: run {
+                    _message.value = "账户不存在，请刷新后重试"
+                    return@launch
+                }
+                val hasPendingTx = walletRepository.getPendingTxs().any { it.fromAddress == address }
+                when (
+                    AccountDeletionPolicy.issue(
+                        accountCount = existing.size,
+                        balance = target.balance,
+                        stake = target.stakeBalance,
+                        reward = target.rewardBalance,
+                        hasPendingTx = hasPendingTx,
+                    )
+                ) {
+                    AccountDeletionIssue.LAST_ACCOUNT -> {
+                        _message.value = "至少保留一个账户，无法删除"
+                        return@launch
+                    }
+                    AccountDeletionIssue.HAS_ASSETS -> {
+                        _message.value = "该账户仍有资产（余额/质押/待领奖励），请先转出后再删除"
+                        return@launch
+                    }
+                    AccountDeletionIssue.HAS_PENDING_TX -> {
+                        _message.value = "该账户有未确认交易，请等待确认后再删除"
+                        return@launch
+                    }
+                    AccountDeletionIssue.NONE -> Unit
+                }
+
+                val deletingCurrent = target.isDefault
+                if (deletingCurrent) {
+                    val fallback = existing
+                        .filter { it.address != address }
+                        .minByOrNull { it.accountIndex }
+                        ?: return@launch
+                    walletManager.activeAccountIndex = fallback.accountIndex
+                    walletRepository.clearDefaultFlags()
+                    walletRepository.setDefault(fallback.address)
+                }
+
+                walletRepository.deleteAccount(address)
+                _accounts.value = walletRepository.getAllAccounts()
+                if (deletingCurrent) {
+                    // 避免删除后短暂显示已删除账户的余额/委托。
+                    _transactions.value = emptyList()
+                    _chainTxs.value = emptyList()
+                    _chainTxError.value = null
+                    _delegations.value = emptyList()
+                }
+                _message.value = "已删除账户 ${target.accountIndex + 1}；如需恢复，" +
+                    "请用「按索引添加账户」输入索引 ${target.accountIndex}"
+            } catch (e: Exception) {
+                _message.value = "删除账户失败：${e.message ?: e.javaClass.simpleName}"
+            } finally {
+                _busy.value = false
+            }
+            refresh()
         }
     }
 
