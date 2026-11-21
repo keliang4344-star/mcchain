@@ -3,6 +3,7 @@ package com.mcchain.miner.service
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -47,10 +48,22 @@ class NodeService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        startForeground(NOTIFICATION_ID, buildNotification())
+        startForegroundCompat(buildNotification())
         startNodeSync()
         startHeartbeat()
         return START_STICKY
+    }
+
+    /**
+     * 显式声明 specialUse 类型：Android 14+ 必须与 Manifest 声明的类型一致，
+     * 且避免系统把本服务按 dataSync 计入 Android 15 的 6 小时/24 小时额度。
+     */
+    private fun startForegroundCompat(notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     override fun onBind(intent: Intent): IBinder? {

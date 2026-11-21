@@ -23,9 +23,8 @@ val releaseChainId = (project.findProperty("mcChainId") as String?)?.trim()
 
 android {
     namespace = "com.mcchain.miner"
-    // compileSdk 先升到 35；targetSdk 暂留 34：
-    // Android 15 对 dataSync 前台服务有 6 小时/24 小时限制，并限制 BOOT_COMPLETED 启动，
-    // 需要先完成前台服务类型改造与 API 35 真机回归，再提升 targetSdk。
+    // targetSdk 35（Android 15）：前台服务已改为纯 specialUse，规避 dataSync 的
+    // 6 小时/24 小时额度与 BOOT_COMPLETED 启动限制；MainActivity 已适配 edge-to-edge。
     compileSdk = 35
 
     signingConfigs {
@@ -46,9 +45,9 @@ android {
     defaultConfig {
         applicationId = "com.mcchain.miner"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 12
-        versionName = "3.9.0"
+        targetSdk = 35
+        versionCode = 13
+        versionName = "4.0.0"
 
         buildConfigField("String", "CHAIN_ID", "\"$releaseChainId\"")
         buildConfigField("String", "DENOM", "\"umc\"")
@@ -83,6 +82,8 @@ android {
             isMinifyEnabled = false
             buildConfigField("String", "CHAIN_ID", "\"mcchain-dev-1\"")
             buildConfigField("boolean", "ENABLE_DEBUG_LOGS", "true")
+            // 仅对 debug 单测插桩，用于 JaCoCo 覆盖率报告；release 产物不受影响。
+            enableUnitTestCoverage = true
         }
     }
 
@@ -190,6 +191,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation(composeBom)
+    // Compose UI 测试；仅测试配置，不进入发布包。
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
