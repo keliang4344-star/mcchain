@@ -6,6 +6,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    jacoco
 }
 
 // 发布签名：keystore.properties 存在才启用（不入库，见根 .gitignore）；
@@ -101,6 +102,12 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
+    testOptions {
+        // MockK 需要在 JVM 单测进程内自附加 agent 才能 mock final class（如 WalletManager）。
+        unitTests.all {
+            it.jvmArgs("-Djdk.attach.allowAttachSelf=true")
+        }
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -187,12 +194,38 @@ dependencies {
     // Logging
     implementation("com.jakewharton.timber:timber:5.0.1")
 
-    // Testing
+    // Testing（仅测试配置，不进入发布包）
     testImplementation("junit:junit:4.13.2")
+    testImplementation("io.mockk:mockk:1.13.10")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation(composeBom)
     // Compose UI 测试；仅测试配置，不进入发布包。
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// 本地产物覆盖率报告：与 shared 的 jvmCoverageReport 对齐，供阶段 3 回归复核。
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+tasks.register<org.gradle.testing.jacoco.tasks.JacocoReport>("appCoverageReport") {
+    dependsOn("testDebugUnitTest")
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(true)
+    }
+    classDirectories.setFrom(
+        files(
+            layout.buildDirectory.dir("tmp/kotlin-classes/debug"),
+            layout.buildDirectory.dir("intermediates/javac/debug/classes"),
+        )
+    )
+    sourceDirectories.setFrom(files("src/main/java"))
+    executionData.setFrom(
+        layout.buildDirectory.file("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    )
 }
