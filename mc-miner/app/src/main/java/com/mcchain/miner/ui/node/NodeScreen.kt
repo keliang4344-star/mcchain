@@ -28,6 +28,7 @@ import com.mcchain.miner.data.model.PhoneNodeRecord
 import com.mcchain.miner.domain.node.HardwareCheck
 import com.mcchain.miner.network.ChainAttestation
 import com.mcchain.miner.network.ChainSlash
+import com.mcchain.miner.shared.util.AttestationPolicy
 import com.mcchain.miner.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -400,7 +401,7 @@ private fun AttestationDetailCard(
                 value = expiryText(expiry, now),
                 valueColor = when {
                     expiry <= 0 -> MaterialTheme.colorScheme.onSurface
-                    expiry <= now -> MaterialTheme.colorScheme.error
+                    AttestationPolicy.isExpired(expiry, now) -> MaterialTheme.colorScheme.error
                     expiry - now < 3L * 24 * 60 * 60 * 1000 -> StatusGrace
                     else -> StatusActive
                 }

@@ -16,6 +16,8 @@ import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.network.TxResult
 import com.mcchain.miner.network.ValidatorInfo
 import com.mcchain.miner.shared.util.AddressRules
+import com.mcchain.miner.shared.util.BalanceIssue
+import com.mcchain.miner.shared.util.BalanceRules
 import com.mcchain.miner.shared.util.Hex
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -624,22 +626,25 @@ class WalletViewModel @Inject constructor(
 
     private fun checkBalance(account: WalletAccount, amountUmc: Long): String? {
         val fee = TxBuilder.DEFAULT_FEE_UMC.toLong()
-        if (account.balance <= 0) {
-            return "可用余额为 0，请先收款或点击刷新获取链上余额"
+        return when (BalanceRules.spendIssue(account.balance, amountUmc, fee)) {
+            BalanceIssue.NONE -> null
+            BalanceIssue.ZERO_BALANCE -> "可用余额为 0，请先收款或点击刷新获取链上余额"
+            BalanceIssue.INVALID_AMOUNT -> "金额必须大于 0"
+            BalanceIssue.INSUFFICIENT_AMOUNT ->
+                "余额不足：金额加网络手续费 ${formatMc(fee)} 超过可用余额 ${formatMc(account.balance)}"
+            BalanceIssue.INSUFFICIENT_FEE ->
+                "可用余额不足以支付网络手续费 ${formatMc(fee)}，请先充值"
         }
-        if (amountUmc > account.balance - fee) {
-            return "余额不足：金额加网络手续费 ${formatMc(fee)} 超过可用余额 ${formatMc(account.balance)}"
-        }
-        return null
     }
 
     /** 只校验手续费是否够付（解除/转委托不占用可用余额，只扣手续费）。 */
     private fun checkFeeBalance(account: WalletAccount): String? {
         val fee = TxBuilder.DEFAULT_FEE_UMC.toLong()
-        if (account.balance < fee) {
-            return "可用余额不足以支付网络手续费 ${formatMc(fee)}，请先充值"
+        return if (BalanceRules.feeIssue(account.balance, fee) == BalanceIssue.NONE) {
+            null
+        } else {
+            "可用余额不足以支付网络手续费 ${formatMc(fee)}，请先充值"
         }
-        return null
     }
 
     private fun validatorFormatError(validator: String): String? =

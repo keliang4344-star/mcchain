@@ -8,6 +8,7 @@ import com.mcchain.miner.data.pref.SecurePrefs
 import com.mcchain.miner.domain.wallet.WalletManager
 import com.mcchain.miner.network.OracleClient
 import com.mcchain.miner.shared.crypto.Secp256k1Signer
+import com.mcchain.miner.shared.util.AttestationPolicy
 import com.mcchain.miner.shared.util.Hex
 import com.mcchain.miner.shared.util.Sha256
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -142,7 +143,7 @@ class DeviceAttestation @Inject constructor(
     fun isAttestationValid(): Boolean {
         val expiry = securePrefs.attestationExpiry
         val token = securePrefs.attestationToken
-        return !token.isNullOrBlank() && System.currentTimeMillis() < expiry
+        return AttestationPolicy.isValid(token, expiry, System.currentTimeMillis())
     }
 
     /**

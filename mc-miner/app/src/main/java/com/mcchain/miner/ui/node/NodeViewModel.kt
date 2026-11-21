@@ -29,6 +29,7 @@ import com.mcchain.miner.network.ChainAttestation
 import com.mcchain.miner.network.ChainSlash
 import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.service.AttestationReminderWorker
+import com.mcchain.miner.shared.util.AttestationPolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -574,7 +575,7 @@ class NodeViewModel @Inject constructor(
         val deviceDone = walletDone && local.registeredDeviceAddress == local.walletAddress
         val nodeDone = walletDone && local.registeredNodeAddress == local.walletAddress
         val proofDone = _pendingProof.value != null ||
-            (local.deviceId.isNotBlank() && local.attestationExpiry > now)
+            (local.deviceId.isNotBlank() && AttestationPolicy.isUnexpired(local.attestationExpiry, now))
         val submitDone = record != null
 
         val doneFlags = listOf(walletDone, deviceDone, nodeDone, proofDone, submitDone)

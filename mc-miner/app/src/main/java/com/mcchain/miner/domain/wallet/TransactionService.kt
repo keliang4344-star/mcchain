@@ -8,6 +8,8 @@ import com.mcchain.miner.data.pref.SecurePrefs
 import com.mcchain.miner.data.repository.WalletRepository
 import com.mcchain.miner.network.RpcClient
 import com.mcchain.miner.shared.util.AddressRules
+import com.mcchain.miner.shared.util.BalanceIssue
+import com.mcchain.miner.shared.util.BalanceRules
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -583,7 +585,7 @@ class TransactionService @Inject constructor(
     }
 
     private fun ensureFeeBalance(balance: Long): String? =
-        if (balance < TxBuilder.DEFAULT_FEE_UMC.toLong()) {
+        if (BalanceRules.feeIssue(balance, TxBuilder.DEFAULT_FEE_UMC.toLong()) != BalanceIssue.NONE) {
             "可用余额不足以支付网络手续费，请先充值"
         } else {
             null
