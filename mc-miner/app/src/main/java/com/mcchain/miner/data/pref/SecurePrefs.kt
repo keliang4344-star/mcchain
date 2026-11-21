@@ -57,6 +57,15 @@ class SecurePrefs @Inject constructor(
         get() = requirePrefs().getString(KEY_PRIVATE_KEY, null)
         set(value) = requirePrefs().edit().putString(KEY_PRIVATE_KEY, value).apply()
 
+    /**
+     * 当前活动账户在 BIP-44 地址链上的索引（m/44'/118'/0'/0/index）。
+     * 签名私钥始终由该索引派生，必须与 Room 中 isDefault 的账户保持一致；
+     * 不一致时由 WalletViewModel 在刷新时校正。
+     */
+    var activeAccountIndex: Int
+        get() = requirePrefs().getInt(KEY_ACTIVE_ACCOUNT_INDEX, 0)
+        set(value) = requirePrefs().edit().putInt(KEY_ACTIVE_ACCOUNT_INDEX, value).apply()
+
     // === 节点配置 ===
     var seedNodes: Set<String>
         get() = requirePrefs().getStringSet(KEY_SEED_NODES, emptySet()) ?: emptySet()
@@ -159,6 +168,7 @@ class SecurePrefs @Inject constructor(
     companion object {
         private const val KEY_MNEMONIC = "encrypted_mnemonic"
         private const val KEY_PRIVATE_KEY = "encrypted_private_key"
+        private const val KEY_ACTIVE_ACCOUNT_INDEX = "active_account_index"
         private const val KEY_SEED_NODES = "seed_nodes"
         private const val KEY_RPC_ENDPOINT = "rpc_endpoint"
         private const val KEY_INDEXER_ENDPOINT = "indexer_endpoint"

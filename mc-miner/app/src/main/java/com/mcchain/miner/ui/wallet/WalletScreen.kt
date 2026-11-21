@@ -36,6 +36,7 @@ import com.mcchain.miner.data.model.TxRecord
 import com.mcchain.miner.data.model.TxStatus
 import com.mcchain.miner.data.model.TxType
 import com.mcchain.miner.data.model.WalletAccount
+import com.mcchain.miner.domain.wallet.WalletManager
 import com.mcchain.miner.network.ChainTxRecord
 import com.mcchain.miner.network.Delegation
 import com.mcchain.miner.ui.theme.*
@@ -782,6 +783,16 @@ fun WalletScreen(viewModel: WalletViewModel = androidx.lifecycle.viewmodel.compo
                     lastUpdated = lastUpdated,
                     hint = chainHint,
                     onRefresh = { viewModel.refresh() },
+                )
+            }
+
+            item {
+                AccountSwitcherCard(
+                    accounts = accounts,
+                    current = defaultAccount,
+                    busy = busy,
+                    onSwitch = { viewModel.switchAccount(it) },
+                    onCreate = { viewModel.createAccount() },
                 )
             }
 
@@ -1861,3 +1872,111 @@ private fun Context.findActivity(): Activity? {
     }
     return null
 }
+
+/** 当前账户展示与切换入口：同助记词派生多个地址，切换后签名与查询都跟随活动账户。 */
+@Composable
+private fun AccountSwitcherCard(
+    accounts: List<WalletAccount>,
+    current: WalletAccount,
+    busy: Boolean,
+    onSwitch: (String) -> Unit,
+    onCreate: () -> Unit,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    Card(shape = RoundedCornerShape(12.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.AccountBalanceWallet,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("当前账户", style = MaterialTheme.typography.labelMedium)
+                Text(
+                    "${accountLabel(current)} · ${shortAddress(current.address)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+            TextButton(onClick = { showDialog = true }, enabled = !busy) {
+                Text("切换")
+            }
+        }
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("切换账户") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    accounts.forEach { account ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !busy) {
+                                    showDialog = false
+                                    if (!account.isDefault) onSwitch(account.address)
+                                }
+                                .padding(vertical = 8.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = account.isDefault,
+                                onClick = {
+                                    showDialog = false
+                                    if (!account.isDefault) onSwitch(account.address)
+                                },
+                                enabled = !busy,
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(accountLabel(account), style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    shortAddress(account.address),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                )
+                            }
+                            Text(
+                                formatMcDisplay(account.balance),
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        }
+                    }
+                    Text(
+                        "账户由同一助记词派生（m/44'/118'/0'/0/索引），无需额外备份；" +
+                            "节点注册与贡献心跳使用当前账户。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDialog = false
+                        onCreate()
+                    },
+                    enabled = !busy && accounts.size <= WalletManager.MAX_ACCOUNT_INDEX,
+                ) { Text("新建账户") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) { Text("关闭") }
+            },
+        )
+    }
+}
+
+private fun accountLabel(account: WalletAccount): String =
+    account.label.ifBlank { "账户 ${account.accountIndex + 1}" }

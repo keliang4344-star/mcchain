@@ -65,8 +65,29 @@ class WalletManager @Inject constructor(
         index: Int = 0,
     ): DerivedWallet = WalletDerivation.derive(mnemonic, index)
 
-    fun getStoredWallet(): DerivedWallet? =
-        if (!hasStoredWallet()) null else runCatching { deriveWallet() }.getOrNull()
+    /**
+     * 当前活动账户索引（m/44'/118'/0'/0/{index}）。
+     * 读取失败时回退 0，保证安全存储异常时仍以第一个账户可用（而不是崩溃）。
+     */
+    var activeAccountIndex: Int
+        get() = runCatching { securePrefs.activeAccountIndex }
+            .getOrDefault(0)
+            .coerceIn(0, MAX_ACCOUNT_INDEX)
+        set(value) {
+            securePrefs.activeAccountIndex = value.coerceIn(0, MAX_ACCOUNT_INDEX)
+        }
+
+    /** 按派生索引取账户密钥材料；不存在/派生失败返回 null。 */
+    fun getWalletAt(index: Int): DerivedWallet? =
+        runCatching { deriveWallet(index = index.coerceIn(0, MAX_ACCOUNT_INDEX)) }.getOrNull()
+
+    /** 当前活动账户；签名、设备认证都必须以它为准。 */
+    fun getStoredWallet(): DerivedWallet? = getWalletAt(activeAccountIndex)
 
     fun getDefaultAddress(): String? = getStoredWallet()?.address
+
+    companion object {
+        /** 单助记词最多派生 20 个账户（0..19），避免误操作生成不可管理的地址。 */
+        const val MAX_ACCOUNT_INDEX = 19
+    }
 }

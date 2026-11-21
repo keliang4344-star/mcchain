@@ -57,6 +57,10 @@ class WalletRepository @Inject constructor(
     suspend fun setDefault(address: String) =
         accountDao.setDefault(address)
 
+    /** 导入/创建新助记词时清空旧账户，避免残留无法签名的地址。 */
+    suspend fun deleteAllAccounts() =
+        accountDao.deleteAllAccounts()
+
     suspend fun getTransactions(from: Long, to: Long): List<TxRecord> =
         txDao.getTransactions(from, to)
 

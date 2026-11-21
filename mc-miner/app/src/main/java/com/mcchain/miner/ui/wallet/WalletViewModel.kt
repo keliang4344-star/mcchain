@@ -129,6 +129,20 @@ class WalletViewModel @Inject constructor(
         viewModelScope.launch {
             _refreshError.value = null
             try {
+                val accounts = walletRepository.getAllAccounts()
+                // 签名私钥由 SecurePrefs.activeAccountIndex 决定，必须与 Room 默认账户一致。
+                // 切换中断、清数据或恢复备份后若两者不一致，以签名索引为准校正，避免
+                // “界面显示 A 账户、实际用 B 账户私钥签名”的资金风险。
+                val activeAddress = withContext(Dispatchers.IO) { walletManager.getStoredWallet()?.address }
+                val currentDefault = accounts.firstOrNull { it.isDefault }
+                if (activeAddress != null && currentDefault?.address != activeAddress) {
+                    if (accounts.any { it.address == activeAddress }) {
+                        walletRepository.clearDefaultFlags()
+                        walletRepository.setDefault(activeAddress)
+                    } else {
+                        walletManager.activeAccountIndex = 0
+                    }
+                }
                 _accounts.value = walletRepository.getAllAccounts()
                 _addressBook.value = runCatching { walletRepository.getAddressBook() }
                     .getOrDefault(emptyList())
@@ -431,15 +445,94 @@ class WalletViewModel @Inject constructor(
         _message.value = null
     }
 
+    /** 切换活动账户：同步 SecurePrefs 派生索引与 Room 默认标记，并刷新该账户链上数据。 */
+    fun switchAccount(address: String) {
+        if (_busy.value) return
+        viewModelScope.launch {
+            _busy.value = true
+            try {
+                val account = walletRepository.getAccount(address)
+                if (account == null) {
+                    _message.value = "账户不存在，请刷新后重试"
+                    return@launch
+                }
+                walletManager.activeAccountIndex = account.accountIndex
+                walletRepository.clearDefaultFlags()
+                walletRepository.setDefault(address)
+                // 即使 refresh 因并发门禁被跳过，UI 也必须立刻显示新默认账户，
+                // 不能出现“界面旧账户、签名新账户”的窗口。
+                _accounts.value = walletRepository.getAllAccounts()
+                // 清掉上一个账户的视图数据，避免切换瞬间看到旧余额/委托。
+                _transactions.value = emptyList()
+                _chainTxs.value = emptyList()
+                _chainTxError.value = null
+                _delegations.value = emptyList()
+                _message.value = "已切换到账户 ${account.accountIndex + 1}"
+            } catch (e: Exception) {
+                _message.value = "切换账户失败：${e.message ?: e.javaClass.simpleName}"
+            } finally {
+                _busy.value = false
+            }
+            refresh()
+        }
+    }
+
+    /** 从当前助记词派生下一个账户并切换（路径 m/44'/118'/0'/0/{index}，无需新助记词）。 */
+    fun createAccount() {
+        if (!walletManager.isSecureStorageAvailable) {
+            _message.value = "安全存储不可用（Keystore 初始化失败），无法创建账户"
+            return
+        }
+        if (_busy.value) return
+        viewModelScope.launch {
+            _busy.value = true
+            try {
+                val existing = walletRepository.getAllAccounts()
+                val nextIndex = (existing.maxOfOrNull { it.accountIndex } ?: -1) + 1
+                if (nextIndex > WalletManager.MAX_ACCOUNT_INDEX) {
+                    _message.value = "最多支持 ${WalletManager.MAX_ACCOUNT_INDEX + 1} 个账户"
+                    return@launch
+                }
+                val derived = withContext(Dispatchers.IO) {
+                    walletManager.deriveWallet(index = nextIndex)
+                }
+                if (existing.any { it.address == derived.address }) {
+                    _message.value = "该账户已存在"
+                    return@launch
+                }
+                walletManager.activeAccountIndex = nextIndex
+                walletRepository.clearDefaultFlags()
+                walletRepository.insertAccount(
+                    WalletAccount(
+                        address = derived.address,
+                        accountIndex = nextIndex,
+                        publicKeyHex = Hex.encode(derived.publicKey),
+                        label = "账户 ${nextIndex + 1}",
+                        isDefault = true,
+                    )
+                )
+                _accounts.value = walletRepository.getAllAccounts()
+                _message.value = "已创建账户 ${nextIndex + 1}"
+            } catch (e: Exception) {
+                _message.value = "创建账户失败：${e.message ?: e.javaClass.simpleName}"
+            } finally {
+                _busy.value = false
+            }
+            refresh()
+        }
+    }
+
     private fun persistWallet(mnemonic: List<String>) {
         viewModelScope.launch {
             _busy.value = true
             try {
                 val derived = withContext(Dispatchers.IO) {
                     walletManager.storeMnemonic(mnemonic)
-                    walletManager.deriveWallet(mnemonic)
+                    // 新助记词从索引 0 开始；旧账户全部清空，避免残留无法签名的地址。
+                    walletManager.activeAccountIndex = 0
+                    walletManager.deriveWallet(mnemonic, 0)
                 }
-                walletRepository.clearDefaultFlags()
+                walletRepository.deleteAllAccounts()
                 walletRepository.insertAccount(
                     WalletAccount(
                         address = derived.address,

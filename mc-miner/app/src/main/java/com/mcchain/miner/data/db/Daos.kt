@@ -101,6 +101,10 @@ interface AccountDao {
 
     @Query("UPDATE accounts SET isDefault = 1 WHERE address = :address")
     suspend fun setDefault(address: String)
+
+    /** 换绑助记词时清空账户体系；交易记录保留。 */
+    @Query("DELETE FROM accounts")
+    suspend fun deleteAllAccounts()
 }
 
 @Dao

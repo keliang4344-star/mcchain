@@ -2,6 +2,7 @@ package com.mcchain.miner.domain.wallet
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -33,5 +34,16 @@ class WalletDerivationTest {
     @Test
     fun validMnemonicIsAccepted() {
         assertTrue(WalletDerivation.isValidMnemonic(mnemonic))
+    }
+
+    @Test
+    fun accountIndexDerivesDistinctDeterministicAddresses() {
+        val first = WalletDerivation.derive(mnemonic, 0)
+        val firstAgain = WalletDerivation.derive(mnemonic, 0)
+        val second = WalletDerivation.derive(mnemonic, 1)
+        assertEquals("同一索引必须稳定", first.address, firstAgain.address)
+        assertNotEquals("不同索引必须得到不同地址", first.address, second.address)
+        assertTrue(second.address.startsWith("mc1"))
+        assertEquals(32, second.privateKey.size)
     }
 }

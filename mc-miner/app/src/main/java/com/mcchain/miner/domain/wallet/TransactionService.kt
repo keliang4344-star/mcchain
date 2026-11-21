@@ -437,6 +437,12 @@ class TransactionService @Inject constructor(
             val built = runCatching { build(info.first, info.second) }
                 .getOrElse { return failure(it.message ?: "交易构造失败") }
 
+            // 多账户防护：签名私钥来自活动派生索引，余额/sequence 来自默认账户。
+            // 两者不一致时签名地址与查询地址不同，交易注定失败甚至误用账户，直接阻断。
+            if (built.fromAddress != from) {
+                return failure("账户状态不一致：当前签名账户与界面账户不同，请返回钱包页重新选择账户后再试")
+            }
+
             // 动态手续费可能高于界面展示的最低值；广播前用链上余额做一次硬校验。
             val liquid = rpcClient.getBalanceOrNull(from)
             if (liquid != null && liquid < built.feeUmc) {
